@@ -20,11 +20,13 @@
                     <label for="username">Username</label>
                     <input placeholder="Enter Your Username" type="text" name="username" required="required"
                         autocomplete="off">
+                    <small id="userError" class="error"></small>
                 </div>
                 <div class="loginInputsContainer">
                     <label for="">Password</label>
                     <input placeholder="Enter Your Password" type="password" name="password" required="required"
                         autocomplete="off">
+                    <small id="passError" class="error"></small>
                 </div>
                 <div class="loginButtonContainer">
                     <button type="submit">LOGIN</button>
@@ -32,6 +34,8 @@
             </form>
         </div>
     </div>
+    <!-- External JavaScript -->
+    <script src="/scripts/login.js"></script>
 </body>
 
 </html>

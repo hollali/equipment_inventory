@@ -80,3 +80,8 @@ div.loginBody form {
   border-radius: 20px;
   cursor: pointer;
 }
+
+.error {
+  color: red;
+  font-size: 0.8rem;
+}
