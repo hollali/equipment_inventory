@@ -28,6 +28,13 @@
                         autocomplete="off">
                     <small id="passError" class="error"></small>
                 </div>
+                <div class="selectorContainer">
+                    <label for="">Select Role</label>
+                    <select name="selector" id="selector" required="required">
+                        <option value="admin">ADMIN</option>
+                        <option value="staff">STAFF</option>
+                    </select>
+                </div>
                 <div class="loginButtonContainer">
                     <button type="submit">LOGIN</button>
                 </div>

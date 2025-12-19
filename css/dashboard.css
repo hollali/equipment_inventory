@@ -1,0 +1,14 @@
+#dashboardMainContainer {
+  display: flex;
+  flex-direction: row;
+}
+
+.dashboard_sidebar {
+  width: 20%;
+  background: #323232;
+  height: 100vh;
+}
+
+.dashboard_content_container {
+  width: 70%;
+}

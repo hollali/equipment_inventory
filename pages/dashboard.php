@@ -11,7 +11,7 @@
 </head>
 
 <body>
-    <div class="dashboardMainContainer">
+    <div id="dashboardMainContainer">
         <div class="dashboard_sidebar">
             <h3 class="dashboard_logo">PIMS</h3>
             <div class="dashboard_sidebar_user">
@@ -31,7 +31,7 @@
                 </ul>
             </div>
         </div>
-        <div class="dashboard_content">
+        <div class="dashboard_content_container">
             <div class="dashboard_content_topNav">
                 <a href=""><i class="fa-solid fa-bars"></i></a>
                 <a href=""><i class="fa-solid fa-power-off">Logout</i></a>
