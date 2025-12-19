@@ -15,7 +15,7 @@
             <h3>Inventory Management System </h3>
         </div>
         <div class="loginBody">
-            <form action="">
+            <form action="" method="POST" onsubmit="return validateForm()">
                 <div class="loginInputsContainer">
                     <label for="username">Username</label>
                     <input placeholder="Enter Your Username" type="text" name="username" required="required"
@@ -35,7 +35,7 @@
         </div>
     </div>
     <!-- External JavaScript -->
-    <script src="/scripts/login.js"></script>
+    <script src="./scripts/login.js"></script>
 </body>
 
 </html>
