@@ -20,8 +20,8 @@
             <form action="" method="POST" onsubmit="return validateForm()">
                 <div class="loginInputsContainer">
                     <label for="username">Username</label>
-                    <input placeholder="Enter Your Username" type="text" name="username" required="required"
-                        autocomplete="off">
+                    <input id="username" placeholder="Enter Your Username" type="text" name="username"
+                        required="required" autocomplete="off">
                     <small id="userError" class="error"></small>
                 </div>
                 <div class="loginInputsContainer">
@@ -50,7 +50,7 @@
         </form>
     </div>
     <!-- External JavaScript -->
-    <script src="./scripts/login.js"></script>
+    <script src="./scripts/login.js" defer></script>
 </body>
 
 </html>

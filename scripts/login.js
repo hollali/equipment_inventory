@@ -26,7 +26,10 @@ function validateForm() {
     return isValid;
 }
 
-/* 👁️ Toggle password visibility */
+document
+    .querySelector(".toggle-password")
+    .addEventListener("click", togglePassword);
+
 function togglePassword() {
     const input = document.getElementById("password");
     const icon = document.querySelector(".toggle-password i");
