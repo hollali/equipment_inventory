@@ -36,6 +36,11 @@
                 <a href=""><i class="fa-solid fa-bars"></i></a>
                 <a href=""><i class="fa-solid fa-power-off">Logout</i></a>
             </div>
+            <div class="dashboard_content">
+                <div class="dashboard_content_main">
+
+                </div>
+            </div>
         </div>
     </div>
 </body>

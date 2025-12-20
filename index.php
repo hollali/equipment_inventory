@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parliamentary Service of Ghana Inventory Management System </title>
-    <link rel="stylesheet" href="./css/login.css ">
+    <link rel="stylesheet" href="./css/login.css">
 </head>
 
 <body>
@@ -26,6 +26,7 @@
                     <label for="">Password</label>
                     <input placeholder="Enter Your Password" type="password" name="password" required="required"
                         autocomplete="off">
+                    <span class="toggle-password" onclick="togglePassword()"><i class="fa-solid fa-eye"></i></span>
                     <small id="passError" class="error"></small>
                 </div>
                 <div class="selectorContainer">
@@ -37,6 +38,7 @@
                 </div>
                 <div class="loginButtonContainer">
                     <button type="submit">LOGIN</button>
+                    <p>Forgot Password? <a href="">Click Here</a></p>
                 </div>
             </form>
         </div>
