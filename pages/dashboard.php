@@ -15,7 +15,7 @@
         <div class="dashboard_sidebar">
             <h3 class="dashboard_logo">PIMS</h3>
             <div class="dashboard_sidebar_user">
-                <img src="" alt="">
+                <img src="../images/logo_parliament.png" alt="">
                 <span>Hi, Admin</span>
             </div>
             <div class="dashboard_content">
