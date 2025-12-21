@@ -67,12 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h3>Inventory Management System</h3>
         </div>
         <div class="loginBody">
-            <?php if ($error): ?>
-                <div class="alert alert-error">
-                    <?php echo htmlspecialchars($error); ?>
-                </div>
-            <?php endif; ?>
-
             <form action="" method="POST" onsubmit="return validateForm()">
                 <div class="loginInputsContainer">
                     <label for="username">Username</label>
@@ -103,6 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button type="submit">LOGIN</button>
                     <p>Forgot Password? <a href="">Click Here</a></p>
                 </div>
+                <?php if ($error): ?>
+                    <div class="alert alert-error">
+                        <?php echo htmlspecialchars($error); ?>
+                    </div>
+                <?php endif; ?>
             </form>
         </div>
     </div>

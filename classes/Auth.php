@@ -1,6 +1,6 @@
 <?php
 // classes/Auth.php
-require_once 'config/database.php';
+require_once __DIR__ . '../config/database.php';
 
 class Auth
 {
@@ -10,25 +10,31 @@ class Auth
     public function __construct()
     {
         $database = new Database();
-        $this->conn = $database->getConnection();
+        $this->conn = $database->getConnection(); // mysqli connection
+        session_start(); // ensure sessions are started
     }
 
     public function login($username, $password, $role)
     {
+        // Use prepared statement to prevent SQL injection
         $query = "SELECT id, username, password, role, full_name, email 
                   FROM " . $this->table_name . " 
-                  WHERE username = :username AND role = :role AND status = 'active'
+                  WHERE username = ? AND role = ? AND status = 'active'
                   LIMIT 1";
 
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":username", $username);
-        $stmt->bindParam(":role", $role);
-        $stmt->execute();
+        $stmt = mysqli_prepare($this->conn, $query);
+        mysqli_stmt_bind_param($stmt, "ss", $username, $role);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
 
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result && mysqli_num_rows($result) > 0) {
+            $row = mysqli_fetch_assoc($result);
 
             if (password_verify($password, $row['password'])) {
+                // Save session
+                $_SESSION['user_id'] = $row['id'];
+                $_SESSION['role'] = $row['role'];
+
                 return [
                     'success' => true,
                     'user' => [
