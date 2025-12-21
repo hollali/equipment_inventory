@@ -70,11 +70,11 @@ div.loginBody form {
 }
 
 .loginInputsContainer input:hover {
-  border-color: #3b82f6;
+  border-color: black;
 }
 
 .loginInputsContainer input:focus {
-  border-color: #2563eb;
+  border-color: black;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
@@ -134,12 +134,12 @@ div.loginBody form {
 
 /* Hover */
 .selectorContainer select:hover {
-  border-color: #3b82f6;
+  border-color: black;
 }
 
 /* Focus */
 .selectorContainer select:focus {
-  border-color: #2563eb;
+  border-color: black;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
