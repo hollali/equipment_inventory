@@ -1,5 +1,5 @@
 <?php
-// config/database.php
+//! config/database.php
 
 class Database
 {

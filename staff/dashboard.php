@@ -1,11 +1,11 @@
 <?php
 // staff/dashboard.php
-session_start();
+/*session_start();
 require_once '../classes/Auth.php';
 
 $auth = new Auth();
 $auth->requireStaff();
-?>
+*/?>
 <!DOCTYPE html>
 <html lang="en">
 

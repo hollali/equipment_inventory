@@ -1,11 +1,3 @@
-<?php
-// admin/dashboard.php
-session_start();
-require_once '../classes/Auth.php';
-
-$auth = new Auth();
-$auth->requireAdmin();
-?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -23,7 +15,7 @@ $auth->requireAdmin();
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h2>Admin Panel</h2>
-                <p>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></p>
+                <p>Welcome, Admin</p>
             </div>
             <nav class="sidebar-nav">
                 <a href="dashboard.php" class="nav-item active">
@@ -58,7 +50,7 @@ $auth->requireAdmin();
             <header class="content-header">
                 <h1>Dashboard Overview</h1>
                 <div class="user-info">
-                    <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                    <span></span>
                     <span class="badge badge-admin">ADMIN</span>
                 </div>
             </header>
