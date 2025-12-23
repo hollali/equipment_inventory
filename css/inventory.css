@@ -1,0 +1,180 @@
+/* ===== Page Header ===== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-title h1 {
+  margin: 0;
+  font-size: 26px;
+  color: #212529;
+}
+
+.page-title p {
+  margin: 4px 0 0;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+/* ===== Header Actions ===== */
+.page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Back link */
+.back-link {
+  text-decoration: none;
+  color: #0d6efd;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* Add button */
+.btn-add {
+  background: #198754;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-add:hover {
+  background: #157347;
+}
+
+/* ===== Search Bar ===== */
+.search-bar {
+  position: relative;
+  max-width: 300px;
+  margin-bottom: 15px;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 8px 34px 8px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.search-bar i {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+}
+
+/* ===== Table Enhancements ===== */
+table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* ===== Icons spacing ===== */
+td .icon-btn {
+  margin-right: 4px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: #fff;
+}
+
+th,
+td {
+  padding: 12px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+th {
+  background-color: #f3f3f3;
+  font-weight: 600;
+}
+
+.btn {
+  padding: 6px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  color: #fff;
+  display: inline-block;
+}
+
+.btn-add {
+  background: #198754;
+}
+
+.btn-edit {
+  background: #0d6efd;
+}
+
+.btn-delete {
+  background: #dc3545;
+}
+
+.status-good {
+  color: green;
+  font-weight: bold;
+}
+
+.status-fair {
+  color: orange;
+  font-weight: bold;
+}
+
+.status-damaged {
+  color: red;
+  font-weight: bold;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #fff;
+  margin-right: 6px;
+  font-size: 16px;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.icon-btn.edit {
+  background: #0d6efd;
+}
+
+.icon-btn.delete {
+  background: #dc3545;
+}
+
+.icon-btn:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.icon-btn.view {
+  background: #1c4923; /* purple */
+}
+
+.icon-btn.view:hover {
+  background: #1a691a;
+}

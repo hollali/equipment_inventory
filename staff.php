@@ -1,26 +1,3 @@
-<?php
-$username = "";
-$password = "";
-
-$admin = array("username" => "Admin", "password" => "000000");
-
-if (isset($_POST['submit'])) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-
-    if (($admin['username'] == $username) && ($admin['password'] == $password)) {
-        echo '<script>
-        alert("Access Granted !!!");
-        window.location="admin/dashboard.php";
-        </script>';
-    } else {
-        echo '<script>
-        alert("Access denied !!!");
-        window.location="index.php";
-        </script>';
-    }
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -40,9 +17,9 @@ if (isset($_POST['submit'])) {
             <h3>Inventory Management System</h3>
         </div>
         <div class="loginBody">
-            <form action="<?php echo $_SERVER['PHP_SELF'] ?>" method="POST" onsubmit="return validateForm()">
+            <form action="" method="POST" onsubmit="return validateForm()">
                 <div class="loginInputsContainer">
-                    <h1>Admin login panel</h1>
+                    <h1>Staff Login panel</h1>
                     <label for="username">Username</label>
                     <input id="username" placeholder="Enter Your Username" type="text" name="username"
                         required="required" autocomplete="off" value="">
@@ -67,8 +44,8 @@ if (isset($_POST['submit'])) {
                     </select>
                 </div>-->
                 <div class="loginButtonContainer">
-                    <button type="submit" name="submit" id="submit">LOGIN</button>
-                    <p>Staff Login Panel <a href="staff.php" class="staff-link">Click Here</a></p>
+                    <button type="submit">LOGIN</button>
+                    <p>Admin Login Panel <a href="index.php">Click Here</a></p>
                 </div>
             </form>
         </div>

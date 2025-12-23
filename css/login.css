@@ -48,6 +48,15 @@ div.loginBody form {
   margin-top: 20px;
 }
 
+.loginInputsContainer h1 {
+  font-size: 28px;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 20px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .loginInputsContainer label {
   display: block;
   text-transform: uppercase;
@@ -178,6 +187,16 @@ div.loginBody form {
 .loginButtonContainer p a:hover {
   text-decoration: none;
   color: #0056b3;
+}
+
+.staff-link {
+  color: #1a73e8;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.staff-link:hover {
+  text-decoration: underline;
 }
 
 .error {
