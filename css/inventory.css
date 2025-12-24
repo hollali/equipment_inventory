@@ -1,180 +1,206 @@
-/* ===== Page Header ===== */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+/* =======================
+   Inventory Page Styles
+======================= */
+
+/* Reset & basics */
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+/* PAGE TITLE */
+.page-title {
+  text-align: center;
+  padding: 2rem 1rem 1rem 1rem;
+  background-color: #1e293b;
+  color: #f8fafc;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .page-title h1 {
-  margin: 0;
-  font-size: 26px;
-  color: #212529;
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
 }
 
 .page-title p {
-  margin: 4px 0 0;
-  color: #6c757d;
-  font-size: 14px;
+  margin: 0;
+  font-size: 1rem;
 }
 
-/* ===== Header Actions ===== */
-.page-actions {
+/* ACTION ROW */
+.inventory-actions {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 1rem;
   align-items: center;
+  justify-content: center;
+  padding: 1rem 1rem;
+  background-color: #e2e8f0;
 }
 
-/* Back link */
 .back-link {
-  text-decoration: none;
-  color: #0d6efd;
-  font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
+  text-decoration: none;
+  color: #1e293b;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  background-color: #cbd5e1;
 }
 
-/* Add button */
+/* SEARCH */
+.search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.search-wrapper input {
+  width: 100%;
+  padding: 0.5rem 2.5rem 0.5rem 1rem;
+  border-radius: 9999px;
+  border: 2px solid #cbd5e1;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.search-wrapper input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+  transform: scale(1.02);
+}
+
+.search-wrapper i {
+  position: absolute;
+  right: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+}
+
+/* ADD BUTTON */
 .btn-add {
-  background: #198754;
-  color: #fff;
-  padding: 8px 14px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #3b82f6;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 }
 
 .btn-add:hover {
-  background: #157347;
+  background-color: #2563eb;
 }
 
-/* ===== Search Bar ===== */
-.search-bar {
-  position: relative;
-  max-width: 300px;
-  margin-bottom: 15px;
-}
-
-.search-bar input {
-  width: 100%;
-  padding: 8px 34px 8px 10px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.search-bar i {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6c757d;
-}
-
-/* ===== Table Enhancements ===== */
-table tr:hover {
-  background-color: #f8f9fa;
-}
-
-/* ===== Icons spacing ===== */
-td .icon-btn {
-  margin-right: 4px;
-}
-
+/* TABLE */
 table {
-  width: 100%;
+  width: 95%;
+  max-width: 1200px;
+  margin: 2rem auto;
   border-collapse: collapse;
-  margin-top: 20px;
-  background: #fff;
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-th,
-td {
-  padding: 12px;
-  border: 1px solid #ddd;
+table thead {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+table th,
+table td {
+  padding: 0.75rem 1rem;
   text-align: left;
 }
 
-th {
-  background-color: #f3f3f3;
-  font-weight: 600;
+table tbody tr:nth-child(even) {
+  background-color: #f1f5f9;
 }
 
-.btn {
-  padding: 6px 10px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-size: 14px;
-  color: #fff;
-  display: inline-block;
+table tbody tr:hover {
+  background-color: #e2e8f0;
 }
 
-.btn-add {
-  background: #198754;
-}
-
-.btn-edit {
-  background: #0d6efd;
-}
-
-.btn-delete {
-  background: #dc3545;
-}
-
+/* STATUS BADGES */
 .status-good {
-  color: green;
-  font-weight: bold;
+  color: #16a34a;
+  font-weight: 500;
 }
 
 .status-fair {
-  color: orange;
-  font-weight: bold;
+  color: #ca8a04;
+  font-weight: 500;
 }
 
 .status-damaged {
-  color: red;
-  font-weight: bold;
+  color: #dc2626;
+  font-weight: 500;
 }
 
+/* ICON BUTTONS */
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  margin: 0 0.2rem;
   border-radius: 6px;
-  text-decoration: none;
   color: #fff;
-  margin-right: 6px;
-  font-size: 16px;
-  transition: background 0.2s ease, transform 0.1s ease;
-}
-
-.icon-btn.edit {
-  background: #0d6efd;
-}
-
-.icon-btn.delete {
-  background: #dc3545;
-}
-
-.icon-btn:hover {
-  transform: scale(1.05);
-  opacity: 0.9;
+  text-decoration: none;
+  transition: all 0.2s ease;
 }
 
 .icon-btn.view {
-  background: #1c4923; /* purple */
+  background-color: #3b82f6;
+}
+.icon-btn.view:hover {
+  background-color: #2563eb;
 }
 
-.icon-btn.view:hover {
-  background: #1a691a;
+.icon-btn.edit {
+  background-color: #f59e0b;
+}
+.icon-btn.edit:hover {
+  background-color: #d97706;
+}
+
+.icon-btn.delete {
+  background-color: #ef4444;
+}
+.icon-btn.delete:hover {
+  background-color: #b91c1c;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .inventory-actions {
+    flex-direction: column;
+  }
+
+  table th,
+  table td {
+    font-size: 0.9rem;
+  }
+
+  .search-wrapper {
+    max-width: 100%;
+  }
 }

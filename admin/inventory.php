@@ -42,27 +42,29 @@ $result = mysqli_query($conn, $sql);
 
 <body>
 
-    <div class="page-header">
-        <div class="page-title">
-            <h1>Inventory Management</h1>
-            <p>Welcome, <strong><?php echo htmlspecialchars($_SESSION["username"]); ?></strong></p>
-        </div>
-
-        <div class="page-actions">
-            <a href="dashboard.php" class="back-link">
-                <i class="fa-solid fa-arrow-left"></i> Back
-            </a>
-
-            <a class="btn btn-add" href="add_inventory.php">
-                <i class="fa-solid fa-plus"></i> Add Item
-            </a>
-        </div>
+    <!-- PAGE TITLE -->
+    <div class="page-title">
+        <h1>Inventory Management</h1>
+        <p>Welcome, <strong><?php echo htmlspecialchars($_SESSION["username"]); ?></strong></p>
     </div>
 
-    <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Search items..." onkeyup="searchTable()">
-        <i class="fa-solid fa-magnifying-glass"></i>
+    <!-- ACTION ROW -->
+    <div class="inventory-actions">
+        <a href="dashboard.php" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+
+        <div class="search-wrapper">
+            <input type="text" id="searchInput" placeholder="Search items..." onkeyup="searchTable()" />
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+
+        <a class="btn btn-add" href="add_inventory.php">
+            <i class="fa-solid fa-plus"></i> Add Item
+        </a>
     </div>
+
+
 
 
 
@@ -118,10 +120,8 @@ $result = mysqli_query($conn, $sql);
                                 onclick="return confirm('Delete this inventory item?');" title="Delete">
                                 <i class="fa-solid fa-trash"></i>
                             </a>
-
                         </td>
                     </tr>
-
                 <?php endwhile; ?>
             <?php else: ?>
                 <tr>
@@ -130,19 +130,16 @@ $result = mysqli_query($conn, $sql);
             <?php endif; ?>
         </tbody>
     </table>
-
     <script>
         function searchTable() {
             const input = document.getElementById("searchInput").value.toLowerCase();
             const rows = document.querySelectorAll("table tbody tr");
-
             rows.forEach(row => {
                 const text = row.textContent.toLowerCase();
                 row.style.display = text.includes(input) ? "" : "none";
             });
         }
     </script>
-
 </body>
 
 </html>
