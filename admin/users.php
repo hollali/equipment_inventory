@@ -6,11 +6,31 @@ require_once "../config/database.php";
 $db = new Database();
 $conn = $db->getConnection();
 
-/* 📥 Fetch users */
-$sql = "SELECT id, username, full_name, email, role, status, created_at, updated_at, last_login 
-        FROM users ORDER BY id DESC";
-$result = mysqli_query($conn, $sql);
+/* 🔍 Search */
+$search = trim($_GET['search'] ?? '');
+
+$sql = "SELECT id, username, full_name, email, role, status, created_at, updated_at, last_login
+        FROM users";
+
+if ($search !== '') {
+    $sql .= " WHERE username LIKE ? 
+              OR full_name LIKE ? 
+              OR email LIKE ?";
+}
+
+$sql .= " ORDER BY id DESC";
+
+$stmt = $conn->prepare($sql);
+
+if ($search !== '') {
+    $term = "%$search%";
+    $stmt->bind_param("sss", $term, $term, $term);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -46,6 +66,27 @@ $result = mysqli_query($conn, $sql);
                 </a>
             </div>
         </div>
+
+        <!-- Toolbar -->
+        <div class="table-toolbar">
+
+            <!-- Search -->
+            <form method="GET" class="search-form">
+                <input type="text" name="search" placeholder="Search users..."
+                    value="<?php echo htmlspecialchars($search); ?>">
+                <button type="submit" class="btn btn-edit">
+                    <i class="fa fa-search"></i> Search
+                </button>
+            </form>
+
+            <!-- Add User -->
+            <a href="add_user.php" class="btn btn-add" onclick="openAddUserModal()">
+                <i class="fa fa-user-plus"></i> Add User
+            </a>
+
+        </div>
+
+
 
         <!-- Card -->
         <div class="card">
@@ -106,7 +147,7 @@ $result = mysqli_query($conn, $sql);
                                         title="Delete User" onclick="return confirm('Delete this user?');">
                                         <i class="fa fa-trash"></i>
                                     </a>
-                                    <a href="reset_password.php?id=<?php echo $row['id']; ?>" class="icon-btn view"
+                                    <a href="reset_password.php?id=<?php echo $row['id']; ?>" class="icon-btn reset"
                                         title="Reset Password" onclick="return confirm('Reset password for this user?');">
                                         <i class="fa fa-key"></i>
                                     </a>
@@ -124,6 +165,24 @@ $result = mysqli_query($conn, $sql);
 
         </div>
     </div>
+
+    <script>
+        function openAddUserModal() {
+            document.getElementById("addUserModal").style.display = "flex";
+        }
+
+        function closeAddUserModal() {
+            document.getElementById("addUserModal").style.display = "none";
+        }
+
+        /* Close on ESC */
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+                closeAddUserModal();
+            }
+        });
+    </script>
+
 
 </body>
 

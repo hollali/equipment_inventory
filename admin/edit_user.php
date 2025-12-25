@@ -91,7 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
 
             <a href="users.php" class="btn btn-secondary">
-                ← Back to Users
+                <i class="fa-solid fa-arrow-left"></i>Back
             </a>
         </div>
 

@@ -45,6 +45,99 @@ body {
   font-size: 14px;
 }
 
+/* Table Toolbar */
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.search-form {
+  display: flex;
+  gap: 8px;
+}
+
+.search-form input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  font-size: 14px;
+  min-width: 220px;
+}
+
+.search-form input:focus {
+  outline: none;
+  border-color: #0d6efd;
+}
+
+.btn-add {
+  background: #198754;
+  color: #fff;
+}
+
+.btn-add:hover {
+  background: #157347;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+/* Modal Box */
+.modal {
+  background: #fff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.modal-header h2 {
+  font-size: 20px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  color: #666;
+}
+
+.close-btn:hover {
+  color: #000;
+}
+
 /* Card */
 .card {
   background: #fff;
@@ -135,6 +228,14 @@ body {
 
 .icon-btn.view:hover {
   background: #157347;
+}
+
+.icon-btn.reset {
+  background: rgb(233, 177, 36);
+}
+
+.icon-btn.reset:hover {
+  background: rgb(188, 138, 12);
 }
 
 .icon-btn.edit {
