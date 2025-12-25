@@ -2,108 +2,128 @@
 session_start();
 require_once "../config/database.php";
 
-/* 🔐 Protect page */
-/*if (!isset($_SESSION["admin_id"])) {
-    header("Location: ../index.php");
-    exit();
-}*/
-
 /* 🔌 Database connection */
 $db = new Database();
 $conn = $db->getConnection();
 
 /* 📥 Fetch users */
-$sql = "SELECT id, username, role, created_at FROM users ORDER BY id DESC";
+$sql = "SELECT id, username, full_name, email, role, status, created_at, updated_at, last_login 
+        FROM users ORDER BY id DESC";
 $result = mysqli_query($conn, $sql);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>Manage Users</title>
-    <link rel="stylesheet" href="../css/dashboard.css">
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
+    <title>User Management</title>
 
-        th,
-        td {
-            padding: 12px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-        th {
-            background-color: #f3f3f3;
-        }
-
-        .btn {
-            padding: 6px 10px;
-            border: none;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 14px;
-        }
-
-        .btn-edit {
-            background: #0d6efd;
-            color: #fff;
-        }
-
-        .btn-delete {
-            background: #dc3545;
-            color: #fff;
-        }
-    </style>
+    <!-- Page CSS -->
+    <link rel="stylesheet" href="../css/users.css">
 </head>
 
 <body>
 
-    <h1>Users Management</h1>
+    <div class="page-container">
 
-    <p>Welcome, <strong><?php echo htmlspecialchars($_SESSION["admin_username"]); ?></strong></p>
+        <!-- Header -->
+        <div class="page-header">
+            <div>
+                <h1>User Management</h1>
+                <p>Manage system users and access levels</p>
+            </div>
 
-    <a href="dashboard.php">← Back to Dashboard</a>
+            <div class="header-actions">
+                <span class="welcome-text">
+                    Welcome, <strong><?php echo htmlspecialchars($_SESSION["admin_username"] ?? "Admin"); ?></strong>
+                </span>
+                <a href="dashboard.php" class="btn btn-secondary">
+                    <i class="fa fa-arrow-left"></i> Dashboard
+                </a>
+            </div>
+        </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Created At</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
+        <!-- Card -->
+        <div class="card">
 
-        <tbody>
-            <?php if (mysqli_num_rows($result) > 0): ?>
-                <?php while ($row = mysqli_fetch_assoc($result)): ?>
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td><?php echo $row["id"]; ?></td>
-                        <td><?php echo htmlspecialchars($row["username"]); ?></td>
-                        <td><?php echo ucfirst($row["role"]); ?></td>
-                        <td><?php echo $row["created_at"]; ?></td>
-                        <td>
-                            <a class="btn btn-edit" href="edit_user.php?id=<?php echo $row["id"]; ?>">Edit</a>
-                            <a class="btn btn-delete" href="delete_user.php?id=<?php echo $row["id"]; ?>"
-                                onclick="return confirm('Are you sure you want to delete this user?');">
-                                Delete
-                            </a>
-                        </td>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Full Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
                     </tr>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <tr>
-                    <td colspan="5">No users found</td>
-                </tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
+                </thead>
+
+                <tbody>
+                    <?php if (mysqli_num_rows($result) > 0): ?>
+                        <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                            <tr>
+                                <td>#<?php echo $row["id"]; ?></td>
+                                <td><?php echo htmlspecialchars($row["username"]); ?></td>
+                                <td><?php echo htmlspecialchars($row["full_name"]); ?></td>
+                                <td><?php echo htmlspecialchars($row["email"]); ?></td>
+
+                                <td>
+                                    <span class="badge role-<?php echo strtolower($row["role"]); ?>">
+                                        <?php echo ucfirst($row["role"]); ?>
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="badge status-<?php echo strtolower($row["status"]); ?>">
+                                        <?php echo ucfirst($row["status"]); ?>
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <?php echo $row["last_login"] ?
+                                        date("M d, Y H:i", strtotime($row["last_login"])) : "Never"; ?>
+                                </td>
+
+                                <td class="actions">
+                                    <!-- View -->
+                                    <a href="view_user.php?id=<?php echo $row["id"]; ?>" class="icon-btn view"
+                                        title="View User">
+                                        <i class="fa fa-eye"></i>
+                                    </a>
+                                    <!-- Edit -->
+                                    <a href="edit_user.php?id=<?php echo $row["id"]; ?>" class="icon-btn edit"
+                                        title="Edit User">
+                                        <i class="fa fa-pen"></i>
+                                    </a>
+                                    <!-- Delete -->
+                                    <a href="delete_user.php?id=<?php echo $row["id"]; ?>" class="icon-btn delete"
+                                        title="Delete User" onclick="return confirm('Delete this user?');">
+                                        <i class="fa fa-trash"></i>
+                                    </a>
+                                    <a href="reset_password.php?id=<?php echo $row['id']; ?>" class="icon-btn view"
+                                        title="Reset Password" onclick="return confirm('Reset password for this user?');">
+                                        <i class="fa fa-key"></i>
+                                    </a>
+
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="8" class="empty-state">No users found</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
 
 </body>
 
