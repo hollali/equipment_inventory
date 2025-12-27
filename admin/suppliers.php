@@ -121,7 +121,7 @@ mysqli_stmt_close($stmt);
             <form method="GET" class="search-box">
                 <input type="text" name="search" placeholder="Search suppliers..."
                     value="<?= htmlspecialchars($search) ?>">
-                <button type="submit"><i class="fa fa-search"></i></button>
+                <button type="submit"><i class="fa fa-search"></i>Search</button>
             </form>
 
             <button class="btn btn-add" onclick="openAddModal()">
