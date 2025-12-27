@@ -81,7 +81,7 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
 <head>
     <meta charset="UTF-8">
     <title>Suppliers Management</title>
-    <link rel="stylesheet" href="assets/css/suppliers.css">
+    <link rel="stylesheet" href="../css/suppliers.css">
 </head>
 
 <body>

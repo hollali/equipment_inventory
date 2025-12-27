@@ -74,7 +74,7 @@ $categories = mysqli_fetch_all($result, MYSQLI_ASSOC);
 <head>
     <meta charset="UTF-8">
     <title>Categories Management</title>
-    <link rel="stylesheet" href="assets/css/categories.css">
+    <link rel="stylesheet" href="../css/categories.css">
 </head>
 
 <body>

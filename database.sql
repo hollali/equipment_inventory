@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Categories Table
 CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    category_name VARCHAR(100) NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS categories (
 -- Suppliers Table
 CREATE TABLE IF NOT EXISTS suppliers (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    supplier_name VARCHAR(100) NOT NULL,
     contact_person VARCHAR(100),
     email VARCHAR(100),
     phone VARCHAR(20),

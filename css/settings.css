@@ -1,0 +1,77 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: auto;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 8px;
+}
+
+/* Header */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  color: #fff;
+}
+
+.btn-back {
+  background: #6c757d;
+}
+
+/* Grid */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* Cards */
+.settings-card {
+  display: block;
+  padding: 20px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #000;
+  transition: 0.2s ease;
+}
+
+.settings-card:hover {
+  background: #e9ecef;
+}
+
+.settings-card h3 {
+  margin-top: 0;
+}
+
+.settings-card p {
+  margin-bottom: 0;
+  color: #555;
+}
+
+/* Disabled */
+.settings-card.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
