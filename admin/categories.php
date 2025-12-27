@@ -27,7 +27,6 @@ if (isset($_POST['add_category'])) {
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
     }
-
     header("Location: categories.php");
     exit();
 }
@@ -63,9 +62,30 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-/* 📥 Fetch Categories */
-$result = mysqli_query($conn, "SELECT * FROM categories ORDER BY id DESC");
+/* 🔍 Search */
+$search = trim($_GET['search'] ?? '');
+
+$sql = "SELECT * FROM categories";
+$params = [];
+$types = "";
+
+if ($search !== '') {
+    $sql .= " WHERE category_name LIKE ? OR description LIKE ?";
+    $searchTerm = "%$search%";
+    $params = [$searchTerm, $searchTerm];
+    $types = "ss";
+}
+
+$sql .= " ORDER BY id DESC";
+
+$stmt = mysqli_prepare($conn, $sql);
+if (!empty($params)) {
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
 $categories = mysqli_fetch_all($result, MYSQLI_ASSOC);
+mysqli_stmt_close($stmt);
 ?>
 
 <!DOCTYPE html>
@@ -73,25 +93,49 @@ $categories = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 <head>
     <meta charset="UTF-8">
-    <title>Categories Management</title>
+    <title>Categories</title>
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
     <link rel="stylesheet" href="../css/categories.css">
 </head>
 
 <body>
 
-    <div class="container">
-        <div class="page-header">
+    <!-- 🔹 PAGE HEADER (NOT INSIDE CARD) -->
+    <!-- 🔹 PAGE HEADER -->
+    <header class="page-header">
+        <div class="header-left">
+            <a href="./dashboard.php" class="btn btn-back"><i class="fa fa-arrow-left"></i> Back</a>
             <h1>Categories</h1>
-            <button class="btn btn-add" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> Add Category</button>
         </div>
 
+        <div class="header-center">
+            <form method="GET" class="search-box">
+                <input type="text" name="search" placeholder="Search suppliers..." autocomplete="off"
+                    value="<?= htmlspecialchars($search) ?>">
+                <button type="submit"><i class="fa fa-search"></i>Search</button>
+            </form>
+        </div>
+
+        <div class="header-right">
+            <button class="btn btn-add" onclick="openAddModal()">
+                <i class="fa fa-plus"></i> Add Supplier
+            </button>
+        </div>
+    </header>
+
+
+    <!-- 🔹 TABLE CARD -->
+    <div class="card">
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>Category Name</th>
                     <th>Description</th>
-                    <th>Actions</th>
+                    <th width="120">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -106,11 +150,13 @@ $categories = mysqli_fetch_all($result, MYSQLI_ASSOC);
                                 '<?= $cat['id'] ?>',
                                 '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>',
                                 '<?= htmlspecialchars($cat['description'], ENT_QUOTES) ?>'
-                            )">Edit</button>
+                            )">
+                                    <i class="fa fa-pen"></i>
+                                </button>
 
                                 <a href="?delete=<?= $cat['id'] ?>" class="btn btn-delete"
                                     onclick="return confirm('Delete this category?')">
-                                    Delete
+                                    <i class="fa fa-trash"></i>
                                 </a>
                             </td>
                         </tr>
@@ -124,7 +170,7 @@ $categories = mysqli_fetch_all($result, MYSQLI_ASSOC);
         </table>
     </div>
 
-    <!-- ➕ Add Modal -->
+    <!-- ➕ ADD MODAL -->
     <div class="modal" id="addModal">
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
@@ -137,7 +183,7 @@ $categories = mysqli_fetch_all($result, MYSQLI_ASSOC);
         </div>
     </div>
 
-    <!-- ✏️ Edit Modal -->
+    <!-- ✏️ EDIT MODAL -->
     <div class="modal" id="editModal">
         <div class="modal-content">
             <span class="close" onclick="closeEditModal()">&times;</span>

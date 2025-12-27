@@ -1,4 +1,8 @@
 <?php
+// Enable error reporting to see what's wrong
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 session_start();
 require_once "../config/database.php";
 
@@ -9,8 +13,16 @@ require_once "../config/database.php";
 }*/
 
 /* 🔌 Database connection */
-$db = new Database();
-$conn = $db->getConnection();
+try {
+    $db = new Database();
+    $conn = $db->getConnection();
+
+    if (!$conn) {
+        die("Database connection failed: " . mysqli_connect_error());
+    }
+} catch (Exception $e) {
+    die("Error: " . $e->getMessage());
+}
 
 /* 📥 Fetch inventory items with category */
 $sql = "
@@ -21,13 +33,17 @@ $sql = "
         i.quantity,
         i.min_quantity,
         i.created_at,
-        c.name AS category_name
+        category_name AS category_name
     FROM inventory_items i
     LEFT JOIN categories c ON i.category_id = c.id
     ORDER BY i.id DESC
 ";
 
 $result = mysqli_query($conn, $sql);
+
+if (!$result) {
+    die("Query failed: " . mysqli_error($conn));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -45,7 +61,9 @@ $result = mysqli_query($conn, $sql);
     <!-- PAGE TITLE -->
     <div class="page-title">
         <h1>Inventory Management</h1>
-        <p>Welcome, <strong><?php echo htmlspecialchars($_SESSION["username"]); ?></strong></p>
+        <p>Welcome,
+            <strong><?php echo isset($_SESSION["username"]) ? htmlspecialchars($_SESSION["username"]) : "Guest"; ?></strong>
+        </p>
     </div>
 
     <!-- ACTION ROW -->
@@ -63,10 +81,6 @@ $result = mysqli_query($conn, $sql);
             <i class="fa-solid fa-plus"></i> Add Item
         </a>
     </div>
-
-
-
-
 
     <table>
         <thead>
@@ -130,6 +144,7 @@ $result = mysqli_query($conn, $sql);
             <?php endif; ?>
         </tbody>
     </table>
+
     <script>
         function searchTable() {
             const input = document.getElementById("searchInput").value.toLowerCase();

@@ -70,9 +70,30 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-/* 📥 Fetch Suppliers */
-$result = mysqli_query($conn, "SELECT * FROM suppliers ORDER BY id DESC");
+/* 🔍 Search */
+$search = trim($_GET['search'] ?? '');
+
+$sql = "SELECT * FROM suppliers";
+$params = [];
+$types = "";
+
+if ($search !== '') {
+    $sql .= " WHERE supplier_name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?";
+    $searchTerm = "%$search%";
+    $params = [$searchTerm, $searchTerm, $searchTerm, $searchTerm];
+    $types = "ssss";
+}
+
+$sql .= " ORDER BY id DESC";
+
+$stmt = mysqli_prepare($conn, $sql);
+if (!empty($params)) {
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
 $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
+mysqli_stmt_close($stmt);
 ?>
 
 <!DOCTYPE html>
@@ -80,18 +101,37 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 <head>
     <meta charset="UTF-8">
-    <title>Suppliers Management</title>
+    <title>Suppliers</title>
     <link rel="stylesheet" href="../css/suppliers.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 
 <body>
 
-    <div class="container">
-        <div class="page-header">
+    <!-- 🔹 PAGE HEADER -->
+    <header class="page-header">
+        <div class="header-left">
+            <a href="./dashboard.php" class="btn btn-back"><i class="fa fa-arrow-left"></i></a>
             <h1>Suppliers</h1>
-            <button class="btn btn-add" onclick="openAddModal()">➕ Add Supplier</button>
         </div>
 
+        <div class="header-right">
+            <form method="GET" class="search-box">
+                <input type="text" name="search" placeholder="Search suppliers..."
+                    value="<?= htmlspecialchars($search) ?>">
+                <button type="submit"><i class="fa fa-search"></i></button>
+            </form>
+
+            <button class="btn btn-add" onclick="openAddModal()">
+                <i class="fa fa-plus"></i> Add Supplier
+            </button>
+        </div>
+    </header>
+
+    <!-- 🔹 TABLE CARD -->
+    <div class="card">
         <table>
             <thead>
                 <tr>
@@ -100,7 +140,7 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Address</th>
-                    <th>Actions</th>
+                    <th width="120">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -114,16 +154,18 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
                             <td><?= htmlspecialchars($sup['address']) ?></td>
                             <td class="actions">
                                 <button class="btn btn-edit" onclick="openEditModal(
-                                '<?= $sup['id'] ?>',
-                                '<?= htmlspecialchars($sup['supplier_name'], ENT_QUOTES) ?>',
-                                '<?= htmlspecialchars($sup['email'], ENT_QUOTES) ?>',
-                                '<?= htmlspecialchars($sup['phone'], ENT_QUOTES) ?>',
-                                '<?= htmlspecialchars($sup['address'], ENT_QUOTES) ?>'
-                            )">Edit</button>
+                                    '<?= $sup['id'] ?>',
+                                    '<?= htmlspecialchars($sup['supplier_name'], ENT_QUOTES) ?>',
+                                    '<?= htmlspecialchars($sup['email'], ENT_QUOTES) ?>',
+                                    '<?= htmlspecialchars($sup['phone'], ENT_QUOTES) ?>',
+                                    '<?= htmlspecialchars($sup['address'], ENT_QUOTES) ?>'
+                                )">
+                                    <i class="fa fa-pen"></i>
+                                </button>
 
                                 <a href="?delete=<?= $sup['id'] ?>" class="btn btn-delete"
                                     onclick="return confirm('Delete this supplier?')">
-                                    Delete
+                                    <i class="fa fa-trash"></i>
                                 </a>
                             </td>
                         </tr>
@@ -137,7 +179,7 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
         </table>
     </div>
 
-    <!-- ➕ Add Modal -->
+    <!-- ➕ ADD MODAL -->
     <div class="modal" id="addModal">
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
@@ -152,7 +194,7 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
         </div>
     </div>
 
-    <!-- ✏️ Edit Modal -->
+    <!-- ✏️ EDIT MODAL -->
     <div class="modal" id="editModal">
         <div class="modal-content">
             <span class="close" onclick="closeEditModal()">&times;</span>
@@ -163,9 +205,7 @@ $suppliers = mysqli_fetch_all($result, MYSQLI_ASSOC);
                 <input type="email" name="email" id="edit_email">
                 <input type="text" name="phone" id="edit_phone">
                 <textarea name="address" id="edit_address"></textarea>
-                <button type="submit" name="update_supplier" class="btn btn-edit">
-                    Update
-                </button>
+                <button type="submit" name="update_supplier" class="btn btn-edit">Update</button>
             </form>
         </div>
     </div>
