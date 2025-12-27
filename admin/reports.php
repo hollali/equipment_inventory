@@ -119,7 +119,7 @@ while ($stmt->fetch()) {
         <div class="logs-section">
             <div class="search-bar">
                 <form method="GET">
-                    <input type="text" name="search" placeholder="Search logs..."
+                    <input type="text" name="search" placeholder="Search logs..." autocomplete="off"
                         value="<?php echo htmlspecialchars($search); ?>">
                     <button class="btn btn-edit"><i class="fa fa-search"></i> Search</button>
                 </form>
