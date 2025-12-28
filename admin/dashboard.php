@@ -1,3 +1,80 @@
+<?php
+session_start();
+require_once "../config/database.php";
+
+/* 🔐 Protect page (optional)
+if (!isset($_SESSION["admin_id"])) {
+    header("Location: ../index.php");
+    exit();
+}
+*/
+
+/* 🔌 Database */
+$db = new Database();
+$conn = $db->getConnection();
+
+/* 📦 Total Inventory Items */
+$totalItems = 0;
+$result = $conn->query("SELECT COUNT(*) AS total FROM inventory_items");
+if ($row = $result->fetch_assoc()) {
+    $totalItems = $row["total"];
+}
+
+/* 👤 Total Users */
+$totalUsers = 0;
+$result = $conn->query("SELECT COUNT(*) AS total FROM users");
+if ($row = $result->fetch_assoc()) {
+    $totalUsers = $row["total"];
+}
+
+/* ⚠️ Low Stock Items */
+$lowStock = 0;
+$result = $conn->query("
+    SELECT COUNT(*) AS total 
+    FROM inventory_items 
+    WHERE quantity <= min_quantity
+");
+if ($row = $result->fetch_assoc()) {
+    $lowStock = $row["total"];
+}
+
+/* 💰 Total Inventory Value */
+$totalValue = 0;
+$result = $conn->query("
+    SELECT SUM(quantity * unit_price) AS total_value 
+    FROM inventory_items
+");
+if ($row = $result->fetch_assoc()) {
+    $totalValue = $row["total_value"] ?? 0;
+}
+
+/* 🕒 Recent Activity (example table structure)
+   You can replace this with a real activity_log table later
+*/
+$recentActivities = [
+    [
+        "date" => "2024-12-21",
+        "action" => "Item Added",
+        "user" => "Admin",
+        "item" => "Office Chair",
+        "status" => "Completed"
+    ],
+    [
+        "date" => "2024-12-21",
+        "action" => "Stock Update",
+        "user" => "Jane Smith",
+        "item" => "Printer Paper",
+        "status" => "Completed"
+    ],
+    [
+        "date" => "2024-12-20",
+        "action" => "Item Removed",
+        "user" => "Admin",
+        "item" => "Old Laptop",
+        "status" => "Pending"
+    ]
+];
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -12,6 +89,7 @@
 
 <body>
     <div class="dashboard-container">
+
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -48,6 +126,7 @@
 
         <!-- Main Content -->
         <main class="main-content">
+
             <header class="content-header">
                 <h1>Dashboard Overview</h1>
                 <div class="user-info">
@@ -57,50 +136,55 @@
             </header>
 
             <div class="dashboard-grid">
-                <!-- Statistics Cards -->
+
+                <!-- Total Items -->
                 <div class="stat-card">
                     <div class="stat-icon bg-blue">
                         <i class="fas fa-boxes"></i>
                     </div>
                     <div class="stat-details">
                         <h3>Total Items</h3>
-                        <p class="stat-number">1,234</p>
-                        <span class="stat-change positive">+12% from last month</span>
+                        <p class="stat-number"><?= number_format($totalItems) ?></p>
+                        <span class="stat-change positive">Live inventory count</span>
                     </div>
                 </div>
 
+                <!-- Total Users -->
                 <div class="stat-card">
                     <div class="stat-icon bg-green">
                         <i class="fas fa-users"></i>
                     </div>
                     <div class="stat-details">
                         <h3>Total Users</h3>
-                        <p class="stat-number">45</p>
-                        <span class="stat-change positive">+3 new this week</span>
+                        <p class="stat-number"><?= number_format($totalUsers) ?></p>
+                        <span class="stat-change positive">Registered users</span>
                     </div>
                 </div>
 
+                <!-- Low Stock -->
                 <div class="stat-card">
                     <div class="stat-icon bg-orange">
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
                     <div class="stat-details">
                         <h3>Low Stock Items</h3>
-                        <p class="stat-number">18</p>
+                        <p class="stat-number"><?= number_format($lowStock) ?></p>
                         <span class="stat-change negative">Requires attention</span>
                     </div>
                 </div>
 
+                <!-- Total Value -->
                 <div class="stat-card">
                     <div class="stat-icon bg-purple">
                         <i class="fas fa-dollar-sign"></i>
                     </div>
                     <div class="stat-details">
                         <h3>Total Value</h3>
-                        <p class="stat-number">GH₵ 2.5M</p>
-                        <span class="stat-change positive">+8% from last month</span>
+                        <p class="stat-number">GH₵ <?= number_format($totalValue, 2) ?></p>
+                        <span class="stat-change positive">Inventory worth</span>
                     </div>
                 </div>
+
             </div>
 
             <!-- Recent Activity -->
@@ -118,31 +202,25 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>2024-12-21</td>
-                                <td>Item Added</td>
-                                <td>John Doe</td>
-                                <td>Office Chair</td>
-                                <td><span class="badge badge-success">Completed</span></td>
-                            </tr>
-                            <tr>
-                                <td>2024-12-21</td>
-                                <td>Stock Update</td>
-                                <td>Jane Smith</td>
-                                <td>Printer Paper</td>
-                                <td><span class="badge badge-success">Completed</span></td>
-                            </tr>
-                            <tr>
-                                <td>2024-12-20</td>
-                                <td>Item Removed</td>
-                                <td>Admin</td>
-                                <td>Old Laptop</td>
-                                <td><span class="badge badge-warning">Pending</span></td>
-                            </tr>
+                            <?php foreach ($recentActivities as $activity): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($activity["date"]) ?></td>
+                                    <td><?= htmlspecialchars($activity["action"]) ?></td>
+                                    <td><?= htmlspecialchars($activity["user"]) ?></td>
+                                    <td><?= htmlspecialchars($activity["item"]) ?></td>
+                                    <td>
+                                        <span
+                                            class="badge <?= $activity["status"] === "Completed" ? "badge-success" : "badge-warning" ?>">
+                                            <?= htmlspecialchars($activity["status"]) ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
             </div>
+
         </main>
     </div>
 </body>

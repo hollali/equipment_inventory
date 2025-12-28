@@ -9,11 +9,15 @@ if (!isset($_SESSION["admin_id"])) {
 }
 */
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     die("Invalid item ID");
 }
 
-$item_id = $_GET['id'];
+$item_id = (int) $_GET['id'];
 
 /* 🔌 Database */
 $db = new Database();
@@ -23,8 +27,8 @@ $conn = $db->getConnection();
 $sql = "
     SELECT 
         i.*,
-        c.name AS category_name,
-        s.name AS supplier_name
+        c.category_name,
+        s.supplier_name
     FROM inventory_items i
     LEFT JOIN categories c ON i.category_id = c.id
     LEFT JOIN suppliers s ON i.supplier_id = s.id
@@ -64,6 +68,7 @@ $total_value = $item["quantity"] * $item["unit_price"];
 <head>
     <meta charset="UTF-8">
     <title>View Inventory Item</title>
+
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/inventory.css">
     <link rel="stylesheet" href="../css/view-inventory.css">
@@ -91,8 +96,8 @@ $total_value = $item["quantity"] * $item["unit_price"];
 
     <!-- DETAILS CARD -->
     <div class="inventory-details">
-
         <div class="details-card">
+
             <h2><?= htmlspecialchars($item["item_name"]) ?></h2>
             <p class="item-code">Item Code: <?= htmlspecialchars($item["item_code"]) ?></p>
 
@@ -130,7 +135,7 @@ $total_value = $item["quantity"] * $item["unit_price"];
 
                 <div class="detail">
                     <span>Location</span>
-                    <strong><?= htmlspecialchars($item["location"]) ?></strong>
+                    <strong><?= htmlspecialchars($item["location"] ?? "—") ?></strong>
                 </div>
 
                 <div class="detail">
@@ -159,7 +164,6 @@ $total_value = $item["quantity"] * $item["unit_price"];
             </div>
 
         </div>
-
     </div>
 
 </body>

@@ -9,37 +9,54 @@ if (!isset($_SESSION["admin_id"])) {
 }
 */
 
+/* 🧪 Enable errors during development */
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+/* ✅ Validate ID */
 if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
     die("Invalid item ID");
 }
 
-$item_id = $_GET["id"];
+$item_id = (int) $_GET["id"];
 
 /* 🔌 Database */
 $db = new Database();
 $conn = $db->getConnection();
 
 /* 📥 Fetch item */
-$item_sql = "SELECT * FROM inventory_items WHERE id = ?";
-$stmt = $conn->prepare($item_sql);
+$stmt = $conn->prepare("SELECT * FROM inventory_items WHERE id = ?");
 $stmt->bind_param("i", $item_id);
 $stmt->execute();
-$item_result = $stmt->get_result();
+$result = $stmt->get_result();
 
-if ($item_result->num_rows === 0) {
+if ($result->num_rows === 0) {
     die("Item not found");
 }
 
-$item = $item_result->fetch_assoc();
+$item = $result->fetch_assoc();
 
-/* 📥 Categories */
-$categories = $conn->query("SELECT id, name FROM categories ORDER BY name ASC");
+/* 📥 Categories (ALIAS FIX) */
+$categories = $conn->query("
+    SELECT id, category_name AS name
+    FROM categories
+    ORDER BY category_name ASC
+");
 
-/* 📥 Suppliers */
-$suppliers = $conn->query("SELECT id, name FROM suppliers ORDER BY name ASC");
+/* 📥 Suppliers (ALIAS FIX) */
+$suppliers = $conn->query("
+    SELECT id, supplier_name AS name
+    FROM suppliers
+    ORDER BY supplier_name ASC
+");
 
-/* 💾 Update */
+/* 💾 Update Item */
 if (isset($_POST["update"])) {
+
+    $supplier_id = !empty($_POST["supplier_id"])
+        ? (int) $_POST["supplier_id"]
+        : null;
 
     $sql = "
         UPDATE inventory_items SET
@@ -58,11 +75,11 @@ if (isset($_POST["update"])) {
 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param(
-        "ssiiiddssi",
+        "ssiii d s s i",
         $_POST["item_name"],
         $_POST["item_code"],
         $_POST["category_id"],
-        $_POST["supplier_id"],
+        $supplier_id,
         $_POST["quantity"],
         $_POST["min_quantity"],
         $_POST["unit_price"],
@@ -72,7 +89,7 @@ if (isset($_POST["update"])) {
     );
 
     if ($stmt->execute()) {
-        header("Location: view_inventory.php?id=" . $item_id);
+        header("Location: edit_inventory.php?id=$item_id&success=1");
         exit();
     } else {
         $error = "Failed to update inventory item.";
@@ -85,6 +102,7 @@ if (isset($_POST["update"])) {
 <head>
     <meta charset="UTF-8">
     <title>Edit Inventory Item</title>
+
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/inventory.css">
     <link rel="stylesheet" href="../css/edit-inventory.css">
@@ -101,18 +119,17 @@ if (isset($_POST["update"])) {
 
     <!-- ACTION BAR -->
     <div class="inventory-actions">
-        <a href="view_inventory.php?id=<?= $item_id ?>" class="back-link">
-            <i class="fa-solid fa-arrow-left"></i> Cancel
+        <a href="inventory.php" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> Back
         </a>
     </div>
 
     <!-- FORM -->
     <div class="edit-inventory">
-
-        <form class="edit-card" method="POST">
+        <form method="POST" class="edit-card">
 
             <?php if (!empty($error)): ?>
-                <div class="error-box"><?= $error ?></div>
+                <div class="error-box"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
 
             <div class="form-grid">
@@ -185,8 +202,24 @@ if (isset($_POST["update"])) {
             </div>
 
         </form>
-
     </div>
+
+    <!-- ✅ SUCCESS TOAST -->
+    <?php if (isset($_GET["success"])): ?>
+        <div id="toast-success">
+            <i class="fa-solid fa-circle-check"></i>
+            Inventory item updated successfully
+        </div>
+    <?php endif; ?>
+
+    <!-- CLEAN URL -->
+    <script>
+        if (window.location.search.includes("success=1")) {
+            const url = new URL(window.location);
+            url.searchParams.delete("success");
+            window.history.replaceState({}, document.title, url);
+        }
+    </script>
 
 </body>
 
