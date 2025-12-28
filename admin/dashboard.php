@@ -48,32 +48,21 @@ if ($row = $result->fetch_assoc()) {
     $totalValue = $row["total_value"] ?? 0;
 }
 
-/* 🕒 Recent Activity (example table structure)
-   You can replace this with a real activity_log table later
-*/
-$recentActivities = [
-    [
-        "date" => "2024-12-21",
-        "action" => "Item Added",
-        "user" => "Admin",
-        "item" => "Office Chair",
-        "status" => "Completed"
-    ],
-    [
-        "date" => "2024-12-21",
-        "action" => "Stock Update",
-        "user" => "Jane Smith",
-        "item" => "Printer Paper",
-        "status" => "Completed"
-    ],
-    [
-        "date" => "2024-12-20",
-        "action" => "Item Removed",
-        "user" => "Admin",
-        "item" => "Old Laptop",
-        "status" => "Pending"
-    ]
-];
+/* 🕒 Recent Activity from activity_log */
+$recentActivities = [];
+$sql = "
+    SELECT a.id, a.user_id, a.action, a.description, a.ip_address, a.created_at, u.full_name AS user_name
+    FROM activity_log a
+    LEFT JOIN users u ON a.user_id = u.id
+    ORDER BY a.created_at DESC
+    LIMIT 10
+";
+$result = $conn->query($sql);
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $recentActivities[] = $row;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -197,22 +186,19 @@ $recentActivities = [
                                 <th>Date</th>
                                 <th>Action</th>
                                 <th>User</th>
-                                <th>Item</th>
-                                <th>Status</th>
+                                <th>Description</th>
+                                <th>IP Address</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($recentActivities as $activity): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($activity["date"]) ?></td>
+                                    <td><?= htmlspecialchars($activity["created_at"]) ?></td>
                                     <td><?= htmlspecialchars($activity["action"]) ?></td>
-                                    <td><?= htmlspecialchars($activity["user"]) ?></td>
-                                    <td><?= htmlspecialchars($activity["item"]) ?></td>
-                                    <td>
-                                        <span
-                                            class="badge <?= $activity["status"] === "Completed" ? "badge-success" : "badge-warning" ?>">
-                                            <?= htmlspecialchars($activity["status"]) ?>
-                                        </span>
+                                    <td><?= htmlspecialchars($activity["user_name"] ?? "Unknown") ?></td>
+                                    <td><?= htmlspecialchars($activity["description"] ?? "—") ?></td>
+                                    <td><span
+                                            class="badge badge-info"><?= htmlspecialchars($activity["ip_address"] ?? "N/A") ?></span>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

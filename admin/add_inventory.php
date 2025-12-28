@@ -13,10 +13,10 @@ $db = new Database();
 $conn = $db->getConnection();
 
 /* 📥 Categories */
-$categories = $conn->query("SELECT id, name FROM categories ORDER BY name ASC");
+$categories = $conn->query("SELECT id, category_name FROM categories ORDER BY category_name ASC");
 
 /* 📥 Suppliers */
-$suppliers = $conn->query("SELECT id, name FROM suppliers ORDER BY name ASC");
+$suppliers = $conn->query("SELECT id, supplier_name FROM suppliers ORDER BY supplier_name ASC");
 
 /* 💾 Save item */
 if (isset($_POST["save"])) {
@@ -46,7 +46,7 @@ if (isset($_POST["save"])) {
         header("Location: inventory.php?added=1");
         exit();
     } else {
-        $error = "Failed to add inventory item.";
+        $error = "Failed to add inventory item: " . $stmt->error;
     }
 }
 ?>
@@ -80,7 +80,7 @@ if (isset($_POST["save"])) {
             <form method="POST" class="modal-body">
 
                 <?php if (!empty($error)): ?>
-                    <div class="error-box"><?= $error ?></div>
+                    <div class="error-box"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
                 <div class="form-grid">
@@ -101,7 +101,7 @@ if (isset($_POST["save"])) {
                             <option value="">Select Category</option>
                             <?php while ($c = $categories->fetch_assoc()): ?>
                                 <option value="<?= $c["id"] ?>">
-                                    <?= htmlspecialchars($c["name"]) ?>
+                                    <?= htmlspecialchars($c["category_name"]) ?>
                                 </option>
                             <?php endwhile; ?>
                         </select>
@@ -113,7 +113,7 @@ if (isset($_POST["save"])) {
                             <option value="">Select Supplier</option>
                             <?php while ($s = $suppliers->fetch_assoc()): ?>
                                 <option value="<?= $s["id"] ?>">
-                                    <?= htmlspecialchars($s["name"]) ?>
+                                    <?= htmlspecialchars($s["supplier_name"]) ?>
                                 </option>
                             <?php endwhile; ?>
                         </select>
