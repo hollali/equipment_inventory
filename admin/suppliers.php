@@ -24,7 +24,7 @@ if (isset($_POST['add_supplier'])) {
         $stmt = mysqli_prepare(
             $conn,
             "INSERT INTO suppliers (supplier_name, email, phone, address) 
-             VALUES (?, ?, ?, ?)"
+            VALUES (?, ?, ?, ?)"
         );
         mysqli_stmt_bind_param($stmt, "ssss", $name, $email, $phone, $address);
         mysqli_stmt_execute($stmt);
@@ -46,8 +46,8 @@ if (isset($_POST['update_supplier'])) {
     $stmt = mysqli_prepare(
         $conn,
         "UPDATE suppliers 
-         SET supplier_name = ?, email = ?, phone = ?, address = ?
-         WHERE id = ?"
+        SET supplier_name = ?, email = ?, phone = ?, address = ?
+        WHERE id = ?"
     );
     mysqli_stmt_bind_param($stmt, "ssssi", $name, $email, $phone, $address, $id);
     mysqli_stmt_execute($stmt);

@@ -54,7 +54,6 @@ $result = $stmt->get_result();
                 <h1>User Management</h1>
                 <p>Manage system users and access levels</p>
             </div>
-
             <span class="welcome-text">
                 Welcome, <strong><?php echo htmlspecialchars($_SESSION["admin_username"] ?? "Admin"); ?></strong>
             </span>
@@ -62,13 +61,10 @@ $result = $stmt->get_result();
 
         <!-- Toolbar -->
         <div class="table-toolbar">
-
-            <!-- Dashboard (LEFT) -->
             <a href="dashboard.php" class="btn btn-secondary">
-                <i class="fa fa-arrow-left"></i>Dashboard
+                <i class="fa fa-arrow-left"></i> Dashboard
             </a>
 
-            <!-- Search (CENTER) -->
             <form method="GET" class="search-form">
                 <input type="text" name="search" placeholder="Search users..." autocomplete="off"
                     value="<?php echo htmlspecialchars($search); ?>">
@@ -77,11 +73,9 @@ $result = $stmt->get_result();
                 </button>
             </form>
 
-            <!-- Add User (RIGHT) -->
-            <a href="add_user.php" class="btn btn-add" onclick="openAddUserModal()">
+            <button class="btn btn-add" onclick="openAddUserModal()">
                 <i class="fa fa-user-plus"></i> Add User
-            </a>
-
+            </button>
         </div>
 
         <!-- Users Table -->
@@ -99,7 +93,6 @@ $result = $stmt->get_result();
                         <th>Actions</th>
                     </tr>
                 </thead>
-
                 <tbody>
                     <?php if (mysqli_num_rows($result) > 0): ?>
                         <?php while ($row = mysqli_fetch_assoc($result)): ?>
@@ -108,25 +101,21 @@ $result = $stmt->get_result();
                                 <td><?php echo htmlspecialchars($row["username"]); ?></td>
                                 <td><?php echo htmlspecialchars($row["full_name"]); ?></td>
                                 <td><?php echo htmlspecialchars($row["email"]); ?></td>
-
                                 <td>
                                     <span class="badge role-<?php echo strtolower($row["role"]); ?>">
                                         <?php echo ucfirst($row["role"]); ?>
                                     </span>
                                 </td>
-
                                 <td>
                                     <span class="badge status-<?php echo strtolower($row["status"]); ?>">
                                         <?php echo ucfirst($row["status"]); ?>
                                     </span>
                                 </td>
-
                                 <td>
                                     <?php echo $row["last_login"]
                                         ? date("M d, Y H:i", strtotime($row["last_login"]))
                                         : "Never"; ?>
                                 </td>
-
                                 <td class="actions">
                                     <a href="view_user.php?id=<?php echo $row["id"]; ?>" class="icon-btn view" title="View">
                                         <i class="fa fa-eye"></i>
@@ -155,10 +144,55 @@ $result = $stmt->get_result();
         </div>
     </div>
 
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeAddUserModal()">&times;</span>
+            <h2>Add New User</h2>
+            <form method="POST" action="#">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="text" name="full_name" placeholder="Full Name" required>
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <select name="role" required>
+                    <option value="">Select Role</option>
+                    <option value="admin">Admin</option>
+                    <option value="staff">Staff</option>
+                    <option value="user">User</option>
+                </select>
+                <select name="status" required>
+                    <option value="">Select Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <button type="submit" name="submit">Add User</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         function openAddUserModal() {
-            document.getElementById("addUserModal")?.style.display = "flex";
+            document.getElementById("addUserModal").style.display = "flex";
         }
+
+        function closeAddUserModal() {
+            document.getElementById("addUserModal").style.display = "none";
+        }
+
+        // Close modal on outside click
+        window.onclick = function (event) {
+            const modal = document.getElementById("addUserModal");
+            if (event.target === modal) {
+                closeAddUserModal();
+            }
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeAddUserModal();
+            }
+        });
     </script>
 
 </body>
