@@ -26,7 +26,8 @@ if (!isset($_SESSION['admin_id'])) {
 
         <div class="page-header">
             <!-- 🔙 Back button -->
-            <a href="dashboard.php" class="btn btn-back"><i class="fa-solid fa-arrow-left"></i>Back</a>
+            <a href="dashboard.php" class="btn btn-back">
+                <i class="fa-solid fa-arrow-left"></i>Back</a>
             <h1>Settings</h1>
         </div>
 
