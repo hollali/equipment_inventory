@@ -121,7 +121,7 @@ mysqli_stmt_close($stmt);
         <div class="header-right">
             <form method="GET" class="search-box">
                 <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                    placeholder="Search suppliers...">
+                    placeholder="Search suppliers..." autocomplete="off">
                 <button type="submit">
                     <i class="fa fa-search"></i>
                 </button>
