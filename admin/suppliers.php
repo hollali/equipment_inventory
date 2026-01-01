@@ -265,20 +265,47 @@ mysqli_stmt_close($stmt);
     </div>
 
     <script>
-        function openAddModal() { addModal.style.display = 'block' }
-        function closeAddModal() { addModal.style.display = 'none' }
+        const addModal = document.getElementById('addModal');
+        const editModal = document.getElementById('editModal');
+        const viewModal = document.getElementById('viewModal');
+
+        function openAddModal() {
+            addModal.style.display = 'flex';   // 👈 MUST be flex
+        }
+
+        function closeAddModal() {
+            addModal.style.display = 'none';
+        }
+
         function openEditModal(i, n, e, p, a) {
-            edit_id.value = i; edit_name.value = n; edit_email.value = e; edit_phone.value = p; edit_address.value = a;
-            editModal.style.display = 'block';
+            edit_id.value = i;
+            edit_name.value = n;
+            edit_email.value = e;
+            edit_phone.value = p;
+            edit_address.value = a;
+
+            editModal.style.display = 'flex';  // 👈 MUST be flex
         }
-        function closeEditModal() { editModal.style.display = 'none' }
+
+        function closeEditModal() {
+            editModal.style.display = 'none';
+        }
+
         function openViewModal(i, n, e, p, a) {
-            v_id.textContent = i; v_name.textContent = n; v_email.textContent = e || '-';
-            v_phone.textContent = p || '-'; v_address.textContent = a || '-';
-            viewModal.style.display = 'block';
+            v_id.textContent = i;
+            v_name.textContent = n;
+            v_email.textContent = e || '-';
+            v_phone.textContent = p || '-';
+            v_address.textContent = a || '-';
+
+            viewModal.style.display = 'flex';  // 👈 MUST be flex
         }
-        function closeViewModal() { viewModal.style.display = 'none' }
+
+        function closeViewModal() {
+            viewModal.style.display = 'none';
+        }
     </script>
+
 
 </body>
 
