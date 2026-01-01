@@ -2,60 +2,15 @@
   Inventory Page Styles
 ======================= */
 
-/* Reset & basics */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-  background-color: #f8fafc;
-  color: #1e293b;
-}
-
-/* PAGE TITLE */
-.page-title {
-  text-align: center;
-  padding: 2rem 1rem 1rem 1rem;
-  background-color: #1e293b;
-  color: #f8fafc;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.page-title h1 {
-  margin: 0 0 0.5rem 0;
-  font-size: 2rem;
-}
-
-.page-title p {
-  margin: 0;
-  font-size: 1rem;
-}
-
 /* ACTION ROW */
 .inventory-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
-  justify-content: center;
-  padding: 1rem 1rem;
-  background-color: #e2e8f0;
-}
-
-.back-link {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: #1e293b;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  background-color: #f1f5f9;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
-
-.back-link:hover {
-  background-color: #cbd5e1;
+  justify-content: space-between;
+  padding: 1.5rem 0;
+  margin-bottom: 1.5rem;
 }
 
 /* SEARCH */
@@ -68,140 +23,216 @@ body {
 
 .search-wrapper input {
   width: 100%;
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-  border-radius: 9999px;
-  border: 2px solid #cbd5e1;
-  font-size: 1rem;
+  padding: 0.75rem 3rem 0.75rem 1rem;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  font-size: 0.95rem;
   transition: all 0.3s ease;
+  background: white;
 }
 
 .search-wrapper input:focus {
   outline: none;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
-  transform: scale(1.02);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-wrapper i {
   position: absolute;
-  right: 0.8rem;
+  right: 1rem;
   top: 50%;
   transform: translateY(-50%);
   color: #64748b;
+  font-size: 1rem;
 }
 
 /* ADD BUTTON */
 .btn-add {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: #3b82f6;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
   text-decoration: none;
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .btn-add:hover {
-  background-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* TABLE */
-table {
-  width: 98%;
-  max-width: 1500px;
-  margin: 2rem auto;
-  border-collapse: collapse;
-  background-color: #fff;
+.btn-add i {
+  font-size: 1rem;
+}
+
+/* TABLE ENHANCEMENTS */
+.content-section table {
+  background: white;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 table thead {
-  background-color: #1e293b;
-  color: #f8fafc;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
 }
 
-table th,
-table td {
-  padding: 0.75rem 1rem;
-  text-align: left;
+table thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  padding: 1rem;
 }
 
-table tbody tr:nth-child(even) {
-  background-color: #f1f5f9;
+table tbody td {
+  padding: 1rem;
+  color: #334155;
+  vertical-align: middle;
+}
+
+table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: all 0.2s ease;
 }
 
 table tbody tr:hover {
-  background-color: #e2e8f0;
+  background-color: #f8fafc;
+  transform: scale(1.001);
+}
+
+table tbody tr:last-child {
+  border-bottom: none;
 }
 
 /* STATUS BADGES */
+.status-good,
+.status-fair,
+.status-damaged {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .status-good {
-  color: #16a34a;
-  font-weight: 500;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .status-fair {
-  color: #ca8a04;
-  font-weight: 500;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status-damaged {
-  color: #dc2626;
-  font-weight: 500;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
-/* ICON BUTTONS */
+/* ACTION BUTTONS */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin: 0 0.2rem;
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
   color: #fff;
   text-decoration: none;
   transition: all 0.2s ease;
+  font-size: 0.9rem;
 }
 
 .icon-btn.view {
-  background-color: #3b82f6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 .icon-btn.view:hover {
-  background-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .icon-btn.edit {
-  background-color: #f59e0b;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 .icon-btn.edit:hover {
-  background-color: #d97706;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(240, 147, 251, 0.4);
 }
 
 .icon-btn.delete {
-  background-color: #ef4444;
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 .icon-btn.delete:hover {
-  background-color: #b91c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(250, 112, 154, 0.4);
 }
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
   .inventory-actions {
     flex-direction: column;
-  }
-
-  table th,
-  table td {
-    font-size: 0.9rem;
+    align-items: stretch;
   }
 
   .search-wrapper {
     max-width: 100%;
+  }
+
+  .btn-add {
+    width: 100%;
+    justify-content: center;
+  }
+
+  table {
+    font-size: 0.85rem;
+  }
+
+  table thead th,
+  table tbody td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  table {
+    font-size: 0.8rem;
+  }
+
+  table thead th,
+  table tbody td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .status-good,
+  .status-fair,
+  .status-damaged {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
   }
 }

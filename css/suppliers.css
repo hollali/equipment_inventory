@@ -121,7 +121,7 @@ body {
 }
 
 .btn-view {
-  background: var(--info);
+  background: var(--success);
   color: #fff;
 }
 

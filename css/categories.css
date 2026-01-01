@@ -136,7 +136,7 @@ body {
 }
 
 .btn-view {
-  background: var(--info);
+  background: var(--success);
   color: #fff;
   padding: 8px 12px;
 }

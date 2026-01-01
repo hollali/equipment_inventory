@@ -9,13 +9,14 @@ $conn = $db->getConnection();
 if (isset($_POST['add_supplier'])) {
     $stmt = mysqli_prepare(
         $conn,
-        "INSERT INTO suppliers (supplier_name, email, phone, address)
-         VALUES (?, ?, ?, ?)"
+        "INSERT INTO suppliers (supplier_name, contact_person, email, phone, address)
+         VALUES (?, ?, ?, ?, ?)"
     );
     mysqli_stmt_bind_param(
         $stmt,
-        "ssss",
+        "sssss",
         $_POST['supplier_name'],
+        $_POST['contact_person'],
         $_POST['email'],
         $_POST['phone'],
         $_POST['address']
@@ -30,12 +31,15 @@ if (isset($_POST['add_supplier'])) {
 if (isset($_POST['update_supplier'])) {
     $stmt = mysqli_prepare(
         $conn,
-        "UPDATE suppliers SET supplier_name=?, email=?, phone=?, address=? WHERE id=?"
+        "UPDATE suppliers 
+         SET supplier_name=?, contact_person=?, email=?, phone=?, address=?
+         WHERE id=?"
     );
     mysqli_stmt_bind_param(
         $stmt,
-        "ssssi",
+        "sssssi",
         $_POST['supplier_name'],
+        $_POST['contact_person'],
         $_POST['email'],
         $_POST['phone'],
         $_POST['address'],
@@ -47,7 +51,7 @@ if (isset($_POST['update_supplier'])) {
     exit();
 }
 
-/* ===================== DELETE SUPPLIER ===================== */
+/* ===================== DELETE ===================== */
 if (isset($_GET['delete'])) {
     $stmt = mysqli_prepare($conn, "DELETE FROM suppliers WHERE id=?");
     mysqli_stmt_bind_param($stmt, "i", $_GET['delete']);
@@ -57,7 +61,7 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-/* ===================== SEARCH & PAGINATION ===================== */
+/* ===================== SEARCH + PAGINATION ===================== */
 $search = trim($_GET['search'] ?? '');
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $limit = 8;
@@ -68,14 +72,18 @@ $params = [];
 $types = "";
 
 if ($search !== "") {
-    $where = "WHERE supplier_name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?";
+    $where = "WHERE supplier_name LIKE ?
+              OR contact_person LIKE ?
+              OR email LIKE ?
+              OR phone LIKE ?
+              OR address LIKE ?";
     $term = "%$search%";
-    $params = [$term, $term, $term, $term];
-    $types = "ssss";
+    $params = [$term, $term, $term, $term, $term];
+    $types = "sssss";
 }
 
-/* Count */
-$countSql = "SELECT COUNT(*) as total FROM suppliers $where";
+/* COUNT */
+$countSql = "SELECT COUNT(*) AS total FROM suppliers $where";
 $countStmt = mysqli_prepare($conn, $countSql);
 if ($params)
     mysqli_stmt_bind_param($countStmt, $types, ...$params);
@@ -83,9 +91,10 @@ mysqli_stmt_execute($countStmt);
 $total = mysqli_fetch_assoc(mysqli_stmt_get_result($countStmt))['total'];
 $totalPages = ceil($total / $limit);
 
-/* Data */
+/* DATA */
 $sql = "SELECT * FROM suppliers $where ORDER BY id DESC LIMIT ? OFFSET ?";
 $stmt = mysqli_prepare($conn, $sql);
+
 if ($params) {
     $types .= "ii";
     $params[] = $limit;
@@ -94,6 +103,7 @@ if ($params) {
 } else {
     mysqli_stmt_bind_param($stmt, "ii", $limit, $offset);
 }
+
 mysqli_stmt_execute($stmt);
 $suppliers = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
 mysqli_stmt_close($stmt);
@@ -120,26 +130,23 @@ mysqli_stmt_close($stmt);
 
         <div class="header-right">
             <form method="GET" class="search-box">
-                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                    placeholder="Search suppliers..." autocomplete="off">
-                <button type="submit">
-                    <i class="fa fa-search"></i>
-                </button>
+                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" autocomplete="off"
+                    placeholder="Search suppliers...">
+                <button><i class="fa fa-search"></i></button>
             </form>
-
             <button class="btn btn-add" onclick="openAddModal()">
                 <i class="fa fa-plus"></i> Add Supplier
             </button>
         </div>
     </header>
 
-
     <div class="card">
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Name</th>
+                    <th>Supplier</th>
+                    <th>Contact Person</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Address</th>
@@ -150,25 +157,40 @@ mysqli_stmt_close($stmt);
                 <?php if ($suppliers):
                     foreach ($suppliers as $s): ?>
                         <tr>
-                            <td><?= $s['id'] ?></td>
+                            <td>#<?= $s['id'] ?></td>
                             <td><?= htmlspecialchars($s['supplier_name']) ?></td>
+                            <td><?= htmlspecialchars($s['contact_person']) ?></td>
                             <td><?= htmlspecialchars($s['email']) ?></td>
                             <td><?= htmlspecialchars($s['phone']) ?></td>
                             <td><?= htmlspecialchars($s['address']) ?></td>
                             <td class="actions">
-                                <button class="btn btn-view"
-                                    onclick="openViewModal('<?= $s['id'] ?>','<?= htmlspecialchars($s['supplier_name'], ENT_QUOTES) ?>','<?= htmlspecialchars($s['email'], ENT_QUOTES) ?>','<?= htmlspecialchars($s['phone'], ENT_QUOTES) ?>','<?= htmlspecialchars($s['address'], ENT_QUOTES) ?>')"><i
-                                        class="fa fa-eye"></i></button>
-                                <button class="btn btn-edit"
-                                    onclick="openEditModal('<?= $s['id'] ?>','<?= htmlspecialchars($s['supplier_name'], ENT_QUOTES) ?>','<?= htmlspecialchars($s['email'], ENT_QUOTES) ?>','<?= htmlspecialchars($s['phone'], ENT_QUOTES) ?>','<?= htmlspecialchars($s['address'], ENT_QUOTES) ?>')"><i
-                                        class="fa fa-pen"></i></button>
+                                <button class="btn btn-view" onclick="openViewModal(
+            '<?= $s['id'] ?>',
+            '<?= htmlspecialchars($s['supplier_name'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['contact_person'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['email'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['phone'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['address'], ENT_QUOTES) ?>'
+        )"><i class="fa fa-eye"></i></button>
+
+                                <button class="btn btn-edit" onclick="openEditModal(
+            '<?= $s['id'] ?>',
+            '<?= htmlspecialchars($s['supplier_name'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['contact_person'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['email'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['phone'], ENT_QUOTES) ?>',
+            '<?= htmlspecialchars($s['address'], ENT_QUOTES) ?>'
+        )"><i class="fa fa-pen"></i></button>
+
                                 <a class="btn btn-delete" href="?delete=<?= $s['id'] ?>"
-                                    onclick="return confirm('Delete supplier?')"><i class="fa fa-trash"></i></a>
+                                    onclick="return confirm('Delete supplier?')">
+                                    <i class="fa fa-trash"></i>
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; else: ?>
                     <tr>
-                        <td colspan="6">No suppliers found</td>
+                        <td colspan="7">No suppliers found</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -199,9 +221,7 @@ mysqli_stmt_close($stmt);
 
             <?php for ($i = $start; $i <= $end; $i++): ?>
                 <a class="page-btn <?= $i == $page ? 'active' : '' ?>"
-                    href="?page=<?= $i ?>&search=<?= urlencode($search) ?>">
-                    <?= $i ?>
-                </a>
+                    href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
             <?php endfor; ?>
 
             <?php if ($end < $totalPages): ?>
@@ -219,14 +239,14 @@ mysqli_stmt_close($stmt);
         </div>
     </div>
 
-
     <!-- ADD -->
     <div class="modal" id="addModal">
         <div class="modal-content">
             <span class="close" onclick="closeAddModal()">&times;</span>
             <h2>Add Supplier</h2>
             <form method="POST">
-                <input name="supplier_name" required placeholder="Name">
+                <input name="supplier_name" placeholder="Supplier Name" required>
+                <input name="contact_person" placeholder="Contact Person">
                 <input name="email" placeholder="Email">
                 <input name="phone" placeholder="Phone">
                 <textarea name="address" placeholder="Address"></textarea>
@@ -243,6 +263,7 @@ mysqli_stmt_close($stmt);
             <form method="POST">
                 <input type="hidden" name="supplier_id" id="edit_id">
                 <input name="supplier_name" id="edit_name" required>
+                <input name="contact_person" id="edit_contact">
                 <input name="email" id="edit_email">
                 <input name="phone" id="edit_phone">
                 <textarea name="address" id="edit_address"></textarea>
@@ -257,7 +278,8 @@ mysqli_stmt_close($stmt);
             <span class="close" onclick="closeViewModal()">&times;</span>
             <h2>Supplier Details</h2>
             <p><b>ID:</b> <span id="v_id"></span></p>
-            <p><b>Name:</b> <span id="v_name"></span></p>
+            <p><b>Supplier:</b> <span id="v_name"></span></p>
+            <p><b>Contact Person:</b> <span id="v_contact"></span></p>
             <p><b>Email:</b> <span id="v_email"></span></p>
             <p><b>Phone:</b> <span id="v_phone"></span></p>
             <p><b>Address:</b> <span id="v_address"></span></p>
@@ -269,43 +291,31 @@ mysqli_stmt_close($stmt);
         const editModal = document.getElementById('editModal');
         const viewModal = document.getElementById('viewModal');
 
-        function openAddModal() {
-            addModal.style.display = 'flex';   // 👈 MUST be flex
-        }
+        function openAddModal() { addModal.style.display = 'flex' }
+        function closeAddModal() { addModal.style.display = 'none' }
 
-        function closeAddModal() {
-            addModal.style.display = 'none';
-        }
-
-        function openEditModal(i, n, e, p, a) {
+        function openEditModal(i, n, c, e, p, a) {
             edit_id.value = i;
             edit_name.value = n;
+            edit_contact.value = c;
             edit_email.value = e;
             edit_phone.value = p;
             edit_address.value = a;
-
-            editModal.style.display = 'flex';  // 👈 MUST be flex
+            editModal.style.display = 'flex';
         }
+        function closeEditModal() { editModal.style.display = 'none' }
 
-        function closeEditModal() {
-            editModal.style.display = 'none';
-        }
-
-        function openViewModal(i, n, e, p, a) {
+        function openViewModal(i, n, c, e, p, a) {
             v_id.textContent = i;
             v_name.textContent = n;
+            v_contact.textContent = c || '-';
             v_email.textContent = e || '-';
             v_phone.textContent = p || '-';
             v_address.textContent = a || '-';
-
-            viewModal.style.display = 'flex';  // 👈 MUST be flex
+            viewModal.style.display = 'flex';
         }
-
-        function closeViewModal() {
-            viewModal.style.display = 'none';
-        }
+        function closeViewModal() { viewModal.style.display = 'none' }
     </script>
-
 
 </body>
 

@@ -79,39 +79,8 @@ if ($result) {
 <body>
     <div class="dashboard-container">
 
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2>Admin Panel</h2>
-                <p>Welcome, Admin</p>
-            </div>
-            <nav class="sidebar-nav">
-                <a href="dashboard.php" class="nav-item active">
-                    <i class="fas fa-dashboard"></i> Dashboard
-                </a>
-                <a href="inventory.php" class="nav-item">
-                    <i class="fas fa-boxes"></i> Inventory Management
-                </a>
-                <a href="users.php" class="nav-item">
-                    <i class="fas fa-users"></i> User Management
-                </a>
-                <a href="reports.php" class="nav-item">
-                    <i class="fas fa-chart-bar"></i> Reports
-                </a>
-                <a href="categories.php" class="nav-item">
-                    <i class="fas fa-tags"></i> Categories
-                </a>
-                <a href="suppliers.php" class="nav-item">
-                    <i class="fas fa-truck"></i> Suppliers
-                </a>
-                <a href="settings.php" class="nav-item">
-                    <i class="fas fa-cog"></i> Settings
-                </a>
-                <a href="../logout.php" class="nav-item logout">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </nav>
-        </aside>
+        <!-- Include Sidebar -->
+        <?php include 'sidebar.php'; ?>
 
         <!-- Main Content -->
         <main class="main-content">
@@ -119,7 +88,7 @@ if ($result) {
             <header class="content-header">
                 <h1>Dashboard Overview</h1>
                 <div class="user-info">
-                    <span></span>
+                    <span><?= isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : '' ?></span>
                     <span class="badge badge-admin">ADMIN</span>
                 </div>
             </header>

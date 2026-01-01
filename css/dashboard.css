@@ -15,77 +15,16 @@ body {
   min-height: 100vh;
 }
 
-/* Sidebar Styles */
-.sidebar {
-  width: 280px;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-  color: white;
-  position: fixed;
-  height: 100vh;
-  overflow-y: auto;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.sidebar-header {
-  padding: 30px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-header h2 {
-  font-size: 24px;
-  margin-bottom: 10px;
-}
-
-.sidebar-header p {
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-.sidebar-nav {
-  padding: 20px 0;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  padding: 15px 25px;
-  color: white;
-  text-decoration: none;
-  transition: all 0.3s;
-  border-left: 3px solid transparent;
-}
-
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-left-color: #fff;
-}
-
-.nav-item.active {
-  background: rgba(255, 255, 255, 0.15);
-  border-left-color: #fff;
-}
-
-.nav-item i {
-  margin-right: 15px;
-  font-size: 18px;
-  width: 20px;
-}
-
-.nav-item.logout {
-  margin-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 20px;
-}
-
-.nav-item.logout:hover {
-  background: rgba(255, 0, 0, 0.2);
-}
-
 /* Main Content */
 .main-content {
   margin-left: 280px;
   flex: 1;
   padding: 30px;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.expanded {
+  margin-left: 80px;
 }
 
 .content-header {
@@ -137,6 +76,11 @@ body {
 
 .badge-danger {
   background: #f44336;
+  color: white;
+}
+
+.badge-info {
+  background: #00bcd4;
   color: white;
 }
 
@@ -367,12 +311,6 @@ tr:hover {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: relative;
-  }
-
   .main-content {
     margin-left: 0;
     padding: 15px;

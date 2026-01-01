@@ -177,7 +177,7 @@ $endRecord = min($offset + $perPage, $totalRecords);
                 <?php if (!empty($categories)): ?>
                     <?php foreach ($categories as $cat): ?>
                         <tr>
-                            <td><?= $cat['id'] ?></td>
+                            <td>#<?= $cat['id'] ?></td>
                             <td><?= htmlspecialchars($cat['category_name']) ?></td>
                             <td><?= htmlspecialchars($cat['description']) ?></td>
                             <td class="actions">
