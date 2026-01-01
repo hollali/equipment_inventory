@@ -150,7 +150,7 @@ $endRecord = min($offset + $perPage, $totalRecords);
                 <input type="text" name="search" placeholder="Search categories..." autocomplete="off"
                     value="<?= htmlspecialchars($search) ?>">
                 <button type="submit">
-                    <i class="fa fa-search"></i> Search
+                    <i class="fa fa-search"></i>
                 </button>
             </form>
         </div>

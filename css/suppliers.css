@@ -224,46 +224,302 @@ tbody tr:hover {
    MODAL STYLES
 ========================= */
 
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
-  display: none;
-  z-index: 1000;
+/* =========================
+   MODAL FORM STYLING
+   (Works with your current HTML)
+========================= */
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e40af;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --info: #0ea5e9;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-300: #d1d5db;
+  --gray-600: #4b5563;
+  --gray-800: #1f2937;
 }
 
-.modal-content {
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont;
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+/* =========================
+   PAGE HEADER
+========================= */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: #fff;
-  max-width: 520px;
-  margin: 80px auto;
-  padding: 26px;
-  border-radius: 16px;
-  position: relative;
-  animation: fadeUp 0.25s ease;
+  padding: 18px 22px;
+  border-radius: 14px;
+  margin-bottom: 22px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.modal-content h2 {
-  margin: 0 0 16px;
-  font-size: 20px;
-}
-
-.close {
-  position: absolute;
-  right: 18px;
-  top: 16px;
+.header-left h1 {
+  margin: 0;
   font-size: 22px;
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* CENTER SEARCH */
+.search-box {
+  display: flex;
+  background: var(--gray-50);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--gray-300);
+}
+
+.search-box input {
+  padding: 10px 14px;
+  border: none;
+  outline: none;
+  min-width: 240px;
+  background: transparent;
+}
+
+.search-box button {
+  background: transparent;
+  border: none;
+  padding: 0 14px;
   cursor: pointer;
   color: var(--gray-600);
+}
+
+/* =========================
+   BUTTONS
+========================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-back {
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.btn-add {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-view {
+  background: var(--info);
+  color: #fff;
+}
+.btn-edit {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-delete {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+/* =========================
+   TABLE STYLES
+========================= */
+.card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: var(--gray-50);
+}
+
+th {
+  padding: 16px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--gray-600);
+}
+
+td {
+  padding: 16px;
+  border-top: 1px solid var(--gray-100);
+  font-size: 14px;
+}
+
+tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+/* =========================
+   PAGINATION
+========================= */
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 22px;
+  padding: 14px 18px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: var(--gray-600);
+}
+
+.pagination {
+  display: flex;
+  gap: 6px;
+}
+
+.page-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--gray-100);
+  color: var(--gray-800);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.page-btn.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+}
+
+.dots {
+  padding: 0 8px;
+  color: var(--gray-600);
+}
+/* =========================
+   MODAL STYLES
+========================= */
+
+/* =========================
+   MODAL FORM STYLING
+   (Works with your current HTML)
+========================= */
+
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+/* Inputs & Textarea */
+.modal-content input,
+.modal-content textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-300);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--gray-50);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+/* Focus state */
+.modal-content input:focus,
+.modal-content textarea:focus {
+  background: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Textarea sizing */
+.modal-content textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+/* Submit buttons inside modal */
+.modal-content button.btn {
+  margin-top: 6px;
+  width: 100%;
+  justify-content: center;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 12px;
+}
+
+/* VIEW MODAL TEXT */
+#viewModal p {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+#viewModal p b {
+  color: var(--gray-600);
+}
+
+/* Close icon hover */
+.modal-content .close:hover {
+  color: var(--danger);
+  transform: scale(1.1);
 }
