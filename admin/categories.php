@@ -126,161 +126,176 @@ $endRecord = min($offset + $perPage, $totalRecords);
 
 <head>
     <meta charset="UTF-8">
-    <title>Categories</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categories - Parliament Inventory</title>
+    <link href="images/logo.png" rel="icon" type="image/x-icon">
+
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="../css/sidebar.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/categories.css">
 
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-    <link rel="stylesheet" href="../css/categories.css">
 </head>
 
 <body>
+    <div class="dashboard-container">
 
-    <!-- 🔹 PAGE HEADER -->
-    <header class="page-header">
-        <div class="header-left">
-            <a href="./dashboard.php" class="btn btn-back">
-                <i class="fa fa-arrow-left"></i> Back
-            </a>
-            <h1>Categories</h1>
-        </div>
+        <!-- Include Sidebar -->
+        <?php include 'sidebar.php'; ?>
 
-        <div class="header-center">
-            <form method="GET" class="search-box">
-                <input type="text" name="search" placeholder="Search categories..." autocomplete="off"
-                    value="<?= htmlspecialchars($search) ?>">
-                <button type="submit">
-                    <i class="fa fa-search"></i>
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Page Header -->
+            <header class="content-header">
+                <div>
+                    <h1>Categories</h1>
+                    <p>Manage inventory categories</p>
+                </div>
+                <div class="user-info">
+                    <span><?= isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : 'Admin' ?></span>
+                    <span class="badge badge-admin">ADMIN</span>
+                </div>
+            </header>
+
+            <!-- Toolbar -->
+            <div class="table-toolbar">
+                <form method="GET" class="search-form">
+                    <input type="text" name="search" placeholder="Search categories..." autocomplete="off"
+                        value="<?= htmlspecialchars($search) ?>">
+                    <button type="submit" class="btn btn-search">
+                        <i class="fa fa-search"></i> Search
+                    </button>
+                </form>
+
+                <button class="btn btn-add" onclick="openAddModal()">
+                    <i class="fa fa-plus"></i> Add Category
                 </button>
-            </form>
-        </div>
+            </div>
 
-        <div class="header-right">
-            <button class="btn btn-add" onclick="openAddModal()">
-                <i class="fa fa-plus"></i> Add Category
-            </button>
-        </div>
-    </header>
+            <!-- Table Card -->
+            <div class="content-section">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Category Name</th>
+                                <th>Description</th>
+                                <th width="180">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($categories)): ?>
+                                <?php foreach ($categories as $cat): ?>
+                                    <tr>
+                                        <td>#<?= $cat['id'] ?></td>
+                                        <td><?= htmlspecialchars($cat['category_name']) ?></td>
+                                        <td><?= htmlspecialchars($cat['description']) ?></td>
+                                        <td class="actions">
 
-    <!-- 🔹 TABLE CARD -->
-    <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Category Name</th>
-                    <th>Description</th>
-                    <th width="150">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($categories)): ?>
-                    <?php foreach ($categories as $cat): ?>
-                        <tr>
-                            <td>#<?= $cat['id'] ?></td>
-                            <td><?= htmlspecialchars($cat['category_name']) ?></td>
-                            <td><?= htmlspecialchars($cat['description']) ?></td>
-                            <td class="actions">
+                                            <!-- 👁 View -->
+                                            <button class="btn btn-view" onclick="openViewModal(
+                                        '<?= $cat['id'] ?>',
+                                        '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>',
+                                        '<?= htmlspecialchars($cat['description'], ENT_QUOTES) ?>'
+                                    )">
+                                                <i class="fa fa-eye"></i>
+                                            </button>
 
-                                <!-- 👁 View -->
-                                <button class="btn btn-view" onclick="openViewModal(
-                            '<?= $cat['id'] ?>',
-                            '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>',
-                            '<?= htmlspecialchars($cat['description'], ENT_QUOTES) ?>'
-                        )">
-                                    <i class="fa fa-eye"></i>
-                                </button>
+                                            <!-- ✏ Edit -->
+                                            <button class="btn btn-edit" onclick="openEditModal(
+                                        '<?= $cat['id'] ?>',
+                                        '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>',
+                                        '<?= htmlspecialchars($cat['description'], ENT_QUOTES) ?>'
+                                    )">
+                                                <i class="fa fa-pen"></i>
+                                            </button>
 
-                                <!-- ✏ Edit -->
-                                <button class="btn btn-edit" onclick="openEditModal(
-                            '<?= $cat['id'] ?>',
-                            '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>',
-                            '<?= htmlspecialchars($cat['description'], ENT_QUOTES) ?>'
-                        )">
-                                    <i class="fa fa-pen"></i>
-                                </button>
+                                            <!-- ❌ Delete -->
+                                            <a href="?delete=<?= $cat['id'] ?><?= $search ? '&search=' . urlencode($search) : '' ?>&page=<?= $page ?>"
+                                                class="btn btn-delete" onclick="return confirm('Delete this category?')">
+                                                <i class="fa fa-trash"></i>
+                                            </a>
 
-                                <!-- ❌ Delete -->
-                                <a href="?delete=<?= $cat['id'] ?><?= $search ? '&search=' . urlencode($search) : '' ?>&page=<?= $page ?>"
-                                    class="btn btn-delete" onclick="return confirm('Delete this category?')">
-                                    <i class="fa fa-trash"></i>
-                                </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 3rem; color: #64748b;">
+                                        <i class="fa-solid fa-tags"
+                                            style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+                                        No categories found
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="4">No categories found.</td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+            <!-- Pagination -->
+            <?php if ($totalPages > 1): ?>
+                <div class="pagination-wrapper">
+                    <div class="pagination-info">
+                        Showing <?= $startRecord ?> to <?= $endRecord ?> of <?= $totalRecords ?> entries
+                    </div>
+                    <div class="pagination">
+                        <?php
+                        $queryString = $search ? '&search=' . urlencode($search) : '';
+
+                        if ($page > 1): ?>
+                            <a href="?page=<?= $page - 1 ?><?= $queryString ?>" class="page-btn">
+                                <i class="fa fa-chevron-left"></i>
+                            </a>
+                        <?php else: ?>
+                            <button class="page-btn" disabled>
+                                <i class="fa fa-chevron-left"></i>
+                            </button>
+                        <?php endif; ?>
+
+                        <?php
+                        $startPage = max(1, $page - 2);
+                        $endPage = min($totalPages, $page + 2);
+
+                        if ($startPage > 1): ?>
+                            <a href="?page=1<?= $queryString ?>" class="page-btn">1</a>
+                            <?php if ($startPage > 2): ?>
+                                <span class="dots">...</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
+                            <a href="?page=<?= $i ?><?= $queryString ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>">
+                                <?= $i ?>
+                            </a>
+                        <?php endfor; ?>
+
+                        <?php if ($endPage < $totalPages): ?>
+                            <?php if ($endPage < $totalPages - 1): ?>
+                                <span class="dots">...</span>
+                            <?php endif; ?>
+                            <a href="?page=<?= $totalPages ?><?= $queryString ?>" class="page-btn"><?= $totalPages ?></a>
+                        <?php endif; ?>
+
+                        <?php if ($page < $totalPages): ?>
+                            <a href="?page=<?= $page + 1 ?><?= $queryString ?>" class="page-btn">
+                                <i class="fa fa-chevron-right"></i>
+                            </a>
+                        <?php else: ?>
+                            <button class="page-btn" disabled>
+                                <i class="fa fa-chevron-right"></i>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+        </main>
     </div>
-
-    <!-- 🔹 PAGINATION -->
-    <?php if ($totalPages > 1): ?>
-        <div class="pagination-wrapper">
-            <div class="pagination-info">
-                Showing <?= $startRecord ?> to <?= $endRecord ?> of <?= $totalRecords ?> entries
-            </div>
-            <div class="pagination">
-                <?php
-                // Build query string for pagination links
-                $queryString = $search ? '&search=' . urlencode($search) : '';
-
-                // Previous button
-                if ($page > 1): ?>
-                    <a href="?page=<?= $page - 1 ?><?= $queryString ?>" class="page-btn">
-                        <i class="fa fa-chevron-left"></i>
-                    </a>
-                <?php else: ?>
-                    <button class="page-btn" disabled>
-                        <i class="fa fa-chevron-left"></i>
-                    </button>
-                <?php endif; ?>
-
-                <?php
-                // Page number logic
-                $startPage = max(1, $page - 2);
-                $endPage = min($totalPages, $page + 2);
-
-                // Show first page if not in range
-                if ($startPage > 1): ?>
-                    <a href="?page=1<?= $queryString ?>" class="page-btn">1</a>
-                    <?php if ($startPage > 2): ?>
-                        <span class="dots">...</span>
-                    <?php endif; ?>
-                <?php endif; ?>
-
-                <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
-                    <a href="?page=<?= $i ?><?= $queryString ?>" class="page-btn <?= $i == $page ? 'active' : '' ?>">
-                        <?= $i ?>
-                    </a>
-                <?php endfor; ?>
-
-                <?php
-                // Show last page if not in range
-                if ($endPage < $totalPages): ?>
-                    <?php if ($endPage < $totalPages - 1): ?>
-                        <span class="dots">...</span>
-                    <?php endif; ?>
-                    <a href="?page=<?= $totalPages ?><?= $queryString ?>" class="page-btn"><?= $totalPages ?></a>
-                <?php endif; ?>
-
-                <!-- Next button -->
-                <?php if ($page < $totalPages): ?>
-                    <a href="?page=<?= $page + 1 ?><?= $queryString ?>" class="page-btn">
-                        <i class="fa fa-chevron-right"></i>
-                    </a>
-                <?php else: ?>
-                    <button class="page-btn" disabled>
-                        <i class="fa fa-chevron-right"></i>
-                    </button>
-                <?php endif; ?>
-            </div>
-        </div>
-    <?php endif; ?>
 
     <!-- ➕ ADD MODAL -->
     <div class="modal" id="addModal">
@@ -291,7 +306,7 @@ $endRecord = min($offset + $perPage, $totalRecords);
                 <input type="text" name="category_name" placeholder="Category Name" required>
                 <textarea name="description" placeholder="Description"></textarea>
                 <button type="submit" name="add_category" class="btn btn-add">
-                    Save
+                    Save Category
                 </button>
             </form>
         </div>
@@ -307,7 +322,7 @@ $endRecord = min($offset + $perPage, $totalRecords);
                 <input type="text" name="category_name" id="edit_name" required>
                 <textarea name="description" id="edit_desc"></textarea>
                 <button type="submit" name="update_category" class="btn btn-edit">
-                    Update
+                    Update Category
                 </button>
             </form>
         </div>
@@ -336,10 +351,9 @@ $endRecord = min($offset + $perPage, $totalRecords);
         </div>
     </div>
 
-    <!-- 🔹 JAVASCRIPT -->
     <script>
         function openAddModal() {
-            document.getElementById('addModal').style.display = 'block';
+            document.getElementById('addModal').style.display = 'flex';
         }
 
         function closeAddModal() {
@@ -350,7 +364,7 @@ $endRecord = min($offset + $perPage, $totalRecords);
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_name').value = name;
             document.getElementById('edit_desc').value = desc;
-            document.getElementById('editModal').style.display = 'block';
+            document.getElementById('editModal').style.display = 'flex';
         }
 
         function closeEditModal() {
@@ -361,12 +375,32 @@ $endRecord = min($offset + $perPage, $totalRecords);
             document.getElementById('view_id').innerText = id;
             document.getElementById('view_name').innerText = name;
             document.getElementById('view_desc').innerText = desc || '—';
-            document.getElementById('viewModal').style.display = 'block';
+            document.getElementById('viewModal').style.display = 'flex';
         }
 
         function closeViewModal() {
             document.getElementById('viewModal').style.display = 'none';
         }
+
+        // Close modals on outside click
+        window.onclick = function (event) {
+            const modals = ['addModal', 'editModal', 'viewModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeAddModal();
+                closeEditModal();
+                closeViewModal();
+            }
+        });
     </script>
 
 </body>
