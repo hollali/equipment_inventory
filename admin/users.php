@@ -6,6 +6,56 @@ require_once "../config/database.php";
 $db = new Database();
 $conn = $db->getConnection();
 
+/* ➕ ADD USER - Handle form submission */
+if (isset($_POST['submit']) && $_POST['submit'] == 'add_user') {
+    $username = trim($_POST['username']);
+    $full_name = trim($_POST['full_name']);
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+    $role = $_POST['role'];
+    $status = $_POST['status'];
+
+    // Hash the password
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+    // Prepare and execute insert statement
+    $stmt = $conn->prepare("INSERT INTO users (username, full_name, email, password, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->bind_param("ssssss", $username, $full_name, $email, $hashed_password, $role, $status);
+
+    if ($stmt->execute()) {
+        header("Location: users.php?success=added");
+        exit();
+    } else {
+        $error_message = "Error adding user: " . $stmt->error;
+    }
+    $stmt->close();
+}
+
+/* ✏️ UPDATE USER - Handle form submission */
+if (isset($_POST['submit']) && $_POST['submit'] == 'update_user') {
+    $user_id = intval($_POST['user_id']);
+    $username = trim($_POST['username']);
+    $full_name = trim($_POST['full_name']);
+    $email = trim($_POST['email']);
+    $role = $_POST['role'];
+    $status = $_POST['status'];
+
+    $updateSql = "UPDATE users 
+                  SET username = ?, full_name = ?, email = ?, role = ?, status = ?, updated_at = NOW()
+                  WHERE id = ?";
+
+    $updateStmt = $conn->prepare($updateSql);
+    $updateStmt->bind_param("sssssi", $username, $full_name, $email, $role, $status, $user_id);
+
+    if ($updateStmt->execute()) {
+        header("Location: users.php?success=updated");
+        exit();
+    } else {
+        $error_message = "Error updating user: " . $updateStmt->error;
+    }
+    $updateStmt->close();
+}
+
 /* 🔍 Search */
 $search = trim($_GET['search'] ?? '');
 
@@ -69,6 +119,25 @@ $result = $stmt->get_result();
                 </div>
             </header>
 
+            <!-- Success/Error Messages -->
+            <?php if (isset($_GET['success'])): ?>
+                <?php if ($_GET['success'] == 'added'): ?>
+                    <div class="alert alert-success">
+                        <i class="fa fa-check-circle"></i> User added successfully!
+                    </div>
+                <?php elseif ($_GET['success'] == 'updated'): ?>
+                    <div class="alert alert-success">
+                        <i class="fa fa-check-circle"></i> User updated successfully!
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if (isset($error_message)): ?>
+                <div class="alert alert-error">
+                    <i class="fa fa-exclamation-circle"></i> <?= htmlspecialchars($error_message) ?>
+                </div>
+            <?php endif; ?>
+
             <!-- Toolbar -->
             <div class="table-toolbar">
                 <form method="GET" class="search-form">
@@ -128,10 +197,16 @@ $result = $stmt->get_result();
                                                 title="View">
                                                 <i class="fa fa-eye"></i>
                                             </a>
-                                            <a href="edit_user.php?id=<?php echo $row["id"]; ?>" class="icon-btn edit"
-                                                title="Edit">
+                                            <button class="icon-btn edit" title="Edit" onclick="openEditUserModal(
+                                                <?= $row['id'] ?>,
+                                                '<?= htmlspecialchars($row['username'], ENT_QUOTES) ?>',
+                                                '<?= htmlspecialchars($row['full_name'], ENT_QUOTES) ?>',
+                                                '<?= htmlspecialchars($row['email'], ENT_QUOTES) ?>',
+                                                '<?= $row['role'] ?>',
+                                                '<?= $row['status'] ?>'
+                                            )">
                                                 <i class="fa fa-pen"></i>
-                                            </a>
+                                            </button>
                                             <a href="reset_password.php?id=<?php echo $row["id"]; ?>" class="icon-btn reset"
                                                 title="Reset Password"
                                                 onclick="return confirm('Reset password for this user?');">
@@ -166,28 +241,58 @@ $result = $stmt->get_result();
         <div class="modal-content">
             <span class="close-modal" onclick="closeAddUserModal()">&times;</span>
             <h2>Add New User</h2>
-            <form method="POST" action="#">
+            <form method="POST" action="users.php">
                 <input type="text" name="username" placeholder="Username" required>
                 <input type="text" name="full_name" placeholder="Full Name" required>
                 <input type="email" name="email" placeholder="Email" required>
-                <input type="password" name="password" placeholder="Password" required>
+                <input type="password" name="password" placeholder="Password" required minlength="6">
                 <select name="role" required>
                     <option value="">Select Role</option>
                     <option value="admin">Admin</option>
                     <option value="staff">Staff</option>
-                    <option value="user">User</option>
                 </select>
                 <select name="status" required>
                     <option value="">Select Status</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                 </select>
-                <button type="submit" name="submit">Add User</button>
+                <button type="submit" name="submit" value="add_user">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeEditUserModal()">&times;</span>
+            <h2>Edit User</h2>
+            <form method="POST" action="users.php">
+                <input type="hidden" name="user_id" id="edit_user_id">
+
+                <input type="text" name="username" id="edit_username" placeholder="Username" required>
+                <input type="text" name="full_name" id="edit_full_name" placeholder="Full Name" required>
+                <input type="email" name="email" id="edit_email" placeholder="Email" required>
+
+                <select name="role" id="edit_role" required>
+                    <option value="">Select Role</option>
+                    <option value="admin">Admin</option>
+                    <option value="staff">Staff</option>
+                    <option value="user">User</option>
+                </select>
+
+                <select name="status" id="edit_status" required>
+                    <option value="">Select Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+
+                <button type="submit" name="submit" value="update_user">Update User</button>
             </form>
         </div>
     </div>
 
     <script>
+        // Add User Modal
         function openAddUserModal() {
             document.getElementById("addUserModal").style.display = "flex";
         }
@@ -196,20 +301,51 @@ $result = $stmt->get_result();
             document.getElementById("addUserModal").style.display = "none";
         }
 
-        // Close modal on outside click
+        // Edit User Modal
+        function openEditUserModal(id, username, fullName, email, role, status) {
+            document.getElementById("edit_user_id").value = id;
+            document.getElementById("edit_username").value = username;
+            document.getElementById("edit_full_name").value = fullName;
+            document.getElementById("edit_email").value = email;
+            document.getElementById("edit_role").value = role;
+            document.getElementById("edit_status").value = status;
+            document.getElementById("editUserModal").style.display = "flex";
+        }
+
+        function closeEditUserModal() {
+            document.getElementById("editUserModal").style.display = "none";
+        }
+
+        // Close modals on outside click
         window.onclick = function (event) {
-            const modal = document.getElementById("addUserModal");
-            if (event.target === modal) {
+            const addModal = document.getElementById("addUserModal");
+            const editModal = document.getElementById("editUserModal");
+
+            if (event.target === addModal) {
                 closeAddUserModal();
+            }
+            if (event.target === editModal) {
+                closeEditUserModal();
             }
         }
 
-        // Close modal on Escape key
+        // Close modals on Escape key
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 closeAddUserModal();
+                closeEditUserModal();
             }
         });
+
+        // Auto-hide success message after 5 seconds
+        setTimeout(function () {
+            const alert = document.querySelector('.alert-success');
+            if (alert) {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            }
+        }, 5000);
     </script>
 
 </body>
