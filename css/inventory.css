@@ -193,6 +193,28 @@ table tbody tr:hover {
   padding: 0 1rem;
 }
 
+/* BACK BUTTON */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  color: #475569;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
+}
+
+.back-link:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
 .edit-card {
   background: #fff;
   padding: 2rem;
@@ -220,6 +242,7 @@ table tbody tr:hover {
   font-size: 0.85rem;
   margin-bottom: 0.3rem;
   color: #475569;
+  font-weight: 500;
 }
 
 .form-group input,
@@ -253,10 +276,17 @@ table tbody tr:hover {
   border-radius: 8px;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
 }
 
 .btn-save:hover {
   background: #2563eb;
+  transform: translateY(-2px);
 }
 
 /* ERROR */
@@ -266,6 +296,9 @@ table tbody tr:hover {
   padding: 0.8rem 1rem;
   border-radius: 6px;
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* RESPONSIVE */
