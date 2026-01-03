@@ -15,38 +15,14 @@ $auth->requireStaff();
     <title>Staff Dashboard - Parliament Inventory</title>
     <link href="./images/logo.png" rel="icon" type="image/x-icon">
     <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/sidebar.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 
 <body>
     <div class="dashboard-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2>Staff Panel</h2>
-                <p>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></p>
-            </div>
-            <nav class="sidebar-nav">
-                <a href="dashboard.php" class="nav-item active">
-                    <i class="fas fa-dashboard"></i> Dashboard
-                </a>
-                <a href="view-inventory.php" class="nav-item">
-                    <i class="fas fa-boxes"></i> View Inventory
-                </a>
-                <a href="request-items.php" class="nav-item">
-                    <i class="fas fa-shopping-cart"></i> Request Items
-                </a>
-                <a href="my-requests.php" class="nav-item">
-                    <i class="fas fa-list"></i> My Requests
-                </a>
-                <a href="profile.php" class="nav-item">
-                    <i class="fas fa-user"></i> My Profile
-                </a>
-                <a href="../logout.php" class="nav-item logout">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </nav>
-        </aside>
+        <!-- Include Sidebar -->
+        <?php include 'includes/sidebar.php'; ?>
 
         <!-- Main Content -->
         <main class="main-content">
