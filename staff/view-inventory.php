@@ -45,13 +45,8 @@ $totalPages = ceil($totalRows / $limit);
 /* ================== FETCH DATA ================== */
 if ($search !== "") {
     $dataSql = "
-        SELECT 
-            i.item_name,
-            i.item_code,
-            i.quantity,
-            i.status,
-            i.created_at,
-            c.category_name
+        SELECT i.item_name, i.item_code, i.quantity, i.status, i.created_at,
+               c.category_name
         FROM inventory_items i
         LEFT JOIN categories c ON i.category_id = c.id
         WHERE i.item_name LIKE ? OR i.item_code LIKE ? OR c.category_name LIKE ?
@@ -62,13 +57,8 @@ if ($search !== "") {
     mysqli_stmt_bind_param($stmt, "sssii", $term, $term, $term, $offset, $limit);
 } else {
     $dataSql = "
-        SELECT 
-            i.item_name,
-            i.item_code,
-            i.quantity,
-            i.status,
-            i.created_at,
-            c.category_name
+        SELECT i.item_name, i.item_code, i.quantity, i.status, i.created_at,
+               c.category_name
         FROM inventory_items i
         LEFT JOIN categories c ON i.category_id = c.id
         ORDER BY i.created_at DESC
@@ -88,13 +78,18 @@ $result = mysqli_stmt_get_result($stmt);
 <head>
     <meta charset="UTF-8">
     <title>View Inventory</title>
-    <link rel="stylesheet" href="../css/view-staff-inventory.css">
     <link rel="stylesheet" href="../css/sidebar.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/view-staff-inventory.css">
 
 </head>
 
 <body>
 
+    <!-- Sidebar -->
+    <?php include 'includes/sidebar.php'; ?>
+
+    <!-- Main Container -->
     <div class="container">
 
         <div class="page-header">
@@ -102,12 +97,14 @@ $result = mysqli_stmt_get_result($stmt);
             <a href="dashboard.php" class="btn-back">← Back to Dashboard</a>
         </div>
 
+        <!-- Search Form -->
         <form method="GET" class="search-form">
             <input type="text" name="search" placeholder="Search item, code, or category..."
                 value="<?= htmlspecialchars($search) ?>">
             <button type="submit">Search</button>
         </form>
 
+        <!-- Inventory Table -->
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -148,6 +145,7 @@ $result = mysqli_stmt_get_result($stmt);
             </table>
         </div>
 
+        <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
             <div class="pagination">
                 <?php for ($p = 1; $p <= $totalPages; $p++): ?>

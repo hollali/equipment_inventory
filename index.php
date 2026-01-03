@@ -1,33 +1,76 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+require_once "./config/database.php";
+
 $username = "";
 $password = "";
 
-$admin = array("username" => "Admin", "password" => "000000");
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
 
-if (isset($_POST['submit'])) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-
-    if (($admin['username'] == $username) && ($admin['password'] == $password)) {
-        echo '<script>
-        alert("Access Granted !!!");
-        window.location="admin/dashboard.php";
-        </script>';
+    if ($username === '' || $password === '') {
+        echo '<script>alert("Username and password are required.");</script>';
     } else {
-        echo '<script>
-        alert("Access denied !!!");
-        window.location="index.php";
-        </script>';
+        $db = new Database();
+        $conn = $db->getConnection();
+
+        if (!$conn) {
+            die("Database connection failed.");
+        }
+
+        // Fetch user with role 'admin'
+        $stmt = mysqli_prepare($conn, "SELECT id, username, full_name, password, status FROM users WHERE username = ? AND role = 'admin'");
+        mysqli_stmt_bind_param($stmt, "s", $username);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        if (mysqli_num_rows($result) === 1) {
+            $admin = mysqli_fetch_assoc($result);
+
+            if ($admin['status'] !== 'active') {
+                echo '<script>alert("Your account is inactive. Contact the system administrator.");</script>';
+            } elseif (password_verify($password, $admin['password'])) {
+                // Login success
+                $_SESSION['admin_id'] = $admin['id'];
+                $_SESSION['admin_name'] = $admin['full_name'];
+                $_SESSION['admin_username'] = $admin['username'];
+
+                // Update last login
+                $update = mysqli_prepare($conn, "UPDATE users SET last_login = NOW() WHERE id = ?");
+                mysqli_stmt_bind_param($update, "i", $admin['id']);
+                mysqli_stmt_execute($update);
+                mysqli_stmt_close($update);
+
+                echo '<script>
+                    alert("Login successful!");
+                    window.location.href = "admin/dashboard.php";
+                </script>';
+                exit();
+            } else {
+                echo '<script>alert("Invalid username or password.");</script>';
+            }
+        } else {
+            echo '<script>alert("Invalid username or password.");</script>';
+        }
+
+        mysqli_stmt_close($stmt);
+        mysqli_close($conn);
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parliamentary Service of Ghana Inventory Management System</title>
+    <title>Admin Login - PSG Inventory System</title>
     <link href="images/logo.png" rel="icon" type="image/x-icon">
     <link rel="stylesheet" href="./css/login.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -40,12 +83,12 @@ if (isset($_POST['submit'])) {
             <h3>Inventory Management System</h3>
         </div>
         <div class="loginBody">
-            <form action="<?php echo $_SERVER['PHP_SELF'] ?>" method="POST" onsubmit="return validateForm()">
+            <form action="" method="POST" onsubmit="return validateForm()">
                 <div class="loginInputsContainer">
-                    <h1>Admin login panel</h1>
+                    <h1>Admin Login Panel</h1>
                     <label for="username">Username</label>
-                    <input id="username" placeholder="Enter Your Username" type="text" name="username"
-                        required="required" autocomplete="off" value="">
+                    <input id="username" placeholder="Enter Your Username" type="text" name="username" required
+                        autocomplete="off" value="<?= htmlspecialchars($username) ?>">
                     <small id="userError" class="error"></small>
                 </div>
                 <div class="loginInputsContainer">
@@ -59,16 +102,9 @@ if (isset($_POST['submit'])) {
                     </div>
                     <small id="passError" class="error"></small>
                 </div>
-                <!--<div class="selectorContainer">
-                    <label for="">Select Role</label>
-                    <select name="selector" id="selector" required="required">
-                        <option value="admin">ADMIN</option>
-                        <option value="staff">STAFF</option>
-                    </select>
-                </div>-->
                 <div class="loginButtonContainer">
-                    <button type="submit" name="submit" id="submit">LOGIN</button>
-                    <p>Staff Login Panel <a href="staff.php" class="staff-link">Click Here</a></p>
+                    <button type="submit">LOGIN</button>
+                    <p>Staff Login Panel <a href="staff-login.php">Click Here</a></p>
                 </div>
             </form>
         </div>

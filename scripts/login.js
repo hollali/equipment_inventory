@@ -1,3 +1,16 @@
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("form");
+    const toggleBtn = document.querySelector(".toggle-password");
+
+    form.addEventListener("submit", (e) => {
+        if (!validateForm()) {
+            e.preventDefault(); // Stop form submission if invalid
+        }
+    });
+
+    toggleBtn.addEventListener("click", togglePassword);
+});
+
 function validateForm() {
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value.trim();
@@ -25,10 +38,6 @@ function validateForm() {
 
     return isValid;
 }
-
-document
-    .querySelector(".toggle-password")
-    .addEventListener("click", togglePassword);
 
 function togglePassword() {
     const input = document.getElementById("password");

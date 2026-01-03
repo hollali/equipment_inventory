@@ -15,6 +15,17 @@ if (isset($_POST['submit']) && $_POST['submit'] == 'add_user') {
     $role = $_POST['role'];
     $status = $_POST['status'];
 
+    // Duplicate check
+    $checkStmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+    $checkStmt->bind_param("ss", $username, $email);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+    if ($checkResult->num_rows > 0) {
+        echo '<script>alert("Username or email already exists!"); window.location="users.php";</script>';
+        exit();
+    }
+    $checkStmt->close();
+
     // Hash the password
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
@@ -39,6 +50,17 @@ if (isset($_POST['submit']) && $_POST['submit'] == 'update_user') {
     $email = trim($_POST['email']);
     $role = $_POST['role'];
     $status = $_POST['status'];
+
+    // Duplicate check excluding current user
+    $checkStmt = $conn->prepare("SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?");
+    $checkStmt->bind_param("ssi", $username, $email, $user_id);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+    if ($checkResult->num_rows > 0) {
+        echo '<script>alert("Username or email already exists for another user!"); window.location="users.php";</script>';
+        exit();
+    }
+    $checkStmt->close();
 
     $updateSql = "UPDATE users 
                   SET username = ?, full_name = ?, email = ?, role = ?, status = ?, updated_at = NOW()
