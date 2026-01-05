@@ -14,13 +14,12 @@ body {
     "Helvetica Neue", Arial, sans-serif;
   background: #f0f2f5;
   min-height: 100vh;
-  padding: 20px;
   color: #333;
 }
 
 /* === PAGE CONTAINER === */
 .page-container {
-  max-width: 1700px;
+  max-width: 900px;
   margin: 0 auto;
   background: #f8f9fa;
   border-radius: 16px;

@@ -3,13 +3,15 @@
 ===================== */
 * {
   box-sizing: border-box;
-  font-family: "Segoe UI", Tahoma, sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
 body {
   background: #f4f6f9;
   margin: 0;
   padding: 0;
+  font-family: "Segoe UI", Tahoma, sans-serif;
 }
 
 /* =====================
@@ -17,8 +19,21 @@ body {
    (Accounts for sidebar)
 ===================== */
 .container {
+  margin-left: 280px;
+  max-width: calc(100% - 280px);
+  min-height: 100vh;
+  padding: 40px 30px;
+  transition: margin-left 0.3s ease, max-width 0.3s ease;
+}
+
+body.sidebar-collapsed .container {
+  margin-left: 80px;
+  max-width: calc(100% - 80px);
+}
+
+.container-inner {
   max-width: 1200px;
-  margin: 40px auto;
+  margin: 0 auto;
   background: #ffffff;
   padding: 25px 30px;
   border-radius: 12px;
@@ -73,6 +88,7 @@ body {
   border-radius: 8px;
   border: 1px solid #dcdfe4;
   min-width: 260px;
+  flex: 1;
   font-size: 14px;
 }
 
@@ -102,6 +118,7 @@ body {
 .table-wrapper {
   overflow-x: auto;
   border-radius: 8px;
+  margin-bottom: 20px;
 }
 
 table {
@@ -119,12 +136,14 @@ th {
   padding: 14px 12px;
   font-size: 14px;
   font-weight: 600;
+  text-align: left;
 }
 
 td {
   padding: 13px 12px;
   font-size: 14px;
   color: #2c3e50;
+  border-bottom: 1px solid #ecf0f1;
 }
 
 tbody tr:nth-child(even) {
@@ -133,6 +152,11 @@ tbody tr:nth-child(even) {
 
 tbody tr:hover {
   background: #eef2f7;
+  transition: background 0.2s ease;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .empty {
@@ -194,6 +218,7 @@ tbody tr:hover {
 
 .pagination a:hover {
   background: #dfe6e9;
+  transform: translateY(-2px);
 }
 
 .pagination a.active {
@@ -204,9 +229,30 @@ tbody tr:hover {
 /* =====================
    RESPONSIVE
 ===================== */
+@media (max-width: 1024px) {
+  .container {
+    margin-left: 280px;
+    padding: 30px 20px;
+  }
+
+  .container-inner {
+    padding: 20px 25px;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
-    margin: 20px;
+    margin-left: 0;
+    max-width: 100%;
+    padding: 20px;
+  }
+
+  body.sidebar-collapsed .container {
+    margin-left: 0;
+    max-width: 100%;
+  }
+
+  .container-inner {
     padding: 20px;
   }
 
@@ -221,5 +267,50 @@ tbody tr:hover {
 
   .search-form input {
     width: 100%;
+    min-width: auto;
+  }
+
+  table {
+    min-width: 650px;
+  }
+
+  th,
+  td {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 15px;
+  }
+
+  .container-inner {
+    padding: 15px;
+    border-radius: 8px;
+  }
+
+  .page-header h2 {
+    font-size: 18px;
+  }
+
+  .btn-back {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .search-form input,
+  .search-form button {
+    font-size: 13px;
+  }
+
+  table {
+    min-width: 550px;
+  }
+
+  .pagination a {
+    padding: 7px 12px;
+    font-size: 13px;
   }
 }

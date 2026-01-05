@@ -5,7 +5,6 @@ error_reporting(E_ALL);
 
 session_start();
 require_once "../config/database.php";
-require_once __DIR__ . "/includes/sidebar.php";
 
 /* ================== DB ================== */
 $db = new Database();
@@ -96,7 +95,7 @@ $result = mysqli_stmt_get_result($stmt);
 <body>
 
     <!-- Sidebar -->
-
+    <?php include './includes/sidebar.php'; ?>
     <!-- Main Container -->
     <div class="container">
 

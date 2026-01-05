@@ -5,7 +5,6 @@ error_reporting(E_ALL);
 
 session_start();
 require_once "../config/database.php";
-require_once __DIR__ . "/includes/sidebar.php";
 
 /* ================== DB ================== */
 $db = new Database();
@@ -77,11 +76,13 @@ $result = mysqli_stmt_get_result($stmt);
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Inventory</title>
+    <!-- IMPORTANT: Include sidebar.css BEFORE view-staff-inventory.css -->
     <link rel="stylesheet" href="../css/sidebar.css">
-    <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/view-staff-inventory.css">
-
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
@@ -91,72 +92,75 @@ $result = mysqli_stmt_get_result($stmt);
 
     <!-- Main Container -->
     <div class="container">
+        <div class="container-inner">
 
-        <div class="page-header">
-            <h2>📦 Inventory Items</h2>
-            <a href="dashboard.php" class="btn-back">← Back to Dashboard</a>
-        </div>
-
-        <!-- Search Form -->
-        <form method="GET" class="search-form">
-            <input type="text" name="search" placeholder="Search item, code, or category..."
-                value="<?= htmlspecialchars($search) ?>">
-            <button type="submit">Search</button>
-        </form>
-
-        <!-- Inventory Table -->
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Item</th>
-                        <th>Code</th>
-                        <th>Category</th>
-                        <th>Quantity</th>
-                        <th>Status</th>
-                        <th>Added On</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (mysqli_num_rows($result) > 0): ?>
-                        <?php $i = $offset + 1; ?>
-                        <?php while ($row = mysqli_fetch_assoc($result)): ?>
-                            <tr>
-                                <td><?= $i++ ?></td>
-                                <td><?= htmlspecialchars($row['item_name']) ?></td>
-                                <td><?= htmlspecialchars($row['item_code']) ?></td>
-                                <td><?= htmlspecialchars($row['category_name'] ?? '—') ?></td>
-                                <td><?= (int) $row['quantity'] ?></td>
-                                <td>
-                                    <span class="status <?= $row['status'] ?>">
-                                        <?= ucfirst(str_replace('_', ' ', $row['status'])) ?>
-                                    </span>
-                                </td>
-                                <td><?= date("d M Y", strtotime($row['created_at'])) ?></td>
-                            </tr>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="7" class="empty">No inventory items found</td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <?php if ($totalPages > 1): ?>
-            <div class="pagination">
-                <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-                    <a href="?page=<?= $p ?>&search=<?= urlencode($search) ?>" class="<?= $p === $page ? 'active' : '' ?>">
-                        <?= $p ?>
-                    </a>
-                <?php endfor; ?>
+            <div class="page-header">
+                <h2>📦 Inventory Items</h2>
+                <a href="dashboard.php" class="btn-back">← Back to Dashboard</a>
             </div>
-        <?php endif; ?>
 
+            <!-- Search Form -->
+            <form method="GET" class="search-form">
+                <input type="text" name="search" placeholder="Search item, code, or category..."
+                    value="<?= htmlspecialchars($search) ?>">
+                <button type="submit">Search</button>
+            </form>
+
+            <!-- Inventory Table -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Item</th>
+                            <th>Code</th>
+                            <th>Category</th>
+                            <th>Quantity</th>
+                            <th>Status</th>
+                            <th>Added On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (mysqli_num_rows($result) > 0): ?>
+                            <?php $i = $offset + 1; ?>
+                            <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                                <tr>
+                                    <td><?= $i++ ?></td>
+                                    <td><?= htmlspecialchars($row['item_name']) ?></td>
+                                    <td><?= htmlspecialchars($row['item_code']) ?></td>
+                                    <td><?= htmlspecialchars($row['category_name'] ?? '—') ?></td>
+                                    <td><?= (int) $row['quantity'] ?></td>
+                                    <td>
+                                        <span class="status <?= htmlspecialchars($row['status']) ?>">
+                                            <?= ucfirst(str_replace('_', ' ', $row['status'])) ?>
+                                        </span>
+                                    </td>
+                                    <td><?= date("d M Y", strtotime($row['created_at'])) ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="7" class="empty">No inventory items found</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <?php if ($totalPages > 1): ?>
+                <div class="pagination">
+                    <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                        <a href="?page=<?= $p ?>&search=<?= urlencode($search) ?>" class="<?= $p === $page ? 'active' : '' ?>">
+                            <?= $p ?>
+                        </a>
+                    <?php endfor; ?>
+                </div>
+            <?php endif; ?>
+
+        </div>
     </div>
+
 
 </body>
 
