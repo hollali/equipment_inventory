@@ -15,15 +15,13 @@ $auth->requireStaff();
     <title>Staff Dashboard - Parliament Inventory</title>
     <link href="./images/logo.png" rel="icon" type="image/x-icon">
     <link rel="stylesheet" href="../css/dashboard.css">
-    <link rel="stylesheet" href="../css/sidebar.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 
 <body>
     <div class="dashboard-container">
-        <!-- Include Sidebar -->
-        <?php include 'includes/sidebar.php'; ?>
-
+        <!-- Sidebar -->
+        <?php include './includes/sidebar.php'; ?>
         <!-- Main Content -->
         <main class="main-content">
             <header class="content-header">
