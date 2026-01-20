@@ -45,10 +45,10 @@ if (isset($_POST['save'])) {
     $item_name = trim($_POST['item_name']);
     $item_code = trim($_POST['item_code']);
     $category_id = (int) $_POST['category_id'];
-    $supplier_id = !empty($_POST['supplier_id']) ? (int) $_POST['supplier_id'] : 0;
+    #$supplier_id = !empty($_POST['supplier_id']) ? (int) $_POST['supplier_id'] : 0;
     $quantity = (int) $_POST['quantity'];
-    $min_quantity = (int) $_POST['min_quantity'];
-    $unit_price = (float) $_POST['unit_price'];
+    #$min_quantity = (int) $_POST['min_quantity'];
+    #$unit_price = (float) $_POST['unit_price'];
     $location = trim($_POST['location']);
     $description = trim($_POST['description']);
 
@@ -56,20 +56,20 @@ if (isset($_POST['save'])) {
     $stmt = mysqli_prepare(
         $conn,
         "INSERT INTO inventory_items
-        (item_name, item_code, category_id, supplier_id, quantity, min_quantity, unit_price, location, description)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        (item_name, item_code, category_id,  quantity, location, description)
+        VALUES (?, ?, ?, ?, ?, ?)"
     );
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssiiiidss",
+        "ssisssi",
         $item_name,
         $item_code,
         $category_id,
-        $supplier_id,
+        #$supplier_id,
         $quantity,
-        $min_quantity,
-        $unit_price,
+        #$min_quantity,
+        #$unit_price,
         $location,
         $description
     );
@@ -88,10 +88,10 @@ if (isset($_POST['update'])) {
     $item_name = trim($_POST['item_name']);
     $item_code = trim($_POST['item_code']);
     $category_id = (int) $_POST['category_id'];
-    $supplier_id = !empty($_POST['supplier_id']) ? (int) $_POST['supplier_id'] : 0;
+    #$supplier_id = !empty($_POST['supplier_id']) ? (int) $_POST['supplier_id'] : 0;
     $quantity = (int) $_POST['quantity'];
-    $min_quantity = (int) $_POST['min_quantity'];
-    $unit_price = (float) $_POST['unit_price'];
+    #$min_quantity = (int) $_POST['min_quantity'];
+    #$unit_price = (float) $_POST['unit_price'];
     $location = trim($_POST['location']);
     $description = trim($_POST['description']);
 
@@ -102,10 +102,7 @@ if (isset($_POST['update'])) {
             item_name = ?,
             item_code = ?,
             category_id = ?,
-            supplier_id = ?,
             quantity = ?,
-            min_quantity = ?,
-            unit_price = ?,
             location = ?,
             description = ?,
             updated_at = NOW()
@@ -114,14 +111,14 @@ if (isset($_POST['update'])) {
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssiiiidssi",
+        "ssisss",
         $item_name,
         $item_code,
         $category_id,
-        $supplier_id,
+        #$supplier_id,
         $quantity,
-        $min_quantity,
-        $unit_price,
+        #$min_quantity,
+        #$unit_price,
         $location,
         $description,
         $item_id
@@ -147,7 +144,7 @@ if ($editMode) {
 /* ================== DROPDOWNS ================== */
 if ($addMode || $editMode) {
     $categories = $conn->query("SELECT id, category_name FROM categories ORDER BY category_name");
-    $suppliers = $conn->query("SELECT id, supplier_name FROM suppliers ORDER BY supplier_name");
+    /*$suppliers = $conn->query("SELECT id, supplier_name FROM suppliers ORDER BY supplier_name");*/
 }
 
 /* ================== LIST ================== */
@@ -158,7 +155,6 @@ if (!$addMode && !$editMode) {
             i.item_name,
             i.item_code,
             i.quantity,
-            i.min_quantity,
             i.status,
             i.created_at,
             c.category_name
@@ -229,17 +225,17 @@ if (!$addMode && !$editMode) {
                             </select>
                         </div>
 
-                        <div class="form-group">
+                        <!--<div class="form-group">
                             <label>Supplier</label>
                             <select name="supplier_id">
                                 <option value="">Optional</option>
-                                <?php while ($s = mysqli_fetch_assoc($suppliers)): ?>
+                                <?/*php while ($s = mysqli_fetch_assoc($suppliers)): */ ?>
                                     <option value="<?= $s["id"] ?>">
-                                        <?= htmlspecialchars($s["supplier_name"]) ?>
+                                        <?/*= htmlspecialchars($s["supplier_name"]) */ ?>
                                     </option>
-                                <?php endwhile; ?>
+                                <?/*php endwhile; */ ?>
                             </select>
-                        </div>
+                        </div>-->
 
                         <div class="form-group">
                             <label>Quantity *</label>
@@ -297,7 +293,7 @@ if (!$addMode && !$editMode) {
                 <!-- ================== PAGE HEADER ================== -->
                 <header class="content-header">
                     <div>
-                        <h1><?= $editMode ? "Edit Inventory Item" : "Inventory Management" ?></h1>
+                        <h1><?= $editMode ? "Edit Inventory Item" : "IT Inventory Management" ?></h1>
                         <p><?= $editMode ? "Update item information" : "Manage all inventory items" ?></p>
                     </div>
                 </header>
@@ -353,11 +349,11 @@ if (!$addMode && !$editMode) {
                                     <label>Supplier</label>
                                     <select name="supplier_id">
                                         <option value="">None</option>
-                                        <?php while ($s = $suppliers->fetch_assoc()): ?>
-                                            <option value="<?= $s["id"] ?>" <?= $s["id"] == $item["supplier_id"] ? "selected" : "" ?>>
-                                                <?= htmlspecialchars($s["supplier_name"]) ?>
-                                            </option>
-                                        <?php endwhile; ?>
+                                        <?/*php while ($s = $suppliers->fetch_assoc()): */ ?>
+                                        <option value="<?= $s["id"] ?>" <?= $s["id"] == $item["supplier_id"] ? "selected" : "" ?>>
+                                            <?= htmlspecialchars($s["supplier_name"]) ?>
+                                        </option>
+                                        <?//php endwhile; ?>
                                     </select>
                                 </div>
 
@@ -437,7 +433,7 @@ if (!$addMode && !$editMode) {
                                     if ($row["quantity"] <= 0) {
                                         $condition = "Damaged";
                                         $class = "status-damaged";
-                                    } elseif ($row["quantity"] <= $row["min_quantity"]) {
+                                    } elseif ($row["quantity"] /*<= $row["min_quantity"]*/) {
                                         $condition = "Fair";
                                         $class = "status-fair";
                                     } else {

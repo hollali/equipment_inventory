@@ -108,7 +108,7 @@ if ($result) {
                 </div>
 
                 <!-- Total Users -->
-                <div class="stat-card">
+                <!--<div class="stat-card">
                     <div class="stat-icon bg-green">
                         <i class="fas fa-users"></i>
                     </div>
@@ -117,10 +117,10 @@ if ($result) {
                         <p class="stat-number"><?= number_format($totalUsers) ?></p>
                         <span class="stat-change positive">Registered users</span>
                     </div>
-                </div>
+                </div>-->
 
                 <!-- Low Stock -->
-                <div class="stat-card">
+                <!--<div class="stat-card">
                     <div class="stat-icon bg-orange">
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
@@ -129,10 +129,10 @@ if ($result) {
                         <p class="stat-number"><?= number_format($lowStock) ?></p>
                         <span class="stat-change negative">Requires attention</span>
                     </div>
-                </div>
+                </div>-->
 
                 <!-- Total Value -->
-                <div class="stat-card">
+                <!--<div class="stat-card">
                     <div class="stat-icon bg-purple">
                         <i class="fas fa-dollar-sign"></i>
                     </div>
@@ -141,7 +141,7 @@ if ($result) {
                         <p class="stat-number">GH₵ <?= number_format($totalValue, 2) ?></p>
                         <span class="stat-change positive">Inventory worth</span>
                     </div>
-                </div>
+                </div>-->
 
             </div>
 

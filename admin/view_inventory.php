@@ -51,7 +51,7 @@ $item = $result->fetch_assoc();
 if ($item["quantity"] <= 0) {
     $status = "Damaged";
     $status_class = "status-damaged";
-} elseif ($item["quantity"] <= $item["min_quantity"]) {
+} elseif ($item["quantity"] /*<= $item["min_quantity"]*/) {
     $status = "Fair";
     $status_class = "status-fair";
 } else {
@@ -60,7 +60,7 @@ if ($item["quantity"] <= 0) {
 }
 
 /* 💰 Total value */
-$total_value = $item["quantity"] * $item["unit_price"];
+#$total_value = $item["quantity"] * $item["unit_price"];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -108,39 +108,49 @@ $total_value = $item["quantity"] * $item["unit_price"];
                     <strong><?= htmlspecialchars($item["category_name"] ?? "N/A") ?></strong>
                 </div>
 
-                <div class="detail">
+                <!--<div class="detail">
                     <span>Supplier</span>
-                    <strong><?= htmlspecialchars($item["supplier_name"] ?? "N/A") ?></strong>
-                </div>
+                    <strong><?//= htmlspecialchars($item["supplier_name"] ?? "N/A") ?></strong>
+                </div>-->
 
-                <div class="detail">
+                <!--<div class="detail">
                     <span>Quantity</span>
-                    <strong><?= $item["quantity"] ?></strong>
-                </div>
+                    <strong><?/*= $item["quantity"] */ ?></strong>
+                </div>--->
 
-                <div class="detail">
+                <!--<div class="detail">
                     <span>Minimum Quantity</span>
-                    <strong><?= $item["min_quantity"] ?></strong>
-                </div>
+                    <strong>
+                        <?/*= $item["min_quantity"] */ ?>
+                    </strong>
+                </div>-->
 
-                <div class="detail">
+                <!--<div class="detail">
                     <span>Unit Price</span>
-                    <strong>₵<?= number_format($item["unit_price"], 2) ?></strong>
-                </div>
+                    <strong>₵
+                        <?/*= number_format($item["unit_price"], 2) */ ?>
+                    </strong>
+                </div>-->
 
-                <div class="detail">
+                <!--<div class="detail">
                     <span>Total Value</span>
-                    <strong>₵<?= number_format($total_value, 2) ?></strong>
-                </div>
+                    <strong>₵
+                        <?/*= number_format($total_value, 2) */ ?>
+                    </strong>
+                </div>-->
 
                 <div class="detail">
                     <span>Location</span>
-                    <strong><?= htmlspecialchars($item["location"] ?? "—") ?></strong>
+                    <strong>
+                        <?= htmlspecialchars($item["location"] ?? "—") ?>
+                    </strong>
                 </div>
 
                 <div class="detail">
                     <span>Status</span>
-                    <strong class="<?= $status_class ?>"><?= $status ?></strong>
+                    <strong class="<?= $status_class ?>">
+                        <?= $status ?>
+                    </strong>
                 </div>
 
             </div>
