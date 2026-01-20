@@ -36,10 +36,10 @@
                 <i class="fas fa-boxes"></i>
                 <span class="nav-text">Inventory Management</span>
             </a>
-            <!--<a href="users.php" class="nav-item <?= basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : '' ?>">
+            <a href="users.php" class="nav-item <?= basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : '' ?>">
                 <i class="fas fa-users"></i>
                 <span class="nav-text">User Management</span>
-            </a>-->
+            </a>
             <a href="reports.php"
                 class="nav-item <?= basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : '' ?>">
                 <i class="fas fa-chart-bar"></i>

@@ -3,14 +3,13 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-#session_start();
-#require_once "./config/database.php";
-#require_once __DIR__ . "/admin/dashboard.php"
+session_start();
+require_once "./config/database.php";
 
-#$username = "";
-#$password = "";
+$username = "";
+$password = "";
 
-/*if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
@@ -62,7 +61,7 @@ error_reporting(E_ALL);
         mysqli_stmt_close($stmt);
         mysqli_close($conn);
     }
-}*/
+}
 ?>
 
 <!DOCTYPE html>
@@ -73,14 +72,12 @@ error_reporting(E_ALL);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login - PSG Inventory System</title>
     <link href="images/logo.png" rel="icon" type="image/x-icon">
-    <!--<link rel="stylesheet" href="./css/login.css">-->
-    <link rel="stylesheet" href="../css/sidebar.css">
+    <link rel="stylesheet" href="./css/login.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 
 <body>
-
-    <!--<div class="container">
+    <div class="container">
         <div class="loginHeader">
             <h1>Parliamentary Service of Ghana</h1>
             <h3>Inventory Management System</h3>
@@ -91,7 +88,7 @@ error_reporting(E_ALL);
                     <h1>Admin Login Panel</h1>
                     <label for="username">Username</label>
                     <input id="username" placeholder="Enter Your Username" type="text" name="username" required
-                        autocomplete="off" value="<?#= htmlspecialchars($username) ?>">
+                        autocomplete="off" value="<?= htmlspecialchars($username) ?>">
                     <small id="userError" class="error"></small>
                 </div>
                 <div class="loginInputsContainer">
@@ -113,6 +110,6 @@ error_reporting(E_ALL);
         </div>
     </div>
     <script src="./scripts/login.js" defer></script>
-</body>-->
+</body>
 
 </html>

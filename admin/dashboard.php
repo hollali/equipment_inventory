@@ -101,14 +101,14 @@ if ($result) {
                         <i class="fas fa-boxes"></i>
                     </div>
                     <div class="stat-details">
-                        <h3>Total Items</h3>
+                        <h3>Total Devices</h3>
                         <p class="stat-number"><?= number_format($totalItems) ?></p>
-                        <span class="stat-change positive">Live inventory count</span>
+                        <span class="stat-change positive">Live Device inventory count</span>
                     </div>
                 </div>
 
                 <!-- Total Users -->
-                <!--<div class="stat-card">
+                <div class="stat-card">
                     <div class="stat-icon bg-green">
                         <i class="fas fa-users"></i>
                     </div>
@@ -117,10 +117,10 @@ if ($result) {
                         <p class="stat-number"><?= number_format($totalUsers) ?></p>
                         <span class="stat-change positive">Registered users</span>
                     </div>
-                </div>-->
+                </div>
 
                 <!-- Low Stock -->
-                <!--<div class="stat-card">
+                <div class="stat-card">
                     <div class="stat-icon bg-orange">
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
@@ -129,7 +129,7 @@ if ($result) {
                         <p class="stat-number"><?= number_format($lowStock) ?></p>
                         <span class="stat-change negative">Requires attention</span>
                     </div>
-                </div>-->
+                </div>
 
                 <!-- Total Value -->
                 <!--<div class="stat-card">
