@@ -111,7 +111,7 @@ if (isset($_POST['update'])) {
 
     mysqli_stmt_bind_param(
         $stmt,
-        "ssisss",
+        "ssisssi",
         $item_name,
         $item_code,
         $category_id,
