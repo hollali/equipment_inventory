@@ -106,7 +106,7 @@ if (isset($_POST['update'])) {
             location = ?,
             description = ?,
             updated_at = NOW()
-         WHERE id = ?"
+        WHERE id = ?"
     );
 
     mysqli_stmt_bind_param(

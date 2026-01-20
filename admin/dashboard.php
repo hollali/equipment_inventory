@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "../config/database.php";
+require_once __DIR__ . "/../config/database.php";
 
 /* 🔐 Protect page (optional)
 if (!isset($_SESSION["admin_id"])) {
@@ -71,7 +71,7 @@ if ($result) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Parliament Inventory</title>
-    <link href="images/logo.png" rel="icon" type="image/x-icon">
+    <link href="../images/logo.png" rel="icon" type="image/x-icon">
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
