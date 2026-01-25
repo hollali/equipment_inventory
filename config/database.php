@@ -4,9 +4,9 @@
 class Database
 {
     private $host = "localhost";
-    private $db_name = "parliament_inventory";
+    private $db_name = "device_inventory";
     private $username = "root";
-    private $password = "vendetta7080";
+    private $password = "Vendetta7080";
 
     public $conn;
 
