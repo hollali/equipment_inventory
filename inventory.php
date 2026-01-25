@@ -161,6 +161,23 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     exit;
 }
 
+/* ================== RETIRE INVENTORY ================== */
+if (isset($_POST['retire']) && isset($_POST['retire_id'])) {
+    $id = (int) $_POST['retire_id'];
+
+    $stmt = $conn->prepare("
+        UPDATE inventory_items
+        SET status = 'retired'
+        WHERE id = ?
+    ");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    header("Location: inventory.php?success=retired");
+    exit;
+}
+
+
 /* ================== FETCH ITEM FOR EDIT ================== */
 $item = [];
 if ($editMode) {
@@ -168,6 +185,22 @@ if ($editMode) {
     $stmt->bind_param("i", $_GET['edit']);
     $stmt->execute();
     $item = $stmt->get_result()->fetch_assoc();
+}
+
+if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'retire') {
+
+    $deviceId = (int) $_GET['id'];
+
+    $stmt = $conn->prepare("
+        UPDATE inventory_items 
+        SET status = 'retired', retired_at = NOW()
+        WHERE id = ?
+    ");
+    $stmt->bind_param("i", $deviceId);
+    $stmt->execute();
+
+    header("Location: inventory.php?retired=1");
+    exit;
 }
 
 /* ================== DROPDOWNS ================== */
@@ -380,11 +413,21 @@ $list = $conn->query("
                                             <i class="fa fa-pen"></i>
                                         </button>
                                         <!-- Delete -->
-                                        <a href="inventory.php?delete=<?= $row['id'] ?>"
-                                            onclick="return confirm('Delete this item? This action cannot be undone.')"
-                                            class="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all" title="Delete">
-                                            <i class="fa fa-trash"></i>
-                                        </a>
+                                        <button
+    onclick="openDeleteModal(<?= (int)$row['id'] ?>)"
+    class="p-2 text-red-600 hover:bg-red-100 rounded-full transition"
+    title="Delete Item">
+    <i class="fas fa-trash"></i>
+</button>
+
+ <button
+    onclick="openRetireModal(<?= (int)$row['id'] ?>)"
+    class="p-2 text-orange-600 hover:bg-orange-100 rounded-full transition"
+    title="Retire Device">
+    <i class="fas fa-archive"></i>
+</button>
+
+
                                     </div>
                                 </td>
                             </tr>
@@ -812,6 +855,91 @@ $list = $conn->query("
     </div>
 </div>
 
+    <!-- ================= RETIRE MODAL ================= -->
+     <div id="retireModal"
+     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+
+    <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-800">
+                Retire Device
+            </h3>
+            <button onclick="closeRetireModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-5 text-gray-700">
+            <p class="mb-2 font-medium">
+                Are you sure you want to retire this device?
+            </p>
+            <p class="text-sm text-gray-500">
+                The device will no longer be assignable but will remain in records.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t flex justify-end gap-3">
+            <button
+                onclick="closeRetireModal()"
+                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                Cancel
+            </button>
+
+            <form method="POST" class="inline">
+                <input type="hidden" name="retire_id" id="retireId">
+                <button
+                    type="submit"
+                    name="retire"
+                    class="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700">
+                    Yes, Retire
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <!-- ================= DELETE MODAL ================= -->
+     <div id="deleteModal"
+     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+
+    <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-800">
+                Confirm Delete
+            </h3>
+            <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-5 text-gray-700">
+            <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
+            <p class="text-sm text-gray-500">
+                This action <span class="text-red-600 font-semibold">cannot be undone</span>.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t flex justify-end gap-3">
+            <button
+                onclick="closeDeleteModal()"
+                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                Cancel
+            </button>
+
+            <!-- This triggers your existing PHP delete -->
+            <a id="confirmDeleteBtn"
+               class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+                Yes, Delete
+            </a>
+        </div>
+    </div>
+</div>
 
     <!-- ================= VIEW MODAL ================= -->
     <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
@@ -935,6 +1063,8 @@ $list = $conn->query("
             </div>
         </div>
     </div>
+
+
 
     <script>
         function searchTable() {
@@ -1088,6 +1218,40 @@ function filterStatus(status) {
 
     statusEl.textContent = statusLabels[status] ?? status;
     statusEl.className = `font-semibold ${statusColors[status] ?? 'text-gray-600'}`;
+}
+
+function retireDevice(id) {
+    if (!confirm('Are you sure you want to retire this device?')) return;
+
+    window.location.href = `?action=retire&id=${id}`;
+}
+
+function openDeleteModal(id) {
+    const modal = document.getElementById('deleteModal');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+
+    confirmBtn.href = `inventory.php?delete=${id}`;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function openRetireModal(id) {
+    document.getElementById('retireId').value = id;
+    const modal = document.getElementById('retireModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeRetireModal() {
+    const modal = document.getElementById('retireModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
     </script>
