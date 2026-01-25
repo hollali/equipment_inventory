@@ -160,7 +160,6 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     header("Location: inventory.php?success=deleted");
     exit;
 }
-
 /* ================== RETIRE INVENTORY ================== */
 if (isset($_POST['retire']) && isset($_POST['retire_id'])) {
     $id = (int) $_POST['retire_id'];
@@ -856,8 +855,8 @@ $list = $conn->query("
 </div>
 
     <!-- ================= RETIRE MODAL ================= -->
-     <div id="retireModal"
-     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="retireModal"
+    class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
 
     <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
         <!-- Header -->
@@ -902,8 +901,7 @@ $list = $conn->query("
 </div>
 
     <!-- ================= DELETE MODAL ================= -->
-     <div id="deleteModal"
-     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="deleteModal"class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
 
     <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
         <!-- Header -->
@@ -1063,8 +1061,6 @@ $list = $conn->query("
             </div>
         </div>
     </div>
-
-
 
     <script>
         function searchTable() {
@@ -1253,9 +1249,6 @@ function closeRetireModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
-
     </script>
-
 </body>
-
 </html>

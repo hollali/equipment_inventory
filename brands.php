@@ -102,125 +102,323 @@ $stmt->close();
 
 <head>
     <meta charset="UTF-8">
-    <title>Brands</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Brand Management - Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .scale-in {
+            animation: scaleIn 0.2s ease-out;
+        }
+    </style>
 </head>
 
-<body class="bg-slate-100 text-slate-800">
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
 
     <?php include 'sidebar.php'; ?>
 
-    <main class="ml-64 p-6">
+    <main id="mainContent" class="p-4 md:p-8 max-w-7xl mx-auto">
 
-        <!-- HEADER -->
-        <div class="sticky top-0 bg-slate-100 pb-4 z-10">
-            <div class="flex items-center justify-between">
+        <!-- Header Section -->
+        <div class="mb-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl font-bold">Brands</h1>
-                    <p class="text-sm text-slate-500">Manage all device brands</p>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div
+                            class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <i class="fas fa-tags text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Brand Management</h1>
+                            <p class="text-gray-600 text-sm">Manage device brands and manufacturers</p>
+                        </div>
+                    </div>
                 </div>
-
                 <button onclick="openAddModal()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow">
-                    <i class="fa fa-plus"></i>
-                    Add Brand
+                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add New Brand
                 </button>
             </div>
+        </div>
 
-            <!-- SEARCH -->
-            <form method="GET" class="mt-4 max-w-sm">
-                <div class="relative">
-                    <i class="fa fa-search absolute left-3 top-3 text-slate-400"></i>
-                    <input name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search brands..."
-                        class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+        <!-- Stats Card -->
+        <div class="mb-8">
+            <div class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 mb-1">Total Brands</p>
+                        <p class="text-4xl font-bold text-gray-900"><?= $totalRecords ?></p>
+                        <p class="text-sm text-gray-500 mt-1">
+                            <?= count($brands) ?> shown on this page
+                        </p>
+                    </div>
+                    <div
+                        class="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center">
+                        <i class="fas fa-building text-3xl text-purple-600"></i>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <form method="GET" class="flex gap-3">
+                <div class="flex-1 relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
+                        placeholder="Search brands by name..."
+                        class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                </div>
+                <button type="submit"
+                    class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors">
+                    <i class="fas fa-search mr-2"></i>Search
+                </button>
+                <?php if ($search): ?>
+                    <a href="brands.php"
+                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors inline-flex items-center">
+                        <i class="fas fa-times mr-2"></i>Clear
+                    </a>
+                <?php endif; ?>
             </form>
         </div>
 
-        <!-- TABLE CARD -->
-        <div class="mt-6 bg-white rounded-xl shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600">
-                    <tr>
-                        <th class="px-6 py-3 text-left">#</th>
-                        <th class="px-6 py-3 text-left">Brand Name</th>
-                        <th class="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if ($brands): ?>
-                        <?php foreach ($brands as $b): ?>
-                            <tr class="border-t hover:bg-slate-50">
-                                <td class="px-6 py-3">#
-                                    <?= $b['id'] ?>
-                                </td>
-                                <td class="px-6 py-3 font-medium">
-                                    <?= htmlspecialchars($b['brand_name']) ?>
-                                </td>
-                                <td class="px-6 py-3">
-                                    <div class="flex justify-end gap-3">
-                                        <button onclick='openEditModal(<?= json_encode($b) ?>)'
-                                            class="text-blue-600 hover:text-blue-800">
-                                            <i class="fa fa-pen"></i>
-                                        </button>
-                                        <a href="?delete=<?= $b['id'] ?>" onclick="return confirm('Delete this brand?')"
-                                            class="text-red-600 hover:text-red-800">
-                                            <i class="fa fa-trash"></i>
-                                        </a>
+        <!-- Brands Grid/Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+            <!-- Mobile View: Cards -->
+            <div class="md:hidden divide-y divide-gray-200">
+                <?php if ($brands): ?>
+                    <?php foreach ($brands as $b): ?>
+                        <div class="p-5 hover:bg-gray-50 transition-colors scale-in">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div
+                                        class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
+                                        <?= strtoupper(substr($b['brand_name'], 0, 2)) ?>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-gray-900 text-lg"><?= htmlspecialchars($b['brand_name']) ?></p>
+                                        <p class="text-sm text-gray-500">ID: #<?= $b['id'] ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 justify-end">
+                                <button onclick='openEditModal(<?= json_encode($b) ?>)'
+                                    class="flex-1 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium">
+                                    <i class="fas fa-edit mr-2"></i>Edit
+                                </button>
+                                <a href="?delete=<?= $b['id'] ?>"
+                                    onclick="return confirm('Delete this brand? This action cannot be undone.')"
+                                    class="flex-1 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium text-center">
+                                    <i class="fas fa-trash mr-2"></i>Delete
+                                </a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="py-16 text-center">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-tags text-3xl text-gray-400"></i>
+                        </div>
+                        <p class="text-lg font-medium text-gray-900 mb-1">No brands found</p>
+                        <p class="text-sm text-gray-500">Try adjusting your search or add a new brand</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Desktop View: Table -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th
+                                class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                ID</th>
+                            <th
+                                class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                Brand Name</th>
+                            <th
+                                class="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <?php if ($brands): ?>
+                            <?php foreach ($brands as $b): ?>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <span class="text-sm font-medium text-gray-600">#<?= $b['id'] ?></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
+                                                <?= strtoupper(substr($b['brand_name'], 0, 2)) ?>
+                                            </div>
+                                            <span
+                                                class="font-semibold text-gray-900 text-base"><?= htmlspecialchars($b['brand_name']) ?></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button onclick='openEditModal(<?= json_encode($b) ?>)'
+                                                class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="Edit Brand">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <a href="?delete=<?= $b['id'] ?>"
+                                                onclick="return confirm('Delete this brand? This action cannot be undone.')"
+                                                class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete Brand">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="3" class="px-6 py-16 text-center">
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div
+                                            class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                            <i class="fas fa-tags text-3xl text-gray-400"></i>
+                                        </div>
+                                        <p class="text-lg font-medium text-gray-900 mb-1">No brands found</p>
+                                        <p class="text-sm text-gray-500">Try adjusting your search or add a new brand</p>
                                     </div>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="3" class="py-16 text-center text-slate-400">
-                                <i class="fa fa-box-open text-4xl mb-3"></i>
-                                <p class="text-sm">No brands found</p>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- PAGINATION -->
+        <!-- Pagination -->
         <?php if ($totalPages > 1): ?>
-            <div class="mt-6 flex gap-2">
-                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="px-3 py-1 rounded-lg text-sm
-                    <?= $i == $page
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border hover:bg-slate-50' ?>">
-                        <?= $i ?>
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-2">
+                <?php if ($page > 1): ?>
+                    <a href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>"
+                        class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-chevron-left"></i>
                     </a>
+                <?php endif; ?>
+
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                    <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
+                        <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
+                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
+                            <?= $i ?>
+                        </a>
+                    <?php elseif (abs($i - $page) == 3): ?>
+                        <span class="px-2 text-gray-400">...</span>
+                    <?php endif; ?>
                 <?php endfor; ?>
+
+                <?php if ($page < $totalPages): ?>
+                    <a href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>"
+                        class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                <?php endif; ?>
             </div>
+
+            <p class="text-center text-sm text-gray-500 mt-4">
+                Page <?= $page ?> of <?= $totalPages ?> (<?= $totalRecords ?> total brands)
+            </p>
         <?php endif; ?>
 
     </main>
 
-    <!-- MODAL -->
-    <div id="modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-        <div class="bg-white w-full max-w-md rounded-xl p-6 shadow-lg animate-fadeIn">
-            <h2 id="modalTitle" class="text-lg font-bold mb-4"></h2>
+    <!-- Modal -->
+    <div id="modal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 fade-in">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
+            onclick="event.stopPropagation()">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="modalTitle" class="text-2xl font-bold mb-1"></h2>
+                        <p class="text-purple-100 text-sm">Enter brand information below</p>
+                    </div>
+                    <button onclick="closeModal()" class="text-white/80 hover:text-white transition-colors">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
 
-            <form method="POST">
+            <!-- Modal Body -->
+            <form method="POST" class="p-8">
                 <input type="hidden" name="brand_id" id="brand_id">
 
-                <label class="block text-sm font-medium mb-1">Brand Name</label>
-                <input name="brand_name" id="brand_name" required
-                    class="w-full border rounded-lg px-3 py-2 mb-5 focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="e.g. Apple">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Brand Name <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <i class="fas fa-tag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" name="brand_name" id="brand_name" required
+                            placeholder="e.g., Apple, Samsung, Dell"
+                            class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Enter the official brand or manufacturer name</p>
+                </div>
 
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg border hover:bg-slate-50">
-                        Cancel
+                <!-- Modal Footer -->
+                <div class="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                    <button type="button" onclick="closeModal()"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                        <i class="fas fa-times mr-2"></i>Cancel
                     </button>
                     <button id="modalBtn" type="submit"
-                        class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
-                        Save
+                        class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg font-medium">
+                        <i class="fas fa-save mr-2"></i>Save Brand
                     </button>
                 </div>
             </form>
@@ -235,27 +433,43 @@ $stmt->close();
         const brand_name = document.getElementById('brand_name');
 
         function openAddModal() {
-            modalTitle.textContent = 'Add Brand';
+            modalTitle.textContent = 'Add New Brand';
             modalBtn.name = 'add_brand';
+            modalBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save Brand';
             brand_id.value = '';
             brand_name.value = '';
+            brand_name.focus();
             modal.classList.remove('hidden');
-            modal.classList.add('flex');
         }
 
         function openEditModal(data) {
             modalTitle.textContent = 'Edit Brand';
             modalBtn.name = 'update_brand';
+            modalBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Update Brand';
             brand_id.value = data.id;
             brand_name.value = data.brand_name;
+            brand_name.focus();
+            brand_name.select();
             modal.classList.remove('hidden');
-            modal.classList.add('flex');
         }
 
         function closeModal() {
             modal.classList.add('hidden');
-            modal.classList.remove('flex');
         }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Close modal on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
     </script>
 
 </body>
