@@ -371,7 +371,6 @@ if (!empty($_GET['category'])) {
                                     <td class="p-4 text-gray-700 text-sm" data-key="model">
                                         <?= htmlspecialchars($row['model']) ?>
                                     </td>
-
                                     <!-- USER -->
                                     <td class="p-4" data-key="assigned_user">
                                         <div class="flex items-center gap-2">
@@ -384,13 +383,11 @@ if (!empty($_GET['category'])) {
                                             </span>
                                         </div>
                                     </td>
-
                                     <!-- LOCATION -->
                                     <td class="p-4 text-gray-600 text-sm" data-key="location_name">
                                         <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
                                         <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
                                     </td>
-
                                     <!-- STATUS -->
                                     <td class="p-4">
                                         <?php
@@ -401,16 +398,13 @@ if (!empty($_GET['category'])) {
                                             <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
                                         </span>
                                     </td>
-
                                     <!-- CATEGORY -->
                                     <td class="p-4 text-gray-600 text-sm" data-key="category_name">
                                         <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
                                     </td>
-
                                     <!-- ACTIONS -->
                                     <td class="p-4">
                                         <div class="flex justify-center gap-2">
-
                                             <!-- VIEW -->
                                             <button
                                                 onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
@@ -418,21 +412,18 @@ if (!empty($_GET['category'])) {
                                                 title="View">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-
                                             <!-- EDIT -->
                                             <button onclick="openModal('editModal<?= $row['id'] ?>')"
                                                 class="w-9 h-9 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg"
                                                 title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-
                                             <!-- RETIRE -->
                                             <button onclick="openRetireModal(<?= (int) $row['id'] ?>)"
                                                 class="w-9 h-9 flex items-center justify-center text-orange-600 hover:bg-orange-50 rounded-lg"
                                                 title="Retire">
                                                 <i class="fas fa-archive"></i>
                                             </button>
-
                                             <!-- DELETE -->
                                             <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
                                                 class="w-9 h-9 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg"
@@ -667,14 +658,10 @@ if (!empty($_GET['category'])) {
                                     </div>
                                 </div>
                             <?php endwhile; ?>
-
                         </tbody>
                     </table>
-
                 </div>
             </div>
-
-
             <!-- ================= ADD MODAL ================= -->
             <div id="addModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
                 onclick="closeModalOnBackdrop(event, 'addModal')">
@@ -714,7 +701,6 @@ if (!empty($_GET['category'])) {
                                             value="<?= htmlspecialchars($asset_tag_preview) ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Device Type <span
                                                 class="text-red-500">*</span></label>
@@ -722,7 +708,6 @@ if (!empty($_GET['category'])) {
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., Laptop, Desktop, Monitor">
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span
                                                 class="text-red-500">*</span></label>
@@ -736,14 +721,12 @@ if (!empty($_GET['category'])) {
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
                                         <input name="model" value="<?= $item['model'] ?? '' ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., XPS 15, ThinkPad X1">
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Serial
                                             Number</label>
@@ -751,7 +734,6 @@ if (!empty($_GET['category'])) {
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., SN123456789">
                                     </div>
-
                                     <div class="md:col-span-2">
                                         <label
                                             class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
@@ -761,7 +743,6 @@ if (!empty($_GET['category'])) {
                                     </div>
                                 </div>
                             </div>
-
                             <!-- Assignment Details -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -782,7 +763,6 @@ if (!empty($_GET['category'])) {
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
                                             User</label>
@@ -790,7 +770,6 @@ if (!empty($_GET['category'])) {
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., John Doe">
                                     </div>
-
                                     <div class="md:col-span-2">
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Location <span
                                                 class="text-red-500">*</span></label>
@@ -806,7 +785,6 @@ if (!empty($_GET['category'])) {
                                     </div>
                                 </div>
                             </div>
-
                             <!-- Status & Category -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -825,7 +803,6 @@ if (!empty($_GET['category'])) {
                                             <option value="Poor" <?= (isset($item['condition']) && $item['condition'] == 'Poor') ? 'selected' : '' ?>>Poor</option>
                                         </select>
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Status <span
                                                 class="text-red-500">*</span></label>
@@ -839,7 +816,6 @@ if (!empty($_GET['category'])) {
                                             <option value="retired" <?= (isset($item['status']) && $item['status'] == 'retired') ? 'selected' : '' ?>>Retired</option>
                                         </select>
                                     </div>
-
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Category <span
                                                 class="text-red-500">*</span></label>
@@ -855,7 +831,6 @@ if (!empty($_GET['category'])) {
                                     </div>
                                 </div>
                             </div>
-
                             <!-- Additional Notes -->
                             <div class="bg-gray-50 rounded-xl p-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -868,7 +843,6 @@ if (!empty($_GET['category'])) {
                             </div>
                         </form>
                     </div>
-
                     <!-- Modal Footer -->
                     <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
                         <button type="button" onclick="closeModal('addModal')"
@@ -882,7 +856,6 @@ if (!empty($_GET['category'])) {
                     </div>
                 </div>
             </div>
-
             <!-- ================= VIEW MODAL ================= -->
     <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
         onclick="closeModalOnBackdrop(event, 'viewModal')">
@@ -903,7 +876,6 @@ if (!empty($_GET['category'])) {
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-
             <!-- Modal Body -->
             <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
                 <!-- Basic Information -->
@@ -943,7 +915,6 @@ if (!empty($_GET['category'])) {
                         </div>
                     </div>
                 </div>
-
                 <!-- Assignment Details -->
                 <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -965,7 +936,6 @@ if (!empty($_GET['category'])) {
                         </div>
                     </div>
                 </div>
-
                 <!-- Status & Condition -->
                 <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-5 mb-5">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -983,7 +953,6 @@ if (!empty($_GET['category'])) {
                         </div>
                     </div>
                 </div>
-
                 <!-- Additional Notes -->
                 <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -995,7 +964,6 @@ if (!empty($_GET['category'])) {
                     </div>
                 </div>
             </div>
-
             <!-- Modal Footer -->
             <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
                 <button onclick="closeViewModal()"
@@ -1025,7 +993,7 @@ if (!empty($_GET['category'])) {
             <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
                 <?php $queryParams['page'] = $i; ?>
                 <a href="?<?= http_build_query($queryParams) ?>" 
-                   class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
+                    class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
                         ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
                         : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
                     <?= $i ?>
@@ -1038,8 +1006,8 @@ if (!empty($_GET['category'])) {
         <?php if ($page < $totalPages): ?>
             <?php $queryParams['page'] = $page + 1; ?>
             <a href="?<?= http_build_query($queryParams) ?>"
-               class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-               <i class="fas fa-chevron-right"></i>
+                class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <i class="fas fa-chevron-right"></i>
             </a>
         <?php endif; ?>
     </div>
