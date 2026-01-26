@@ -242,9 +242,7 @@ if (!empty($_GET['category'])) {
 
     <div class="flex">
         <?php include "sidebar.php"; ?>
-
         <main id="mainContent" class="w-full p-6">
-
             <!-- ================= HEADER ================= -->
             <div class="flex justify-between items-center mb-6">
                 <div>
@@ -256,7 +254,6 @@ if (!empty($_GET['category'])) {
                     <i class="fa fa-plus text-xs mr-1"></i> Add Item
                 </button>
             </div>
-
             <!-- Filters and Search -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
     <form method="GET" class="flex flex-col md:flex-row gap-4 items-start md:items-center">
@@ -281,7 +278,7 @@ if (!empty($_GET['category'])) {
 
         <!-- Status Filter -->
         <div class="w-full md:w-48">
-           <select name="status" id="statusFilter" class="w-full px-4 py-3 border rounded-xl">
+        <select name="status" id="statusFilter" class="w-full px-4 py-3 border rounded-xl">
     <option value="">All Status</option>
     <?php foreach ($statuses as $status): ?>
         <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
