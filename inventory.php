@@ -66,11 +66,30 @@ $params = [];
 $paramTypes = '';
 
 if (!empty($_GET['search'])) {
-    $where[] = "(i.asset_tag LIKE ? OR i.device_type LIKE ? OR b.brand_name LIKE ? OR i.model LIKE ? OR i.assigned_user LIKE ?)";
+    $where[] = "(i.asset_tag LIKE ? 
+                OR i.device_type LIKE ? 
+                OR b.brand_name LIKE ? 
+                OR i.model LIKE ? 
+                OR i.assigned_user LIKE ? 
+                OR d.department_name LIKE ? 
+                OR l.location_name LIKE ?)";
+    
     $searchTerm = '%' . $_GET['search'] . '%';
-    $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
-    $paramTypes .= str_repeat('s', 5);
+    
+    // Add 7 times for the 7 placeholders
+    $params = array_merge($params, [
+        $searchTerm, 
+        $searchTerm, 
+        $searchTerm, 
+        $searchTerm, 
+        $searchTerm, 
+        $searchTerm, 
+        $searchTerm
+    ]);
+
+    $paramTypes .= str_repeat('s', 7);
 }
+
 
 if (!empty($_GET['status'])) {
     $where[] = "i.status=?";
