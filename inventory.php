@@ -9,7 +9,8 @@ error_reporting(E_ALL);
 /* ================== DB ================== */
 $db = new Database();
 $conn = $db->getConnection();
-if (!$conn) die("Database connection failed");
+if (!$conn)
+    die("Database connection failed");
 
 /* ================== MODES ================== */
 $editMode = isset($_GET['edit']) && is_numeric($_GET['edit']);
@@ -32,7 +33,18 @@ if ($q && $q->num_rows) {
 $asset_tag_preview = "AST-$year-" . str_pad($next, 4, "0", STR_PAD_LEFT);
 
 /* ================== ALLOWED STATUSES ================== */
-$allowedStatuses = ['active','in_storage','in_use','repairing','faulty','retired'];
+$allowedStatuses = ['active', 'in_storage', 'in_use', 'repairing', 'faulty', 'retired'];
+
+// Fetch unique statuses from the database
+$statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
+$statuses = [];
+while ($row = $statusQuery->fetch_assoc()) {
+    $statuses[] = $row['status'];
+}
+
+// ALSO ADD THESE TWO LINES for the advanced filters:
+/*$categories = $categoriesArr;  // Reuse existing categories
+$brands = $brandsArr;          // Reuse existing brands
 
 /* ================== ADD INVENTORY ================== */
 if (isset($_POST['save'])) {
@@ -67,7 +79,8 @@ if (isset($_POST['save'])) {
     $category_id = $_POST['category_id'] ?? null;
 
     // Validate status
-    if (!in_array($status, $allowedStatuses)) $status = 'active';
+    if (!in_array($status, $allowedStatuses))
+        $status = 'active';
 
     // Insert
     $stmt = $conn->prepare("
@@ -117,7 +130,8 @@ if ($editMode && isset($_POST['update'])) {
     $category_id = $_POST['category_id'] ?? null;
 
     // Validate status
-    if (!in_array($status, $allowedStatuses)) $status = 'active';
+    if (!in_array($status, $allowedStatuses))
+        $status = 'active';
 
     $stmt = $conn->prepare("
         UPDATE inventory_items SET
@@ -218,6 +232,42 @@ $list = $conn->query("
     LEFT JOIN locations l ON i.location_id = l.id
     ORDER BY i.id DESC
 ");
+
+/* ================== STATS ================== */
+$statsQuery = $conn->query("
+    SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END) as storage,
+        SUM(CASE WHEN status IN ('faulty', 'repairing') THEN 1 ELSE 0 END) as alert
+    FROM inventory_items
+");
+$stats = $statsQuery->fetch_assoc();
+
+/* ================== STATUSES ================== */
+$statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
+$statuses = [];
+while ($row = $statusQuery->fetch_assoc()) {
+    $statuses[] = $row['status'];
+}
+
+$statusLabels = [
+    'active' => 'Active',
+    'retired' => 'Retired',
+    'in_storage' => 'In Storage',
+    'repairing' => 'Repairing',
+    'in_use' => 'In Use',
+    'faulty' => 'Faulty'
+];
+
+$statusColors = [
+    'active' => 'bg-green-100 text-green-700 border-green-200',
+    'retired' => 'bg-red-100 text-red-700 border-red-200',
+    'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    'repairing' => 'bg-gray-100 text-gray-700 border-gray-200',
+    'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'faulty' => 'bg-pink-100 text-pink-700 border-pink-200'
+];
 ?>
 
 
@@ -229,13 +279,53 @@ $list = $conn->query("
     <meta charset="UTF-8">
     <title>Inventory Management</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-slide-down {
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .filter-tag {
+            transition: all 0.2s ease;
+        }
+
+        .filter-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-row:hover {
+            background: linear-gradient(to right, #f8fafc, #f1f5f9);
+        }
+
+        .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-glow:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+    </style>
 </head>
 
 <body class="bg-gray-100">
@@ -257,860 +347,862 @@ $list = $conn->query("
                 </button>
             </div>
 
-            <!-- ================= SEARCH ================= -->
-            <!--<div class="mb-4">
-                <input id="searchInput" onkeyup="searchTable()" placeholder="Search inventory..."
-                    class="w-full md:w-1/3 px-4 py-2 border rounded-lg focus:ring focus:ring-blue-200">
-            </div>-->
-<!-- ================= SEARCH & SORT CARD ================= -->
-           <div class="bg-white rounded-xl shadow-sm p-4 mb-6 grid md:grid-cols-3 gap-4 items-end">
-
-    <!-- Search Box -->
-    <div class="relative w-full">
-        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-        <input id="searchInput" onkeyup="searchTable()" placeholder="Search inventory..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm">
-    </div>
-
-    <!-- Sort Box -->
-    <div class="relative w-full">
-        <i class="fas fa-sort absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-        <select id="sortSelect" onchange="sortTable('asset_tag')" 
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white transition cursor-pointer shadow-sm">
-            <option value="">Sort by Asset</option>
-            <option value="asc">A → Z</option>
-            <option value="desc">Z → A</option>
-        </select>
-        <i class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-    </div>
-
-    <!-- Status Filter -->
-    <?php
-    // Fetch unique statuses from the database
-    $statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
-    $statuses = [];
-    while ($row = $statusQuery->fetch_assoc()) {
-        $statuses[] = $row['status'];
-    }
-
-    // Map DB values to human-readable labels
-    $statusLabels = [
-        'active'      => 'Active',
-        'retired'     => 'Retired',
-        'in_storage'  => 'In Storage',
-        'repairing'   => 'Under Repair',
-        'in_use'      => 'In Use',
-        'faulty'      => 'Faulty'
-    ];
-    ?>
-    <div class="relative w-full md:w-64">
-        <i class="fas fa-filter absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-        <select id="statusFilter" onchange="filterStatus(this.value)"
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white transition cursor-pointer shadow-sm">
-            <option value="">All Status</option>
-            <?php foreach ($statuses as $status): ?>
-                <option value="<?= htmlspecialchars($status) ?>">
-                    <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <i class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-    </div>
-</div>
+            <!-- ================= SEARCH & SORT CARD ================= -->
+            <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div class="md:col-span-2 relative">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input id="searchInput" type="text" onkeyup="searchTable()"
+                            placeholder="Search by asset, type, brand, model, or user..."
+                            class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition search-glow">
+                        <div
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 hidden md:block">
+                            <kbd class="px-2 py-1 bg-gray-100 rounded border border-gray-300">Ctrl+K</kbd>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <i class="fas fa-sort absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <select id="sortSelect" onchange="sortTable('asset_tag')"
+                            class="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white transition cursor-pointer">
+                            <option value="">Sort by Asset</option>
+                            <option value="asc">A → Z</option>
+                            <option value="desc">Z → A</option>
+                        </select>
+                        <i
+                            class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    </div>
+                    <div class="relative">
+                        <i class="fas fa-filter absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <select id="statusFilter" onchange="filterStatus(this.value)"
+                            class="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white transition cursor-pointer">
+                            <option value="">All Status</option>
+                            <?php foreach ($statuses as $status): ?>
+                                <option value="<?= htmlspecialchars($status) ?>">
+                                    <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <i
+                            class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    </div>
+                </div>
+                <div id="activeFilters" class="hidden animate-slide-down">
+                    <div class="flex items-center justify-between mb-3 pt-4 border-t border-gray-200">
+                        <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Active Filters</span>
+                        <button onclick="clearAllFilters()"
+                            class="text-xs text-blue-600 hover:text-blue-800 font-medium transition"><i
+                                class="fas fa-times-circle mr-1"></i>Clear All</button>
+                    </div>
+                    <div id="activeFilterTags" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div id="resultsCount" class="text-sm text-gray-600 mt-4 pt-4 border-t border-gray-200"></div>
+            </div>
 
             <!-- ================= TABLE ================= -->
-            <div id="inventoryTable" class="bg-white rounded-xl shadow-sm overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 border-b border-gray-200">
-                        <tr class="text-gray-600">
-                            <th class="p-3 text-left font-semibold">Asset</th>
-                            <th class="p-3 text-left font-semibold">Type</th>
-                            <th class="p-3 text-left font-semibold">Brand</th>
-                            <th class="p-3 text-left font-semibold">Model</th>
-                            <th class="p-3 text-left font-semibold">User</th>
-                            <th class="p-3 text-left font-semibold">Location</th>
-                            <th class="p-3 text-left font-semibold">Status</th>
-                            <th class="p-3 text-left font-semibold">Category</th>
-                            <th class="p-3 text-center font-semibold">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        <?php while ($row = $list->fetch_assoc()): ?>
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="p-3">
-                                    <span class="font-semibold text-blue-600" data-key="asset_tag"><?= htmlspecialchars($row['asset_tag']) ?></span>
-                                </td>
-                                <td class="p-3 text-gray-700" data-key="device_type"><?= htmlspecialchars($row['device_type']) ?></td>
-                                <td class="p-3 text-gray-700" data-key="brand_name"><?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?></td>
-                                <td class="p-3 text-gray-700" data-key="model"><?= htmlspecialchars($row['model']) ?></td>
-                                <td class="p-3">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
-                                            <?= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) ?>
-                                        </div>
-                                        <span class="text-gray-700" data-key="assigned_user"><?= htmlspecialchars($row['assigned_user']) ?></span>
-                                    </div>
-                                </td>
-                                <td class="p-3 text-gray-600">
-                                    <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
-                                    <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
-                                </td>
-                                <td class="p-3">
-                                    <?php
-                              // Map DB status values to colors
-                        $statusColors = [
-                                    'active' => 'bg-green-100 text-green-700 border-green-200',
-                                    'retired' => 'bg-red-100 text-red-700 border-red-200',
-                                    'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                                    'repairing' => 'bg-gray-100 text-gray-700 border-gray-200',
-                                    'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
-                                    'faulty' => 'bg-pink-100 text-pink-700 border-pink-200'
+            <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                <div class="overflow-x-auto">
+
+                    <table id="inventoryTable" class="w-full">
+                        <!-- ================= TABLE HEADER ================= -->
+                        <thead class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                            <tr class="text-gray-700">
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Asset</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Type</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Brand</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Model</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">User</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Location</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Status</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Category</th>
+                                <th class="p-4 text-center text-sm font-semibold uppercase">Actions</th>
+                            </tr>
+                        </thead>
+
+                        <!-- ================= TABLE BODY ================= -->
+                        <tbody id="inventoryTableBody" class="divide-y divide-gray-100">
+
+                            <?php
+                            $statusColors = [
+                                'active' => 'bg-green-100 text-green-700 border-green-200',
+                                'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
+                                'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                                'repairing' => 'bg-gray-100 text-gray-700 border-gray-200',
+                                'faulty' => 'bg-pink-100 text-pink-700 border-pink-200',
+                                'retired' => 'bg-red-100 text-red-700 border-red-200'
                             ];
-                            // Get the class for the current row
-                            $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
 
                             $statusLabels = [
-                                'active'      => 'Active',
-                                'retired'     => 'Retired',
-                                'in_storage'  => 'In Storage',
-                                'repairing'   => 'Repairing',
-                                'in_use'      => 'In Use',
-                                'faulty'      => 'Faulty'
-                            ];?>
-                                    <span class="px-2 py-1 text-xs rounded-full font-medium border <?= $statusClass ?>">
-                                        <?= htmlspecialchars($statusLabels[$row['status']] ?? $row['status']) ?>
-                                    </span>
-                                </td>
-                                <td class="p-3 text-gray-600"><?= htmlspecialchars($row['category_name'] ?? 'N/A') ?></td>
-                                <td class="p-3">
-                                    <div class="flex gap-2 justify-center">
-                                        <!-- View -->
-                                        <button onclick='openViewModal(<?= htmlspecialchars(
-                                            json_encode([
-                                                "asset_tag" => $row['asset_tag'],
-                                                "device_type" => $row['device_type'],
-                                                "brand" => $row['brand_name'] ?? "N/A",
-                                                "model" => $row['model'],
-                                                "serial_number" => $row['serial_number'],
-                                                "specifications" => $row['specifications'],
-                                                "department" => $row['department_name'] ?? "N/A",
-                                                "assigned_user" => $row['assigned_user'],
-                                                "location" => $row['location_name'] ?? "N/A",
-                                                "condition" => $row['condition'],
-                                                "status" => $row['status'],
-                                                "category_name" => $row['category_name'] ?? "N/A",
-                                                "remarks" => $row['remarks']
-                                            ],
-                                            JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
-                                        ), ENT_QUOTES, 'UTF-8') ?>)'
-                                        class="text-green-600 hover:bg-green-50 p-2 rounded-lg transition-all" title="View">
-                                            <i class="fa fa-eye"></i>
-                                        </button>
-                                        <!-- Edit -->
-                                        <button onclick="openModal('editModal<?= $row['id'] ?>')"
-                                            class="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-all" title="Edit">
-                                            <i class="fa fa-pen"></i>
-                                        </button>
-                                        <!-- Delete -->
-                                        <button
-    onclick="openDeleteModal(<?= (int)$row['id'] ?>)"
-    class="p-2 text-red-600 hover:bg-red-100 rounded-full transition"
-    title="Delete Item">
-    <i class="fas fa-trash"></i>
-</button>
+                                'active' => 'Active',
+                                'in_use' => 'In Use',
+                                'in_storage' => 'In Storage',
+                                'repairing' => 'Repairing',
+                                'faulty' => 'Faulty',
+                                'retired' => 'Retired'
+                            ];
+                            ?>
 
- <button
-    onclick="openRetireModal(<?= (int)$row['id'] ?>)"
-    class="p-2 text-orange-600 hover:bg-orange-100 rounded-full transition"
-    title="Retire Device">
-    <i class="fas fa-archive"></i>
-</button>
+                            <?php while ($row = $list->fetch_assoc()): ?>
+                                <tr class="hover:bg-gray-50 transition">
 
+                                    <!-- ASSET TAG -->
+                                    <td class="p-4">
+                                        <span class="font-bold text-blue-600 text-sm">
+                                            <?= htmlspecialchars($row['asset_tag']) ?>
+                                        </span>
+                                    </td>
 
-                                    </div>
-                                </td>
-                            </tr>
-                            <!-- ================= EDIT MODAL ================= -->
-                            <div id="editModal<?= $row['id'] ?>"
-                                class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
-                                onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
-                                <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
-                                    onclick="event.stopPropagation()">
-                                    <!-- Modal Header -->
-                                    <div
-                                        class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                                <i class="fas fa-edit text-white"></i>
+                                    <!-- TYPE -->
+                                    <td class="p-4 text-gray-700 text-sm">
+                                        <?= htmlspecialchars($row['device_type']) ?>
+                                    </td>
+
+                                    <!-- BRAND -->
+                                    <td class="p-4 text-gray-700 text-sm">
+                                        <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
+                                    </td>
+
+                                    <!-- MODEL -->
+                                    <td class="p-4 text-gray-700 text-sm">
+                                        <?= htmlspecialchars($row['model']) ?>
+                                    </td>
+
+                                    <!-- USER -->
+                                    <td class="p-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-700
+                                flex items-center justify-center text-white text-xs font-bold">
+                                                <?= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) ?>
                                             </div>
-                                            <div>
-                                                <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
-                                                <p class="text-blue-100 text-sm">
-                                                    <?= htmlspecialchars($row['asset_tag'] ?? '') ?>
-                                                </p>
-                                            </div>
+                                            <span class="text-gray-700 text-sm">
+                                                <?= htmlspecialchars($row['assigned_user'] ?? 'Unassigned') ?>
+                                            </span>
                                         </div>
-                                        <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                            class="text-white/80 hover:text-white transition">
-                                            <i class="fas fa-times text-xl"></i>
-                                        </button>
-                                    </div>
-                                    <!-- Modal Body -->
-                                    <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
-                                        <form method="POST" action="inventory.php?edit=<?= $row['id'] ?>"
-                                            id="editForm<?= $row['id'] ?>">
-                                            <!-- Basic Information -->
-                                            <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                                <h3
-                                                    class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                    <i class="fas fa-info-circle text-blue-600"></i>
-                                                    Basic Information
-                                                </h3>
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div class="md:col-span-2">
-                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Asset
-                                                            Tag</label>
-                                                        <input readonly name="asset_tag"
-                                                            value="<?= htmlspecialchars($row['asset_tag'] ?? '') ?>"
-                                                            class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device
-                                                            Type <span class="text-red-500">*</span></label>
-                                                        <input name="device_type" required
-                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                            value="<?= htmlspecialchars($row['device_type'] ?? '') ?>">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
-                                                        <select name="brand_id" required
-                                                            class="w-full border border-gray-300 p-3 rounded-lg">
-                                                            <option value="">Select Brand</option>
-                                                            <?php foreach ($brandsArr as $b): ?>
-                                                                <option value="<?= $b['id'] ?>"
-                                                                <?= ($row['brand_id'] == $b['id']) ? 'selected' : '' ?>>
-                                                                <?= htmlspecialchars($b['brand_name']) ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                                                        <input name="model"
-                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                            value="<?= htmlspecialchars($row['model'] ?? '') ?>">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial
-                                                            Number</label>
-                                                        <input name="serial_number"
-                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                            value="<?= htmlspecialchars($row['serial_number'] ?? '') ?>">
-                                                    </div>
-                                                    <div class="md:col-span-2">
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
-                                                        <input name="specifications"
-                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                            value="<?= htmlspecialchars($row['specifications'] ?? '') ?>">
-                                                    </div>
+                                    </td>
+
+                                    <!-- LOCATION -->
+                                    <td class="p-4 text-gray-600 text-sm">
+                                        <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
+                                        <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
+                                    </td>
+
+                                    <!-- STATUS -->
+                                    <td class="p-4">
+                                        <?php
+                                        $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+                                        ?>
+                                        <span
+                                            class="px-3 py-1 text-xs font-semibold rounded-full border <?= $statusClass ?>">
+                                            <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
+                                        </span>
+                                    </td>
+
+                                    <!-- CATEGORY -->
+                                    <td class="p-4 text-gray-600 text-sm">
+                                        <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
+                                    </td>
+
+                                    <!-- ACTIONS -->
+                                    <td class="p-4">
+                                        <div class="flex justify-center gap-2">
+
+                                            <!-- VIEW -->
+                                            <button
+                                                onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
+                                                class="w-9 h-9 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-lg"
+                                                title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+
+                                            <!-- EDIT -->
+                                            <button onclick="openModal('editModal<?= $row['id'] ?>')"
+                                                class="w-9 h-9 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg"
+                                                title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+
+                                            <!-- RETIRE -->
+                                            <button onclick="openRetireModal(<?= (int) $row['id'] ?>)"
+                                                class="w-9 h-9 flex items-center justify-center text-orange-600 hover:bg-orange-50 rounded-lg"
+                                                title="Retire">
+                                                <i class="fas fa-archive"></i>
+                                            </button>
+
+                                            <!-- DELETE -->
+                                            <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
+                                                class="w-9 h-9 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg"
+                                                title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- ================= EDIT MODAL ================= -->
+                                <div id="editModal<?= $row['id'] ?>"
+                                    class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
+                                    onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
+                                    <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
+                                        onclick="event.stopPropagation()">
+                                        <!-- Modal Header -->
+                                        <div
+                                            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+                                            <div class="flex items-center gap-3">
+                                                <div
+                                                    class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                                    <i class="fas fa-edit text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
+                                                    <p class="text-blue-100 text-sm">
+                                                        <?= htmlspecialchars($row['asset_tag'] ?? '') ?>
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <!-- Assignment Details -->
-                                            <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                                <h3
-                                                    class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                    <i class="fas fa-user-tag text-blue-600"></i>
-                                                    Assignment Details
-                                                </h3>
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                                        <select name="department_id" required
-                                                            class="w-full border border-gray-300 p-3 rounded-lg">
-                                                            <option value="">Select Department</option>
-                                                            <?php foreach ($departmentsArr as $d): ?>
-                                                                <option value="<?= $d['id'] ?>"
-                                                                    <?= ($row['department_id'] == $d['id']) ? 'selected' : '' ?>>
-                                                                    <?= htmlspecialchars($d['department_name']) ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
-                                                            User</label>
-                                                        <input name="assigned_user"
-                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                            value="<?= htmlspecialchars($row['assigned_user'] ?? '') ?>">
-                                                    </div>
-                                                    <div class="md:col-span-2">
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                                                        <select name="location_id" required
-                                                            class="w-full border border-gray-300 p-3 rounded-lg">
-                                                            <option value="">Select Location</option>
-                                                            <?php foreach ($locationsArr as $l): ?>
-                                                                <option value="<?= $l['id'] ?>"
-                                                                    <?= ($row['location_id'] == $l['id']) ? 'selected' : '' ?>>
-                                                                    <?= htmlspecialchars($l['location_name']) ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <!-- Status & Category -->
-                                            <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                                <h3
-                                                    class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                    <i class="fas fa-cog text-blue-600"></i>
-                                                    Status & Category
-                                                </h3>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
-                                                        <select name="condition"
-                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                                            <option value="Excellent" <?= $row['condition'] == 'Excellent' ? 'selected' : '' ?>>Excellent</option>
-                                                            <option value="Good" <?= $row['condition'] == 'Good' ? 'selected' : '' ?>>Good</option>
-                                                            <option value="Fair" <?= $row['condition'] == 'Fair' ? 'selected' : '' ?>>Fair</option>
-                                                            <option value="Poor" <?= $row['condition'] == 'Poor' ? 'selected' : '' ?>>Poor</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                                                        <select name="status" id="status" 
-                                                        class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                                        <?php 
-                                                            $allowedStatuses = [
-                                                                'active' => 'Active',
-                                                                'in_storage' => 'In Storage',
-                                                                'in_use' => 'In Use',
-                                                                'repairing' => 'Repairing',
-                                                                'faulty' => 'Faulty',
-                                                                'retired' => 'Retired'
-                                                                ];
-                                                                foreach ($allowedStatuses as $value => $label): ?>
-                                                            <option value="<?= $value ?>" <?= ($item['status'] ?? 'active') == $value ? 'selected' : '' ?>>
-                                                            <?= $label ?>
-                                                            </option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category
-                                                            <span class="text-red-500">*</span></label>
-                                                        <select name="category_id" required
-                                                            class="w-full border border-gray-300 p-3 rounded-lg">
-                                                            <option value="">Select Category</option>
-                                                            <?php foreach ($categoriesArr as $c): ?>
-                                                                <option value="<?= $c['id'] ?>"
-                                                                    <?= ($row['category_id'] == $c['id']) ? 'selected' : '' ?>>
-                                                                    <?= htmlspecialchars($c['category_name']) ?>
-                                                                </option>
-                                                            <?php endforeach; ?>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <!-- Additional Notes -->
-                                                <div class="bg-gray-50 rounded-xl p-4">
+                                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
+                                                class="text-white/80 hover:text-white transition">
+                                                <i class="fas fa-times text-xl"></i>
+                                            </button>
+                                        </div>
+                                        <!-- Modal Body -->
+                                        <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                                            <form method="POST" action="inventory.php?edit=<?= $row['id'] ?>"
+                                                id="editForm<?= $row['id'] ?>">
+                                                <!-- Basic Information -->
+                                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
                                                     <h3
                                                         class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                        <i class="fas fa-sticky-note text-blue-600"></i>
-                                                        Additional Notes
+                                                        <i class="fas fa-info-circle text-blue-600"></i>
+                                                        Basic Information
                                                     </h3>
-                                                    <textarea name="remarks" rows="4"
-                                                        class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                        placeholder="Add any additional notes or remarks..."><?= htmlspecialchars($row['remarks'] ?? '') ?></textarea>
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div class="md:col-span-2">
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Asset
+                                                                Tag</label>
+                                                            <input readonly name="asset_tag"
+                                                                value="<?= htmlspecialchars($row['asset_tag'] ?? '') ?>"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Device
+                                                                Type <span class="text-red-500">*</span></label>
+                                                            <input name="device_type" required
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                value="<?= htmlspecialchars($row['device_type'] ?? '') ?>">
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                                                            <select name="brand_id" required
+                                                                class="w-full border border-gray-300 p-3 rounded-lg">
+                                                                <option value="">Select Brand</option>
+                                                                <?php foreach ($brandsArr as $b): ?>
+                                                                    <option value="<?= $b['id'] ?>"
+                                                                        <?= ($row['brand_id'] == $b['id']) ? 'selected' : '' ?>>
+                                                                        <?= htmlspecialchars($b['brand_name']) ?>
+                                                                    </option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                                                            <input name="model"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                value="<?= htmlspecialchars($row['model'] ?? '') ?>">
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Serial
+                                                                Number</label>
+                                                            <input name="serial_number"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                value="<?= htmlspecialchars($row['serial_number'] ?? '') ?>">
+                                                        </div>
+                                                        <div class="md:col-span-2">
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                                            <input name="specifications"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                value="<?= htmlspecialchars($row['specifications'] ?? '') ?>">
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                        </form>
+                                                <!-- Assignment Details -->
+                                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                                    <h3
+                                                        class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                                        <i class="fas fa-user-tag text-blue-600"></i>
+                                                        Assignment Details
+                                                    </h3>
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                                            <select name="department_id" required
+                                                                class="w-full border border-gray-300 p-3 rounded-lg">
+                                                                <option value="">Select Department</option>
+                                                                <?php foreach ($departmentsArr as $d): ?>
+                                                                    <option value="<?= $d['id'] ?>"
+                                                                        <?= ($row['department_id'] == $d['id']) ? 'selected' : '' ?>>
+                                                                        <?= htmlspecialchars($d['department_name']) ?>
+                                                                    </option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Assigned
+                                                                User</label>
+                                                            <input name="assigned_user"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                                value="<?= htmlspecialchars($row['assigned_user'] ?? '') ?>">
+                                                        </div>
+                                                        <div class="md:col-span-2">
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                                                            <select name="location_id" required
+                                                                class="w-full border border-gray-300 p-3 rounded-lg">
+                                                                <option value="">Select Location</option>
+                                                                <?php foreach ($locationsArr as $l): ?>
+                                                                    <option value="<?= $l['id'] ?>"
+                                                                        <?= ($row['location_id'] == $l['id']) ? 'selected' : '' ?>>
+                                                                        <?= htmlspecialchars($l['location_name']) ?>
+                                                                    </option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Status & Category -->
+                                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                                    <h3
+                                                        class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                                        <i class="fas fa-cog text-blue-600"></i>
+                                                        Status & Category
+                                                    </h3>
+                                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
+                                                            <select name="condition"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                                                <option value="Excellent" <?= $row['condition'] == 'Excellent' ? 'selected' : '' ?>>
+                                                                    Excellent</option>
+                                                                <option value="Good" <?= $row['condition'] == 'Good' ? 'selected' : '' ?>>Good
+                                                                </option>
+                                                                <option value="Fair" <?= $row['condition'] == 'Fair' ? 'selected' : '' ?>>Fair
+                                                                </option>
+                                                                <option value="Poor" <?= $row['condition'] == 'Poor' ? 'selected' : '' ?>>Poor
+                                                                </option>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                                            <select name="status" id="status"
+                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                                                <?php
+                                                                $allowedStatuses = [
+                                                                    'active' => 'Active',
+                                                                    'in_storage' => 'In Storage',
+                                                                    'in_use' => 'In Use',
+                                                                    'repairing' => 'Repairing',
+                                                                    'faulty' => 'Faulty',
+                                                                    'retired' => 'Retired'
+                                                                ];
+                                                                foreach ($allowedStatuses as $value => $label): ?>
+                                                                    <option value="<?= $value ?>" <?= ($item['status'] ?? 'active') == $value ? 'selected' : '' ?>>
+                                                                        <?= $label ?>
+                                                                    </option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                class="block text-sm font-medium text-gray-700 mb-2">Category
+                                                                <span class="text-red-500">*</span></label>
+                                                            <select name="category_id" required
+                                                                class="w-full border border-gray-300 p-3 rounded-lg">
+                                                                <option value="">Select Category</option>
+                                                                <?php foreach ($categoriesArr as $c): ?>
+                                                                    <option value="<?= $c['id'] ?>"
+                                                                        <?= ($row['category_id'] == $c['id']) ? 'selected' : '' ?>>
+                                                                        <?= htmlspecialchars($c['category_name']) ?>
+                                                                    </option>
+                                                                <?php endforeach; ?>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <!-- Additional Notes -->
+                                                    <div class="bg-gray-50 rounded-xl p-4">
+                                                        <h3
+                                                            class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                                            <i class="fas fa-sticky-note text-blue-600"></i>
+                                                            Additional Notes
+                                                        </h3>
+                                                        <textarea name="remarks" rows="4"
+                                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                            placeholder="Add any additional notes or remarks..."><?= htmlspecialchars($row['remarks'] ?? '') ?></textarea>
+                                                    </div>
+                                            </form>
+                                        </div>
+                                        <!-- Modal Footer -->
+                                        <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
+                                                class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium">
+                                                <i class="fas fa-times mr-2"></i>Cancel
+                                            </button>
+                                            <button type="submit" form="editForm<?= $row['id'] ?>" name="update"
+                                                class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                                                <i class="fas fa-save mr-2"></i>Save Changes
+                                            </button>
+                                        </div>
                                     </div>
-                                    <!-- Modal Footer -->
-                                    <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                                        <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                            class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium">
-                                            <i class="fas fa-times mr-2"></i>Cancel
-                                        </button>
-                                        <button type="submit" form="editForm<?= $row['id'] ?>" name="update"
-                                            class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-                                            <i class="fas fa-save mr-2"></i>Save Changes
-                                        </button>
+                                </div>
+                            <?php endwhile; ?>
+
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+
+
+            <!-- ================= ADD MODAL ================= -->
+            <div id="addModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
+                onclick="closeModalOnBackdrop(event, 'addModal')">
+                <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
+                    onclick="event.stopPropagation()">
+                    <!-- Modal Header -->
+                    <div
+                        class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-plus text-white"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Add New Inventory Item</h2>
+                                <p class="text-green-100 text-sm">Fill in the details below</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="closeModal('addModal')"
+                            class="text-white/80 hover:text-white transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                        <form method="POST" id="addForm" autocomplete="off">
+                            <!-- Basic Information -->
+                            <div class="bg-gray-50 rounded-xl p-5 mb-6">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <i class="fas fa-info-circle text-green-600"></i>
+                                    Basic Information
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
+                                        <input readonly name="asset_tag"
+                                            value="<?= htmlspecialchars($asset_tag_preview) ?>"
+                                            class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Type <span
+                                                class="text-red-500">*</span></label>
+                                        <input name="device_type" value="<?= $item['device_type'] ?? '' ?>" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="e.g., Laptop, Desktop, Monitor">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span
+                                                class="text-red-500">*</span></label>
+                                        <select name="brand_id" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Brand</option>
+                                            <?php foreach ($brandsArr as $b): ?>
+                                                <option value="<?= $b['id'] ?>" <?= isset($item['brand_id']) && $item['brand_id'] == $b['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($b['brand_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                                        <input name="model" value="<?= $item['model'] ?? '' ?>"
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="e.g., XPS 15, ThinkPad X1">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial
+                                            Number</label>
+                                        <input name="serial_number" value="<?= $item['serial_number'] ?? '' ?>"
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="e.g., SN123456789">
+                                    </div>
+
+                                    <div class="md:col-span-2">
+                                        <label
+                                            class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                        <input name="specifications" value="<?= $item['specifications'] ?? '' ?>"
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="e.g., Intel i7, 16GB RAM, 512GB SSD">
                                     </div>
                                 </div>
                             </div>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+
+                            <!-- Assignment Details -->
+                            <div class="bg-gray-50 rounded-xl p-5 mb-6">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <i class="fas fa-user-tag text-green-600"></i>
+                                    Assignment Details
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department <span
+                                                class="text-red-500">*</span></label>
+                                        <select name="department_id" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Department</option>
+                                            <?php foreach ($departmentsArr as $d): ?>
+                                                <option value="<?= $d['id'] ?>" <?= isset($item['department_id']) && $item['department_id'] == $d['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($d['department_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
+                                            User</label>
+                                        <input name="assigned_user" value="<?= $item['assigned_user'] ?? '' ?>"
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            placeholder="e.g., John Doe">
+                                    </div>
+
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Location <span
+                                                class="text-red-500">*</span></label>
+                                        <select name="location_id" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Location</option>
+                                            <?php foreach ($locationsArr as $l): ?>
+                                                <option value="<?= $l['id'] ?>" <?= isset($item['location_id']) && $item['location_id'] == $l['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($l['location_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Status & Category -->
+                            <div class="bg-gray-50 rounded-xl p-5 mb-6">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <i class="fas fa-cog text-green-600"></i>
+                                    Status & Category
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span
+                                                class="text-red-500">*</span></label>
+                                        <select name="condition" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="Excellent" <?= (isset($item['condition']) && $item['condition'] == 'Excellent') ? 'selected' : '' ?>>Excellent</option>
+                                            <option value="Good" <?= (isset($item['condition']) && $item['condition'] == 'Good') ? 'selected' : '' ?>>Good</option>
+                                            <option value="Fair" <?= (isset($item['condition']) && $item['condition'] == 'Fair') ? 'selected' : '' ?>>Fair</option>
+                                            <option value="Poor" <?= (isset($item['condition']) && $item['condition'] == 'Poor') ? 'selected' : '' ?>>Poor</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span
+                                                class="text-red-500">*</span></label>
+                                        <select name="status" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="active" <?= (isset($item['status']) && $item['status'] == 'active') ? 'selected' : '' ?>>Active</option>
+                                            <option value="in_storage" <?= (isset($item['status']) && $item['status'] == 'in_storage') ? 'selected' : '' ?>>In Storage</option>
+                                            <option value="in_use" <?= (isset($item['status']) && $item['status'] == 'in_use') ? 'selected' : '' ?>>In Use</option>
+                                            <option value="repairing" <?= (isset($item['status']) && $item['status'] == 'repairing') ? 'selected' : '' ?>>Repairing</option>
+                                            <option value="faulty" <?= (isset($item['status']) && $item['status'] == 'faulty') ? 'selected' : '' ?>>Faulty</option>
+                                            <option value="retired" <?= (isset($item['status']) && $item['status'] == 'retired') ? 'selected' : '' ?>>Retired</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category <span
+                                                class="text-red-500">*</span></label>
+                                        <select name="category_id" required
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Category</option>
+                                            <?php foreach ($categoriesArr as $c): ?>
+                                                <option value="<?= $c['id'] ?>" <?= isset($item['category_id']) && $item['category_id'] == $c['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($c['category_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Notes -->
+                            <div class="bg-gray-50 rounded-xl p-5">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                    <i class="fas fa-sticky-note text-green-600"></i>
+                                    Description
+                                </h3>
+                                <textarea name="remarks" rows="4"
+                                    class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                    placeholder="Add any additional notes or remarks..."><?= $item['remarks'] ?? '' ?></textarea>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                        <button type="button" onclick="closeModal('addModal')"
+                            class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium">
+                            <i class="fas fa-times mr-2"></i>Cancel
+                        </button>
+                        <button type="submit" form="addForm" name="save"
+                            class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+                            <i class="fas fa-plus mr-2"></i>Add Item
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            <!-- ================= VIEW MODAL ================= -->
+            <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
+                onclick="closeModalOnBackdrop(event, 'viewModal')">
+                <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
+                    onclick="event.stopPropagation()">
+                    <!-- Modal Header -->
+                    <div
+                        class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-eye text-white"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Inventory Details</h2>
+                                <p class="text-purple-100 text-sm">View complete item information</p>
+                            </div>
+                        </div>
+                        <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                        <!-- Basic Information -->
+                        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 mb-5">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                <i class="fas fa-info-circle text-purple-600"></i>
+                                Basic Information
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Asset Tag</p>
+                                    <p class="font-semibold text-gray-800" id="view_asset_tag"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Device Type</p>
+                                    <p class="font-semibold text-gray-800" id="view_device_type"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Brand</p>
+                                    <p class="font-semibold text-gray-800" id="view_brand"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Model</p>
+                                    <p class="font-semibold text-gray-800" id="view_model"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Serial Number</p>
+                                    <p class="font-semibold text-gray-800" id="view_serial_number"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Category</p>
+                                    <p class="font-semibold text-gray-800" id="view_category"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3 md:col-span-2">
+                                    <p class="text-xs text-gray-500 mb-1">Specifications</p>
+                                    <p class="font-semibold text-gray-800" id="view_specifications"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Assignment Details -->
+                        <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                <i class="fas fa-user-tag text-green-600"></i>
+                                Assignment Details
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Department</p>
+                                    <p class="font-semibold text-gray-800" id="view_department"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Assigned User</p>
+                                    <p class="font-semibold text-gray-800" id="view_assigned_user"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3 md:col-span-2">
+                                    <p class="text-xs text-gray-500 mb-1">Location</p>
+                                    <p class="font-semibold text-gray-800" id="view_location"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status & Condition -->
+                        <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-5 mb-5">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                <i class="fas fa-cog text-orange-600"></i>
+                                Status & Condition
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Condition</p>
+                                    <p class="font-semibold text-gray-800" id="view_condition"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Status</p>
+                                    <p class="font-semibold text-gray-800" id="view_status"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Notes -->
+                        <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                <i class="fas fa-sticky-note text-gray-600"></i>
+                                Additional Notes
+                            </h3>
+                            <div class="bg-white rounded-lg p-3">
+                                <p class="text-gray-700" id="view_remarks"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
+                        <button onclick="closeViewModal()"
+                            class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
+                            <i class="fas fa-check mr-2"></i>Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
         </main>
     </div>
 
-    <!-- ================= ADD MODAL ================= -->
-<div id="addModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
-    onclick="closeModalOnBackdrop(event, 'addModal')">
-    <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
-        onclick="event.stopPropagation()">
-        <!-- Modal Header -->
-        <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-plus text-white"></i>
-                </div>
-                <div>
-                    <h2 class="text-xl font-bold text-white">Add New Inventory Item</h2>
-                    <p class="text-green-100 text-sm">Fill in the details below</p>
-                </div>
-            </div>
-            <button type="button" onclick="closeModal('addModal')"
-                class="text-white/80 hover:text-white transition">
-                <i class="fas fa-times text-xl"></i>
-            </button>
-        </div>
-
-        <!-- Modal Body -->
-        <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
-            <form method="POST" id="addForm" autocomplete="off">
-                <!-- Basic Information -->
-                <div class="bg-gray-50 rounded-xl p-5 mb-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-info-circle text-green-600"></i>
-                        Basic Information
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
-                            <input readonly name="asset_tag" value="<?= htmlspecialchars($asset_tag_preview) ?>"
-                                class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Device Type <span
-                                    class="text-red-500">*</span></label>
-                            <input name="device_type" value="<?= $item['device_type'] ?? '' ?>" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="e.g., Laptop, Desktop, Monitor">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span
-                                    class="text-red-500">*</span></label>
-                            <select name="brand_id" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">Select Brand</option>
-                                <?php foreach ($brandsArr as $b): ?>
-                                    <option value="<?= $b['id'] ?>" <?= isset($item['brand_id']) && $item['brand_id'] == $b['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($b['brand_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                            <input name="model" value="<?= $item['model'] ?? '' ?>"
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="e.g., XPS 15, ThinkPad X1">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Serial Number</label>
-                            <input name="serial_number" value="<?= $item['serial_number'] ?? '' ?>"
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="e.g., SN123456789">
-                        </div>
-
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
-                            <input name="specifications" value="<?= $item['specifications'] ?? '' ?>"
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="e.g., Intel i7, 16GB RAM, 512GB SSD">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Assignment Details -->
-                <div class="bg-gray-50 rounded-xl p-5 mb-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-user-tag text-green-600"></i>
-                        Assignment Details
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Department <span
-                                    class="text-red-500">*</span></label>
-                            <select name="department_id" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">Select Department</option>
-                                <?php foreach ($departmentsArr as $d): ?>
-                                    <option value="<?= $d['id'] ?>" <?= isset($item['department_id']) && $item['department_id'] == $d['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($d['department_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Assigned User</label>
-                            <input name="assigned_user" value="<?= $item['assigned_user'] ?? '' ?>"
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="e.g., John Doe">
-                        </div>
-
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Location <span
-                                    class="text-red-500">*</span></label>
-                            <select name="location_id" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">Select Location</option>
-                                <?php foreach ($locationsArr as $l): ?>
-                                    <option value="<?= $l['id'] ?>" <?= isset($item['location_id']) && $item['location_id'] == $l['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($l['location_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Status & Category -->
-                <div class="bg-gray-50 rounded-xl p-5 mb-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-cog text-green-600"></i>
-                        Status & Category
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span
-                                    class="text-red-500">*</span></label>
-                            <select name="condition" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="Excellent" <?= (isset($item['condition']) && $item['condition'] == 'Excellent') ? 'selected' : '' ?>>Excellent</option>
-                                <option value="Good" <?= (isset($item['condition']) && $item['condition'] == 'Good') ? 'selected' : '' ?>>Good</option>
-                                <option value="Fair" <?= (isset($item['condition']) && $item['condition'] == 'Fair') ? 'selected' : '' ?>>Fair</option>
-                                <option value="Poor" <?= (isset($item['condition']) && $item['condition'] == 'Poor') ? 'selected' : '' ?>>Poor</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Status <span
-                                    class="text-red-500">*</span></label>
-                            <select name="status" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="active" <?= (isset($item['status']) && $item['status'] == 'active') ? 'selected' : '' ?>>Active</option>
-                                <option value="in_storage" <?= (isset($item['status']) && $item['status'] == 'in_storage') ? 'selected' : '' ?>>In Storage</option>
-                                <option value="in_use" <?= (isset($item['status']) && $item['status'] == 'in_use') ? 'selected' : '' ?>>In Use</option>
-                                <option value="repairing" <?= (isset($item['status']) && $item['status'] == 'repairing') ? 'selected' : '' ?>>Repairing</option>
-                                <option value="faulty" <?= (isset($item['status']) && $item['status'] == 'faulty') ? 'selected' : '' ?>>Faulty</option>
-                                <option value="retired" <?= (isset($item['status']) && $item['status'] == 'retired') ? 'selected' : '' ?>>Retired</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Category <span
-                                    class="text-red-500">*</span></label>
-                            <select name="category_id" required
-                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">Select Category</option>
-                                <?php foreach ($categoriesArr as $c): ?>
-                                    <option value="<?= $c['id'] ?>" <?= isset($item['category_id']) && $item['category_id'] == $c['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($c['category_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Additional Notes -->
-                <div class="bg-gray-50 rounded-xl p-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-sticky-note text-green-600"></i>
-                        Description
-                    </h3>
-                    <textarea name="remarks" rows="4"
-                        class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                        placeholder="Add any additional notes or remarks..."><?= $item['remarks'] ?? '' ?></textarea>
-                </div>
-            </form>
-        </div>
-
-        <!-- Modal Footer -->
-        <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-            <button type="button" onclick="closeModal('addModal')"
-                class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium">
-                <i class="fas fa-times mr-2"></i>Cancel
-            </button>
-            <button type="submit" form="addForm" name="save"
-                class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
-                <i class="fas fa-plus mr-2"></i>Add Item
-            </button>
-        </div>
-    </div>
-</div>
 
     <!-- ================= RETIRE MODAL ================= -->
-    <div id="retireModal"
-    class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="retireModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
 
-    <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
-        <!-- Header -->
-        <div class="px-6 py-4 border-b flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-800">
-                Retire Device
-            </h3>
-            <button onclick="closeRetireModal()" class="text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <!-- Body -->
-        <div class="px-6 py-5 text-gray-700">
-            <p class="mb-2 font-medium">
-                Are you sure you want to retire this device?
-            </p>
-            <p class="text-sm text-gray-500">
-                The device will no longer be assignable but will remain in records.
-            </p>
-        </div>
-
-        <!-- Footer -->
-        <div class="px-6 py-4 border-t flex justify-end gap-3">
-            <button
-                onclick="closeRetireModal()"
-                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
-                Cancel
-            </button>
-
-            <form method="POST" class="inline">
-                <input type="hidden" name="retire_id" id="retireId">
-                <button
-                    type="submit"
-                    name="retire"
-                    class="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700">
-                    Yes, Retire
+        <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-800">
+                    Retire Device
+                </h3>
+                <button onclick="closeRetireModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
                 </button>
-            </form>
+            </div>
+
+            <!-- Body -->
+            <div class="px-6 py-5 text-gray-700">
+                <p class="mb-2 font-medium">
+                    Are you sure you want to retire this device?
+                </p>
+                <p class="text-sm text-gray-500">
+                    The device will no longer be assignable but will remain in records.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t flex justify-end gap-3">
+                <button onclick="closeRetireModal()"
+                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                    Cancel
+                </button>
+
+                <form method="POST" class="inline">
+                    <input type="hidden" name="retire_id" id="retireId">
+                    <button type="submit" name="retire"
+                        class="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700">
+                        Yes, Retire
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 
     <!-- ================= DELETE MODAL ================= -->
-    <div id="deleteModal"class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
 
-    <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
-        <!-- Header -->
-        <div class="px-6 py-4 border-b flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-800">
-                Confirm Delete
-            </h3>
-            <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
+        <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-800">
+                    Confirm Delete
+                </h3>
+                <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
 
-        <!-- Body -->
-        <div class="px-6 py-5 text-gray-700">
-            <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
-            <p class="text-sm text-gray-500">
-                This action <span class="text-red-600 font-semibold">cannot be undone</span>.
-            </p>
-        </div>
+            <!-- Body -->
+            <div class="px-6 py-5 text-gray-700">
+                <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
+                <p class="text-sm text-gray-500">
+                    This action <span class="text-red-600 font-semibold">cannot be undone</span>.
+                </p>
+            </div>
 
-        <!-- Footer -->
-        <div class="px-6 py-4 border-t flex justify-end gap-3">
-            <button
-                onclick="closeDeleteModal()"
-                class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
-                Cancel
-            </button>
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t flex justify-end gap-3">
+                <button onclick="closeDeleteModal()"
+                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                    Cancel
+                </button>
 
-            <!-- This triggers your existing PHP delete -->
-            <a id="confirmDeleteBtn"
-               class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-                Yes, Delete
-            </a>
+                <!-- This triggers your existing PHP delete -->
+                <a id="confirmDeleteBtn" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+                    Yes, Delete
+                </a>
+            </div>
         </div>
     </div>
-</div>
-
-    <!-- ================= VIEW MODAL ================= -->
-    <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
-        onclick="closeModalOnBackdrop(event, 'viewModal')">
-        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
-            onclick="event.stopPropagation()">
-            <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-eye text-white"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white">Inventory Details</h2>
-                        <p class="text-purple-100 text-sm">View complete item information</p>
-                    </div>
-                </div>
-                <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <!-- Modal Body -->
-            <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
-                <!-- Basic Information -->
-                <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 mb-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-info-circle text-purple-600"></i>
-                        Basic Information
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Asset Tag</p>
-                            <p class="font-semibold text-gray-800" id="view_asset_tag"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Device Type</p>
-                            <p class="font-semibold text-gray-800" id="view_device_type"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Brand</p>
-                            <p class="font-semibold text-gray-800" id="view_brand"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Model</p>
-                            <p class="font-semibold text-gray-800" id="view_model"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Serial Number</p>
-                            <p class="font-semibold text-gray-800" id="view_serial_number"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Category</p>
-                            <p class="font-semibold text-gray-800" id="view_category"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3 md:col-span-2">
-                            <p class="text-xs text-gray-500 mb-1">Specifications</p>
-                            <p class="font-semibold text-gray-800" id="view_specifications"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Assignment Details -->
-                <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-user-tag text-green-600"></i>
-                        Assignment Details
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Department</p>
-                            <p class="font-semibold text-gray-800" id="view_department"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Assigned User</p>
-                            <p class="font-semibold text-gray-800" id="view_assigned_user"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3 md:col-span-2">
-                            <p class="text-xs text-gray-500 mb-1">Location</p>
-                            <p class="font-semibold text-gray-800" id="view_location"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Status & Condition -->
-                <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-5 mb-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-cog text-orange-600"></i>
-                        Status & Condition
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Condition</p>
-                            <p class="font-semibold text-gray-800" id="view_condition"></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Status</p>
-                            <p class="font-semibold text-gray-800" id="view_status"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Additional Notes -->
-                <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <i class="fas fa-sticky-note text-gray-600"></i>
-                        Additional Notes
-                    </h3>
-                    <div class="bg-white rounded-lg p-3">
-                        <p class="text-gray-700" id="view_remarks"></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
-                <button onclick="closeViewModal()"
-                    class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
-                    <i class="fas fa-check mr-2"></i>Close
-                </button>
-            </div>
-        </div>
     </div>
 
     <script>
-        function searchTable() {
-            const q = document.getElementById("searchInput").value.toLowerCase();
-            document.querySelectorAll("tbody tr").forEach(row => {
-                row.style.display = row.textContent.toLowerCase().includes(q) ? "" : "none";
-            });
-        }
-
-        function sortTable(colIndex) {
-    const table = document.getElementById("inventoryTable");
-    const tbody = table.tBodies[0];
-    const rows = Array.from(tbody.rows);
-    const select = event.target;
-    const direction = select.value;
-
-    if (!direction) return;
-
-    rows.sort((a, b) => {
-        const aText = a.cells[colIndex].textContent.trim().toLowerCase();
-        const bText = b.cells[colIndex].textContent.trim().toLowerCase();
-
-        return direction === "asc"
-            ? aText.localeCompare(bText)
-            : bText.localeCompare(aText);
-    });
-
-    rows.forEach(row => tbody.appendChild(row));
-}
-
-function filterStatus(status) {
-    const rows = document.querySelectorAll("#inventoryTable tbody tr");
-
-    rows.forEach(row => {
-        const cellText = row.cells[6].textContent.trim();
-
-        if (status === "" || cellText === status) {
-            row.style.display = "";
-        } else {
-            row.style.display = "none";
-        }
-    });
-}
-
+        // ==================== MODAL FUNCTIONS ====================
         function openModal(id) {
-            document.getElementById(id).classList.remove('hidden');
+            const modal = document.getElementById(id);
+            if (!modal) {
+                console.error('Modal not found:', id);
+                return;
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex'); // ensure flex layout
         }
 
         function closeModal(id) {
-            document.getElementById(id).classList.add('hidden');
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         function closeModalOnBackdrop(event, id) {
@@ -1119,6 +1211,7 @@ function filterStatus(status) {
             }
         }
 
+        // ==================== VIEW MODAL ====================
         function openViewModal(data) {
             document.getElementById('view_asset_tag').innerText = data.asset_tag || '';
             document.getElementById('view_device_type').innerText = data.device_type || '';
@@ -1133,122 +1226,207 @@ function filterStatus(status) {
             document.getElementById('view_status').innerText = data.status || 'N/A';
             document.getElementById('view_category').innerText = data.category_name || 'N/A';
             document.getElementById('view_remarks').innerText = data.remarks || 'N/A';
-            document.getElementById('viewModal').classList.remove('hidden');
+            openModal('viewModal');
         }
 
         function closeViewModal() {
-            document.getElementById('viewModal').classList.add('hidden');
+            closeModal('viewModal');
         }
-        // reattach sorted rows
-        let currentSort = { column: null, order: null };
-        let currentFilter = '';
 
+        // ==================== RETIRE MODAL ====================
+        function openRetireModal(id) {
+            document.getElementById('retireId').value = id;
+            openModal('retireModal');
+        }
+
+        function closeRetireModal() {
+            closeModal('retireModal');
+        }
+
+        // ==================== DELETE MODAL ====================
+        function openDeleteModal(id) {
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            confirmBtn.href = `inventory.php?delete=${id}`;
+            openModal('deleteModal');
+        }
+
+        function closeDeleteModal() {
+            closeModal('deleteModal');
+        }
+
+        // ==================== SEARCH FUNCTION ====================
+        function searchTable() {
+            const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
+            const rows = document.querySelectorAll("#inventoryTable tbody tr");
+
+            rows.forEach(row => {
+                const assetTag = row.querySelector('[data-key="asset_tag"]')?.textContent.toLowerCase() || '';
+                const deviceType = row.querySelector('[data-key="device_type"]')?.textContent.toLowerCase() || '';
+                const brandName = row.querySelector('[data-key="brand_name"]')?.textContent.toLowerCase() || '';
+                const model = row.querySelector('[data-key="model"]')?.textContent.toLowerCase() || '';
+                const assignedUser = row.querySelector('[data-key="assigned_user"]')?.textContent.toLowerCase() || '';
+
+                const searchableText = `${assetTag} ${deviceType} ${brandName} ${model} ${assignedUser}`;
+
+                row.style.display = searchableText.includes(searchTerm) ? "" : "none";
+            });
+
+            updateActiveFilters();
+        }
+
+        // ==================== SORT FUNCTION ====================
+        let currentSort = { column: null, order: null };
         function sortTable(columnIndex, order) {
             const table = document.getElementById("inventoryTable");
             const tbody = table.tBodies[0];
             const rows = Array.from(tbody.rows);
 
-            currentSort = { column: columnIndex, order: order }; // save current sort
+            currentSort = { column: columnIndex, order: order };
 
             rows.sort((a, b) => {
                 const cellA = a.cells[columnIndex].textContent.trim().toLowerCase();
                 const cellB = b.cells[columnIndex].textContent.trim().toLowerCase();
-
-                if (cellA < cellB) return order === "asc" ? -1 : 1;
-                if (cellA > cellB) return order === "asc" ? 1 : -1;
-                return 0;
+                return order === "asc" ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
             });
 
-            // Apply filter after sorting
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // ==================== FILTER FUNCTIONS ====================
+        let currentFilters = { status: '', category: '', brand: '' };
+
+        function filterByStatus() {
+            const value = document.getElementById("statusFilter").value.toLowerCase();
+            currentFilters.status = value;
+            applyFilters();
+        }
+
+        function filterByCategory() {
+            const value = document.getElementById("categoryFilter").value;
+            currentFilters.category = value;
+            applyFilters();
+        }
+
+        function filterByBrand() {
+            const value = document.getElementById("brandFilter").value;
+            currentFilters.brand = value;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const rows = document.querySelectorAll("#inventoryTable tbody tr");
+
             rows.forEach(row => {
-                const status = row.cells[1].textContent.trim(); // Status column
-                if (!currentFilter || status === currentFilter) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
+                let show = true;
+
+                // Status filter
+                if (currentFilters.status) {
+                    const statusText = row.cells[6].querySelector('span')?.textContent.trim().toLowerCase() || '';
+                    if (!statusText.includes(currentFilters.status)) show = false;
                 }
-                tbody.appendChild(row);
+
+                // Category filter
+                if (currentFilters.category) {
+                    const categoryText = row.cells[7]?.textContent.trim() || '';
+                    const selectedCategoryName = document.querySelector(`#categoryFilter option[value="${currentFilters.category}"]`)?.textContent.trim() || '';
+                    if (categoryText !== selectedCategoryName) show = false;
+                }
+
+                // Brand filter
+                if (currentFilters.brand) {
+                    const brandText = row.querySelector('[data-key="brand_name"]')?.textContent.trim() || '';
+                    const selectedBrandName = document.querySelector(`#brandFilter option[value="${currentFilters.brand}"]`)?.textContent.trim() || '';
+                    if (brandText !== selectedBrandName) show = false;
+                }
+
+                row.style.display = show ? '' : 'none';
             });
+
+            updateActiveFilters();
         }
 
-        function filterStatus(status) {
-            currentFilter = status; // save current filter
-            const table = document.getElementById("inventoryTable");
-            const rows = table.tBodies[0].rows;
+        // ==================== CLEAR ALL FILTERS ====================
+        function clearAllFilters() {
+            document.getElementById("searchInput").value = "";
+            document.getElementById("statusFilter").value = "";
+            document.getElementById("categoryFilter").value = "";
+            document.getElementById("brandFilter").value = "";
 
-            for (let row of rows) {
-                const rowStatus = row.cells[1].textContent.trim(); // Status column
-                if (!status || rowStatus === status) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
-            }
+            currentFilters = { status: '', category: '', brand: '' };
 
-            // Reapply sorting if already sorted
-            if (currentSort.column !== null) {
-                sortTable(currentSort.column, currentSort.order);
-            }
+            const rows = document.querySelectorAll("#inventoryTable tbody tr");
+            rows.forEach(row => row.style.display = "");
+
+            updateActiveFilters();
         }
 
-        function viewItem(status) {
-    const statusLabels = {
-        active: 'Active',
-        retired: 'Retired',
-        in_storage: 'In Storage',
-        repairing: 'Under Repair',
-        in_use: 'In Use',
-        faulty: 'Faulty'
-    };
+        // ==================== ACTIVE FILTERS DISPLAY ====================
+        function updateActiveFilters() {
+            const container = document.getElementById("activeFilters");
+            const tags = document.getElementById("activeFilterTags");
+            tags.innerHTML = "";
 
-    const statusColors = {
-        active: 'text-green-600',
-        retired: 'text-red-600',
-        in_storage: 'text-yellow-600',
-        repairing: 'text-blue-600',
-        in_use: 'text-indigo-600',
-        faulty: 'text-pink-600'
-    };
+            let hasFilters = false;
 
-    const statusEl = document.getElementById('view_status');
+            // Search
+            const searchVal = document.getElementById("searchInput").value.trim();
+            if (searchVal) {
+                hasFilters = true;
+                addFilterTag("Search", searchVal, () => {
+                    document.getElementById("searchInput").value = "";
+                    searchTable();
+                });
+            }
 
-    statusEl.textContent = statusLabels[status] ?? status;
-    statusEl.className = `font-semibold ${statusColors[status] ?? 'text-gray-600'}`;
-}
+            // Status
+            if (currentFilters.status) {
+                hasFilters = true;
+                const statusText = document.querySelector(`#statusFilter option[value="${currentFilters.status}"]`)?.textContent || '';
+                addFilterTag("Status", statusText, () => {
+                    document.getElementById("statusFilter").value = "";
+                    filterByStatus();
+                });
+            }
 
-function retireDevice(id) {
-    if (!confirm('Are you sure you want to retire this device?')) return;
+            // Category
+            if (currentFilters.category) {
+                hasFilters = true;
+                const categoryText = document.querySelector(`#categoryFilter option[value="${currentFilters.category}"]`)?.textContent || '';
+                addFilterTag("Category", categoryText, () => {
+                    document.getElementById("categoryFilter").value = "";
+                    filterByCategory();
+                });
+            }
 
-    window.location.href = `?action=retire&id=${id}`;
-}
+            // Brand
+            if (currentFilters.brand) {
+                hasFilters = true;
+                const brandText = document.querySelector(`#brandFilter option[value="${currentFilters.brand}"]`)?.textContent || '';
+                addFilterTag("Brand", brandText, () => {
+                    document.getElementById("brandFilter").value = "";
+                    filterByBrand();
+                });
+            }
 
-function openDeleteModal(id) {
-    const modal = document.getElementById('deleteModal');
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
+            container.classList.toggle('hidden', !hasFilters);
+        }
 
-    confirmBtn.href = `inventory.php?delete=${id}`;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
+        function addFilterTag(label, value, removeCallback) {
+            const activeFilterTags = document.getElementById("activeFilterTags");
 
-function closeDeleteModal() {
-    const modal = document.getElementById('deleteModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
+            const tag = document.createElement("span");
+            tag.className = "inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium";
+            tag.innerHTML = `
+        <span>${label}: ${value}</span>
+        <button onclick="this.parentElement.remove(); (${removeCallback.toString()})();" 
+                class="hover:text-blue-900 transition">
+            <i class="fas fa-times text-xs"></i>
+        </button>
+    `;
 
-function openRetireModal(id) {
-    document.getElementById('retireId').value = id;
-    const modal = document.getElementById('retireModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeRetireModal() {
-    const modal = document.getElementById('retireModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
+            activeFilterTags.appendChild(tag);
+        }
     </script>
 </body>
+
 </html>
