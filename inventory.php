@@ -9,13 +9,12 @@ error_reporting(E_ALL);
 /* ================== DB ================== */
 $db = new Database();
 $conn = $db->getConnection();
-if (!$conn)
-    die("Database connection failed");
+if (!$conn) die("Database connection failed");
 
 /* ================== MODES ================== */
 $editMode = isset($_GET['edit']) && is_numeric($_GET['edit']);
 
-/* ================== AUTO ASSET TAG (DISPLAY ONLY) ================== */
+/* ================== AUTO ASSET TAG ================== */
 $year = date("Y");
 $q = $conn->query("
     SELECT asset_tag 
@@ -24,7 +23,6 @@ $q = $conn->query("
     ORDER BY id DESC 
     LIMIT 1
 ");
-
 $next = 1;
 if ($q && $q->num_rows) {
     $last = $q->fetch_assoc()['asset_tag'];
@@ -34,223 +32,6 @@ $asset_tag_preview = "AST-$year-" . str_pad($next, 4, "0", STR_PAD_LEFT);
 
 /* ================== ALLOWED STATUSES ================== */
 $allowedStatuses = ['active', 'in_storage', 'in_use', 'repairing', 'faulty', 'retired'];
-
-// Fetch unique statuses from the database
-$statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
-$statuses = [];
-while ($row = $statusQuery->fetch_assoc()) {
-    $statuses[] = $row['status'];
-}
-
-// ALSO ADD THESE TWO LINES for the advanced filters:
-/*$categories = $categoriesArr;  // Reuse existing categories
-$brands = $brandsArr;          // Reuse existing brands
-
-/* ================== ADD INVENTORY ================== */
-if (isset($_POST['save'])) {
-    $year = date("Y");
-    $q = $conn->query("
-        SELECT asset_tag 
-        FROM inventory_items 
-        WHERE asset_tag LIKE 'AST-$year-%' 
-        ORDER BY id DESC 
-        LIMIT 1
-    ");
-
-    $next = 1;
-    if ($q && $q->num_rows) {
-        $last = $q->fetch_assoc()['asset_tag'];
-        $next = (int) substr($last, -4) + 1;
-    }
-    $asset_tag = "AST-$year-" . str_pad($next, 4, "0", STR_PAD_LEFT);
-
-    // Collect data
-    $device_type = $_POST['device_type'] ?? '';
-    $brand_id = !empty($_POST['brand_id']) ? $_POST['brand_id'] : null;
-    $model = $_POST['model'] ?? '';
-    $serial_number = $_POST['serial_number'] ?? '';
-    $specifications = $_POST['specifications'] ?? '';
-    $department_id = !empty($_POST['department_id']) ? $_POST['department_id'] : null;
-    $assigned_user = $_POST['assigned_user'] ?? '';
-    $location_id = !empty($_POST['location_id']) ? $_POST['location_id'] : null;
-    $condition = $_POST['condition'] ?? 'Good';
-    $status = $_POST['status'] ?? 'active';
-    $remarks = $_POST['remarks'] ?? '';
-    $category_id = $_POST['category_id'] ?? null;
-
-    // Validate status
-    if (!in_array($status, $allowedStatuses))
-        $status = 'active';
-
-    // Insert
-    $stmt = $conn->prepare("
-        INSERT INTO inventory_items
-        (asset_tag, device_type, brand_id, model, serial_number, specifications,
-         department_id, assigned_user, location_id, `condition`, status, remarks, category_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ");
-
-    $stmt->bind_param(
-        "ssissisissssi",
-        $asset_tag,
-        $device_type,
-        $brand_id,
-        $model,
-        $serial_number,
-        $specifications,
-        $department_id,
-        $assigned_user,
-        $location_id,
-        $condition,
-        $status,
-        $remarks,
-        $category_id
-    );
-
-    $stmt->execute();
-    header("Location: inventory.php?success=added");
-    exit;
-}
-
-/* ================== EDIT INVENTORY ================== */
-if ($editMode && isset($_POST['update'])) {
-    $edit_id = $_GET['edit'];
-
-    $device_type = $_POST['device_type'] ?? '';
-    $brand_id = !empty($_POST['brand_id']) ? $_POST['brand_id'] : null;
-    $model = $_POST['model'] ?? '';
-    $serial_number = $_POST['serial_number'] ?? '';
-    $specifications = $_POST['specifications'] ?? '';
-    $department_id = !empty($_POST['department_id']) ? $_POST['department_id'] : null;
-    $assigned_user = $_POST['assigned_user'] ?? '';
-    $location_id = !empty($_POST['location_id']) ? $_POST['location_id'] : null;
-    $condition = $_POST['condition'] ?? 'Good';
-    $status = $_POST['status'] ?? 'active';
-    $remarks = $_POST['remarks'] ?? '';
-    $category_id = $_POST['category_id'] ?? null;
-
-    // Validate status
-    if (!in_array($status, $allowedStatuses))
-        $status = 'active';
-
-    $stmt = $conn->prepare("
-        UPDATE inventory_items SET
-            device_type=?, brand_id=?, model=?, serial_number=?, specifications=?,
-            department_id=?, assigned_user=?, location_id=?, `condition`=?, status=?, remarks=?, category_id=?,
-            updated_at = NOW()
-        WHERE id=?
-    ");
-
-    $stmt->bind_param(
-        "sisssisisssii",
-        $device_type,
-        $brand_id,
-        $model,
-        $serial_number,
-        $specifications,
-        $department_id,
-        $assigned_user,
-        $location_id,
-        $condition,
-        $status,
-        $remarks,
-        $category_id,
-        $edit_id
-    );
-
-    $stmt->execute();
-    header("Location: inventory.php?success=updated");
-    exit;
-}
-
-/* ================== DELETE INVENTORY ================== */
-if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
-    $delete_id = (int) $_GET['delete'];
-
-    $stmt = $conn->prepare("DELETE FROM inventory_items WHERE id = ?");
-    $stmt->bind_param("i", $delete_id);
-    $stmt->execute();
-
-    header("Location: inventory.php?success=deleted");
-    exit;
-}
-/* ================== RETIRE INVENTORY ================== */
-if (isset($_POST['retire']) && isset($_POST['retire_id'])) {
-    $id = (int) $_POST['retire_id'];
-
-    $stmt = $conn->prepare("
-        UPDATE inventory_items
-        SET status = 'retired'
-        WHERE id = ?
-    ");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-
-    header("Location: inventory.php?success=retired");
-    exit;
-}
-
-
-/* ================== FETCH ITEM FOR EDIT ================== */
-$item = [];
-if ($editMode) {
-    $stmt = $conn->prepare("SELECT * FROM inventory_items WHERE id=?");
-    $stmt->bind_param("i", $_GET['edit']);
-    $stmt->execute();
-    $item = $stmt->get_result()->fetch_assoc();
-}
-
-if (isset($_GET['action'], $_GET['id']) && $_GET['action'] === 'retire') {
-
-    $deviceId = (int) $_GET['id'];
-
-    $stmt = $conn->prepare("
-        UPDATE inventory_items 
-        SET status = 'retired', retired_at = NOW()
-        WHERE id = ?
-    ");
-    $stmt->bind_param("i", $deviceId);
-    $stmt->execute();
-
-    header("Location: inventory.php?retired=1");
-    exit;
-}
-
-/* ================== DROPDOWNS ================== */
-$categoriesArr = $conn->query("SELECT id, category_name FROM categories ORDER BY category_name")->fetch_all(MYSQLI_ASSOC);
-$brandsArr = $conn->query("SELECT id, brand_name FROM brands ORDER BY brand_name")->fetch_all(MYSQLI_ASSOC);
-$departmentsArr = $conn->query("SELECT id, department_name FROM departments ORDER BY department_name")->fetch_all(MYSQLI_ASSOC);
-$locationsArr = $conn->query("SELECT id, location_name FROM locations ORDER BY location_name")->fetch_all(MYSQLI_ASSOC);
-
-/* ================== LIST INVENTORY ================== */
-$list = $conn->query("
-    SELECT i.*, c.category_name, b.brand_name, d.department_name, l.location_name
-    FROM inventory_items i
-    LEFT JOIN categories c ON i.category_id = c.id
-    LEFT JOIN brands b ON i.brand_id = b.id
-    LEFT JOIN departments d ON i.department_id = d.id
-    LEFT JOIN locations l ON i.location_id = l.id
-    ORDER BY i.id DESC
-");
-
-/* ================== STATS ================== */
-$statsQuery = $conn->query("
-    SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END) as storage,
-        SUM(CASE WHEN status IN ('faulty', 'repairing') THEN 1 ELSE 0 END) as alert
-    FROM inventory_items
-");
-$stats = $statsQuery->fetch_assoc();
-
-/* ================== STATUSES ================== */
-$statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
-$statuses = [];
-while ($row = $statusQuery->fetch_assoc()) {
-    $statuses[] = $row['status'];
-}
-
 $statusLabels = [
     'active' => 'Active',
     'retired' => 'Retired',
@@ -260,15 +41,124 @@ $statusLabels = [
     'faulty' => 'Faulty'
 ];
 
-$statusColors = [
-    'active' => 'bg-green-100 text-green-700 border-green-200',
-    'retired' => 'bg-red-100 text-red-700 border-red-200',
-    'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    'repairing' => 'bg-gray-100 text-gray-700 border-gray-200',
-    'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    'faulty' => 'bg-pink-100 text-pink-700 border-pink-200'
-];
+/* ================== DROPDOWNS ================== */
+$categoriesArr = $conn->query("SELECT id, category_name FROM categories ORDER BY category_name")->fetch_all(MYSQLI_ASSOC);
+$brandsArr = $conn->query("SELECT id, brand_name FROM brands ORDER BY brand_name")->fetch_all(MYSQLI_ASSOC);
+$departmentsArr = $conn->query("SELECT id, department_name FROM departments ORDER BY department_name")->fetch_all(MYSQLI_ASSOC);
+$locationsArr = $conn->query("SELECT id, location_name FROM locations ORDER BY location_name")->fetch_all(MYSQLI_ASSOC);
+
+/* ================== FETCH DISTINCT STATUSES ================== */
+$statuses = [];
+$statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
+if ($statusQuery && $statusQuery->num_rows > 0) {
+    while ($row = $statusQuery->fetch_assoc()) {
+        if (in_array($row['status'], $allowedStatuses)) {
+            $statuses[] = $row['status'];
+        }
+    }
+}
+// If table empty, fallback to allowed statuses
+if (empty($statuses)) $statuses = $allowedStatuses;
+
+/* ================== LIST INVENTORY WITH SEARCH, FILTER, SORT & PAGINATION ================== */
+$where = [];
+$params = [];
+$paramTypes = '';
+
+if (!empty($_GET['search'])) {
+    $where[] = "(i.asset_tag LIKE ? OR i.device_type LIKE ? OR b.brand_name LIKE ? OR i.model LIKE ? OR i.assigned_user LIKE ?)";
+    $searchTerm = '%' . $_GET['search'] . '%';
+    $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+    $paramTypes .= str_repeat('s', 5);
+}
+
+if (!empty($_GET['status'])) {
+    $where[] = "i.status=?";
+    $params[] = $_GET['status'];
+    $paramTypes .= 's';
+}
+
+if (!empty($_GET['category'])) {
+    $where[] = "i.category_id=?";
+    $params[] = (int)$_GET['category'];
+    $paramTypes .= 'i';
+}
+
+$whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+$orderBy = 'i.id';
+$orderDir = (($_GET['sort'] ?? '') === 'asc') ? 'ASC' : 'DESC';
+
+/* ================== PAGINATION ================== */
+$perPage = 10; // items per page
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $perPage;
+
+// 1️ Get total records for pagination
+$countQuery = $conn->prepare("
+    SELECT COUNT(*) as total
+    FROM inventory_items i
+    LEFT JOIN categories c ON i.category_id=c.id
+    LEFT JOIN brands b ON i.brand_id=b.id
+    $whereSql
+");
+if ($params) $countQuery->bind_param($paramTypes, ...$params);
+$countQuery->execute();
+$totalRecords = $countQuery->get_result()->fetch_assoc()['total'] ?? 0;
+$totalPages = ceil($totalRecords / $perPage);
+
+// Total records for pagination
+$countSql = "SELECT COUNT(*) as total FROM inventory_items i
+    LEFT JOIN brands b ON i.brand_id = b.id
+    LEFT JOIN categories c ON i.category_id = c.id
+    LEFT JOIN departments d ON i.department_id = d.id
+    LEFT JOIN locations l ON i.location_id = l.id
+    $whereSql";
+
+// Pagination
+$limit = 10; // number of items per page
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
+$page = max($page, 1); // make sure page is at least 1
+$offset = ($page - 1) * $limit;
+
+
+// Pagination
+$limit = 10; // number of items per page
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
+$page = max($page, 1); // ensure page is at least 1
+$offset = ($page - 1) * $limit;
+
+
+// 2️ Fetch paginated inventory
+$listQuery = $conn->prepare("
+    SELECT i.*, c.category_name, b.brand_name, d.department_name, l.location_name
+    FROM inventory_items i
+    LEFT JOIN categories c ON i.category_id = c.id
+    LEFT JOIN brands b ON i.brand_id = b.id
+    LEFT JOIN departments d ON i.department_id = d.id
+    LEFT JOIN locations l ON i.location_id = l.id
+    $whereSql
+    ORDER BY $orderBy $orderDir
+    LIMIT $limit OFFSET $offset
+");
+if ($params) {
+    $listQuery->bind_param($paramTypes, ...$params);
+}
+$listQuery->execute();
+$list = $listQuery->get_result();
+
+
+
+/* ================== ACTIVE FILTER TAGS ================== */
+$activeFilters = [];
+if (!empty($_GET['search'])) $activeFilters[] = ['label'=>'Search: ' . htmlspecialchars($_GET['search']), 'param'=>'search'];
+if (!empty($_GET['status'])) $activeFilters[] = ['label'=>'Status: ' . htmlspecialchars($statusLabels[$_GET['status']] ?? $_GET['status']), 'param'=>'status'];
+if (!empty($_GET['category'])) {
+    $catName = '';
+    foreach ($categoriesArr as $c) if ($c['id'] == $_GET['category']) $catName = $c['category_name'];
+    $activeFilters[] = ['label'=>'Category: ' . htmlspecialchars($catName), 'param'=>'category'];
+}
 ?>
+
 
 
 
@@ -347,56 +237,55 @@ $statusColors = [
                 </button>
             </div>
 
-            <!-- ================= SEARCH & SORT CARD ================= -->
-            <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-6 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <div class="md:col-span-2 relative">
-                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input id="searchInput" type="text" onkeyup="searchTable()"
-                            placeholder="Search by asset, type, brand, model, or user..."
-                            class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition search-glow">
-                        <div
-                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 hidden md:block">
-                            <kbd class="px-2 py-1 bg-gray-100 rounded border border-gray-300">Ctrl+K</kbd>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <i class="fas fa-sort absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <select id="sortSelect" onchange="sortTable('asset_tag')"
-                            class="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white transition cursor-pointer">
-                            <option value="">Sort by Asset</option>
-                            <option value="asc">A → Z</option>
-                            <option value="desc">Z → A</option>
-                        </select>
-                        <i
-                            class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                    </div>
-                    <div class="relative">
-                        <i class="fas fa-filter absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <select id="statusFilter" onchange="filterStatus(this.value)"
-                            class="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white transition cursor-pointer">
-                            <option value="">All Status</option>
-                            <?php foreach ($statuses as $status): ?>
-                                <option value="<?= htmlspecialchars($status) ?>">
-                                    <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <i
-                            class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                    </div>
-                </div>
-                <div id="activeFilters" class="hidden animate-slide-down">
-                    <div class="flex items-center justify-between mb-3 pt-4 border-t border-gray-200">
-                        <span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Active Filters</span>
-                        <button onclick="clearAllFilters()"
-                            class="text-xs text-blue-600 hover:text-blue-800 font-medium transition"><i
-                                class="fas fa-times-circle mr-1"></i>Clear All</button>
-                    </div>
-                    <div id="activeFilterTags" class="flex flex-wrap gap-2"></div>
-                </div>
-                <div id="resultsCount" class="text-sm text-gray-600 mt-4 pt-4 border-t border-gray-200"></div>
+            <!-- Filters and Search -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <form method="GET" class="flex flex-col md:flex-row gap-4 items-start md:items-center">
+        <!-- Search -->
+        <div class="flex-1">
+            <div class="relative">
+                <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input id="searchInput" onkeyup="searchTable()" type="text" name="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
+                    placeholder="Search by asset, type, brand, model, or user..."
+                    class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
             </div>
+        </div>
+
+        <!-- Sort by Asset -->
+        <div class="w-full md:w-48">
+            <select name="sort" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                <option value="">Sort by Asset</option>
+                <option value="asc" <?= ($_GET['sort'] ?? '') === 'asc' ? 'selected' : '' ?>>A → Z</option>
+                <option value="desc" <?= ($_GET['sort'] ?? '') === 'desc' ? 'selected' : '' ?>>Z → A</option>
+            </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="w-full md:w-48">
+           <select name="status" id="statusFilter" class="w-full px-4 py-3 border rounded-xl">
+    <option value="">All Status</option>
+    <?php foreach ($statuses as $status): ?>
+        <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
+            <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
+        </option>
+    <?php endforeach; ?>
+</select>
+
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-2">
+            <button type="submit"
+                class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center">
+                <i class="fas fa-filter mr-2"></i>Filter
+            </button>
+            <a href="<?= $_SERVER['PHP_SELF'] ?>"
+                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors inline-flex items-center">
+                <i class="fas fa-redo mr-2"></i>Reset
+            </a>
+        </div>
+    </form>
+</div>
+
 
             <!-- ================= TABLE ================= -->
             <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
@@ -445,29 +334,29 @@ $statusColors = [
                                 <tr class="hover:bg-gray-50 transition">
 
                                     <!-- ASSET TAG -->
-                                    <td class="p-4">
+                                    <td class="p-4" data-key="">
                                         <span class="font-bold text-blue-600 text-sm">
                                             <?= htmlspecialchars($row['asset_tag']) ?>
                                         </span>
                                     </td>
 
                                     <!-- TYPE -->
-                                    <td class="p-4 text-gray-700 text-sm">
+                                    <td class="p-4 text-gray-700 text-sm" data-key="device_type">
                                         <?= htmlspecialchars($row['device_type']) ?>
                                     </td>
 
                                     <!-- BRAND -->
-                                    <td class="p-4 text-gray-700 text-sm">
+                                    <td class="p-4 text-gray-700 text-sm" data-key="brand_name">
                                         <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
                                     </td>
 
                                     <!-- MODEL -->
-                                    <td class="p-4 text-gray-700 text-sm">
+                                    <td class="p-4 text-gray-700 text-sm" data-key="model">
                                         <?= htmlspecialchars($row['model']) ?>
                                     </td>
 
                                     <!-- USER -->
-                                    <td class="p-4">
+                                    <td class="p-4" data-key="assigned_user">
                                         <div class="flex items-center gap-2">
                                             <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-700
                                 flex items-center justify-center text-white text-xs font-bold">
@@ -480,7 +369,7 @@ $statusColors = [
                                     </td>
 
                                     <!-- LOCATION -->
-                                    <td class="p-4 text-gray-600 text-sm">
+                                    <td class="p-4 text-gray-600 text-sm" data-key="location_name">
                                         <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
                                         <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
                                     </td>
@@ -497,7 +386,7 @@ $statusColors = [
                                     </td>
 
                                     <!-- CATEGORY -->
-                                    <td class="p-4 text-gray-600 text-sm">
+                                    <td class="p-4 text-gray-600 text-sm" data-key="category_name">
                                         <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
                                     </td>
 
@@ -978,129 +867,170 @@ $statusColors = [
             </div>
 
             <!-- ================= VIEW MODAL ================= -->
-            <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
-                onclick="closeModalOnBackdrop(event, 'viewModal')">
-                <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
-                    onclick="event.stopPropagation()">
-                    <!-- Modal Header -->
-                    <div
-                        class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-eye text-white"></i>
-                            </div>
-                            <div>
-                                <h2 class="text-xl font-bold text-white">Inventory Details</h2>
-                                <p class="text-purple-100 text-sm">View complete item information</p>
-                            </div>
-                        </div>
-                        <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+    <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
+        onclick="closeModalOnBackdrop(event, 'viewModal')">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
+            onclick="event.stopPropagation()">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-eye text-white"></i>
                     </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Inventory Details</h2>
+                        <p class="text-purple-100 text-sm">View complete item information</p>
+                    </div>
+                </div>
+                <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
 
-                    <!-- Modal Body -->
-                    <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
-                        <!-- Basic Information -->
-                        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 mb-5">
-                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-info-circle text-purple-600"></i>
-                                Basic Information
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Asset Tag</p>
-                                    <p class="font-semibold text-gray-800" id="view_asset_tag"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Device Type</p>
-                                    <p class="font-semibold text-gray-800" id="view_device_type"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Brand</p>
-                                    <p class="font-semibold text-gray-800" id="view_brand"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Model</p>
-                                    <p class="font-semibold text-gray-800" id="view_model"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Serial Number</p>
-                                    <p class="font-semibold text-gray-800" id="view_serial_number"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Category</p>
-                                    <p class="font-semibold text-gray-800" id="view_category"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3 md:col-span-2">
-                                    <p class="text-xs text-gray-500 mb-1">Specifications</p>
-                                    <p class="font-semibold text-gray-800" id="view_specifications"></p>
-                                </div>
-                            </div>
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                <!-- Basic Information -->
+                <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 mb-5">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                        <i class="fas fa-info-circle text-purple-600"></i>
+                        Basic Information
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Asset Tag</p>
+                            <p class="font-semibold text-gray-800" id="view_asset_tag"></p>
                         </div>
-
-                        <!-- Assignment Details -->
-                        <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
-                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-user-tag text-green-600"></i>
-                                Assignment Details
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Department</p>
-                                    <p class="font-semibold text-gray-800" id="view_department"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Assigned User</p>
-                                    <p class="font-semibold text-gray-800" id="view_assigned_user"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3 md:col-span-2">
-                                    <p class="text-xs text-gray-500 mb-1">Location</p>
-                                    <p class="font-semibold text-gray-800" id="view_location"></p>
-                                </div>
-                            </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Device Type</p>
+                            <p class="font-semibold text-gray-800" id="view_device_type"></p>
                         </div>
-
-                        <!-- Status & Condition -->
-                        <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-5 mb-5">
-                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-cog text-orange-600"></i>
-                                Status & Condition
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Condition</p>
-                                    <p class="font-semibold text-gray-800" id="view_condition"></p>
-                                </div>
-                                <div class="bg-white rounded-lg p-3">
-                                    <p class="text-xs text-gray-500 mb-1">Status</p>
-                                    <p class="font-semibold text-gray-800" id="view_status"></p>
-                                </div>
-                            </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Brand</p>
+                            <p class="font-semibold text-gray-800" id="view_brand"></p>
                         </div>
-
-                        <!-- Additional Notes -->
-                        <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
-                            <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-sticky-note text-gray-600"></i>
-                                Additional Notes
-                            </h3>
-                            <div class="bg-white rounded-lg p-3">
-                                <p class="text-gray-700" id="view_remarks"></p>
-                            </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Model</p>
+                            <p class="font-semibold text-gray-800" id="view_model"></p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Serial Number</p>
+                            <p class="font-semibold text-gray-800" id="view_serial_number"></p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Category</p>
+                            <p class="font-semibold text-gray-800" id="view_category"></p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 md:col-span-2">
+                            <p class="text-xs text-gray-500 mb-1">Specifications</p>
+                            <p class="font-semibold text-gray-800" id="view_specifications"></p>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Modal Footer -->
-                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
-                        <button onclick="closeViewModal()"
-                            class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
-                            <i class="fas fa-check mr-2"></i>Close
-                        </button>
+                <!-- Assignment Details -->
+                <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                        <i class="fas fa-user-tag text-green-600"></i>
+                        Assignment Details
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Department</p>
+                            <p class="font-semibold text-gray-800" id="view_department"></p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Assigned User</p>
+                            <p class="font-semibold text-gray-800" id="view_assigned_user"></p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 md:col-span-2">
+                            <p class="text-xs text-gray-500 mb-1">Location</p>
+                            <p class="font-semibold text-gray-800" id="view_location"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status & Condition -->
+                <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-5 mb-5">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                        <i class="fas fa-cog text-orange-600"></i>
+                        Status & Condition
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Condition</p>
+                            <p class="font-semibold text-gray-800" id="view_condition"></p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3">
+                            <p class="text-xs text-gray-500 mb-1">Status</p>
+                            <p class="font-semibold text-gray-800" id="view_status"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Notes -->
+                <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                        <i class="fas fa-sticky-note text-gray-600"></i>
+                        Additional Notes
+                    </h3>
+                    <div class="bg-white rounded-lg p-3">
+                        <p class="text-gray-700" id="view_remarks"></p>
                     </div>
                 </div>
             </div>
 
+            <!-- Modal Footer -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
+                <button onclick="closeViewModal()"
+                    class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
+                    <i class="fas fa-check mr-2"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+<?php if ($totalPages > 1): ?>
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-2">
+        <?php
+        // Preserve all GET parameters except 'page'
+        $queryParams = $_GET;
+        ?>
+        
+        <?php if ($page > 1): ?>
+            <?php $queryParams['page'] = $page - 1; ?>
+            <a href="?<?= http_build_query($queryParams) ?>"
+               class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+               <i class="fas fa-chevron-left"></i>
+            </a>
+        <?php endif; ?>
+
+        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+            <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
+                <?php $queryParams['page'] = $i; ?>
+                <a href="?<?= http_build_query($queryParams) ?>" 
+                   class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
+                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
+                    <?= $i ?>
+                </a>
+            <?php elseif (abs($i - $page) == 3): ?>
+                <span class="px-2 text-gray-400">...</span>
+            <?php endif; ?>
+        <?php endfor; ?>
+
+        <?php if ($page < $totalPages): ?>
+            <?php $queryParams['page'] = $page + 1; ?>
+            <a href="?<?= http_build_query($queryParams) ?>"
+               class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+               <i class="fas fa-chevron-right"></i>
+            </a>
+        <?php endif; ?>
+    </div>
+
+    <p class="text-center text-sm text-gray-500 mt-4">
+        Page <?= $page ?> of <?= $totalPages ?> (<?= $totalRecords ?> total inventory items)
+    </p>
+<?php endif; ?>
 
         </main>
     </div>
@@ -1212,26 +1142,29 @@ $statusColors = [
         }
 
         // ==================== VIEW MODAL ====================
-        function openViewModal(data) {
-            document.getElementById('view_asset_tag').innerText = data.asset_tag || '';
-            document.getElementById('view_device_type').innerText = data.device_type || '';
-            document.getElementById('view_brand').innerText = data.brand || '';
-            document.getElementById('view_model').innerText = data.model || '';
-            document.getElementById('view_serial_number').innerText = data.serial_number || '';
-            document.getElementById('view_specifications').innerText = data.specifications || 'N/A';
-            document.getElementById('view_department').innerText = data.department || '';
-            document.getElementById('view_assigned_user').innerText = data.assigned_user || '';
-            document.getElementById('view_location').innerText = data.location || '';
-            document.getElementById('view_condition').innerText = data.condition || 'N/A';
-            document.getElementById('view_status').innerText = data.status || 'N/A';
-            document.getElementById('view_category').innerText = data.category_name || 'N/A';
-            document.getElementById('view_remarks').innerText = data.remarks || 'N/A';
-            openModal('viewModal');
-        }
+    function openViewModal(item) {
+    document.getElementById('view_asset_tag').textContent = item.asset_tag || '';
+    document.getElementById('view_device_type').textContent = item.device_type || '';
+    document.getElementById('view_brand').textContent = item.brand_name || '';
+    document.getElementById('view_model').textContent = item.model || '';
+    document.getElementById('view_serial_number').textContent = item.serial_number || '';
+    document.getElementById('view_category').textContent = item.category_name || '';
+    document.getElementById('view_specifications').textContent = item.specifications || '';
+    document.getElementById('view_department').textContent = item.department_name || '';
+    document.getElementById('view_assigned_user').textContent = item.assigned_user || '';
+    document.getElementById('view_location').textContent = item.location_name || '';
+    document.getElementById('view_condition').textContent = item.condition || '';
+    document.getElementById('view_status').textContent = item.status || '';
+    document.getElementById('view_remarks').textContent = item.remarks || '';
 
-        function closeViewModal() {
-            closeModal('viewModal');
-        }
+    document.getElementById('viewModal').classList.remove('hidden');
+}
+
+
+    function closeViewModal() {
+    document.getElementById('viewModal').classList.add('hidden');
+}
+
 
         // ==================== RETIRE MODAL ====================
         function openRetireModal(id) {
@@ -1255,24 +1188,29 @@ $statusColors = [
         }
 
         // ==================== SEARCH FUNCTION ====================
-        function searchTable() {
-            const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
-            const rows = document.querySelectorAll("#inventoryTable tbody tr");
+    function searchTable() {
+    const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
+    const rows = document.querySelectorAll("#inventoryTable tbody tr");
 
-            rows.forEach(row => {
-                const assetTag = row.querySelector('[data-key="asset_tag"]')?.textContent.toLowerCase() || '';
-                const deviceType = row.querySelector('[data-key="device_type"]')?.textContent.toLowerCase() || '';
-                const brandName = row.querySelector('[data-key="brand_name"]')?.textContent.toLowerCase() || '';
-                const model = row.querySelector('[data-key="model"]')?.textContent.toLowerCase() || '';
-                const assignedUser = row.querySelector('[data-key="assigned_user"]')?.textContent.toLowerCase() || '';
+    rows.forEach(row => {
+        const assetTag     = row.querySelector('[data-key="asset_tag"]')?.textContent.toLowerCase() || '';
+        const deviceType   = row.querySelector('[data-key="device_type"]')?.textContent.toLowerCase() || '';
+        const brandName    = row.querySelector('[data-key="brand_name"]')?.textContent.toLowerCase() || '';
+        const model        = row.querySelector('[data-key="model"]')?.textContent.toLowerCase() || '';
+        const assignedUser = row.querySelector('[data-key="assigned_user"]')?.textContent.toLowerCase() || '';
 
-                const searchableText = `${assetTag} ${deviceType} ${brandName} ${model} ${assignedUser}`;
+        const searchableText = `${assetTag} ${deviceType} ${brandName} ${model} ${assignedUser}`;
 
-                row.style.display = searchableText.includes(searchTerm) ? "" : "none";
-            });
+        // Show row if it matches, hide otherwise
+        row.style.display = searchableText.includes(searchTerm) ? "" : "none";
+    });
 
-            updateActiveFilters();
-        }
+    // Optional: if you have filter tags UI
+    if (typeof updateActiveFilters === "function") {
+        updateActiveFilters();
+    }
+}
+
 
         // ==================== SORT FUNCTION ====================
         let currentSort = { column: null, order: null };
