@@ -105,6 +105,7 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Categories Management - Admin Dashboard</title>
+    <link rel="icon" type="image/png" href="./images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -242,7 +243,8 @@ $stmt->close();
                                     </div>
                                     <div>
                                         <p class="font-bold text-gray-900 text-lg">
-                                            <?= htmlspecialchars($cat['category_name']) ?></p>
+                                            <?= htmlspecialchars($cat['category_name']) ?>
+                                        </p>
                                         <p class="text-sm text-gray-500">ID: #<?= $cat['id'] ?></p>
                                     </div>
                                 </div>

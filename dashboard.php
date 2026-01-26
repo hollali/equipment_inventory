@@ -91,6 +91,13 @@ $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
     $recentAssignments[] = $row;
 }
+
+/* ================== FILTER INPUTS ================== */
+$filterStatus = $_GET['status'] ?? '';
+$filterDepartment = $_GET['department'] ?? '';
+$filterLocation = $_GET['location'] ?? '';
+$filterDate = $_GET['date'] ?? '';
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -99,6 +106,8 @@ while ($row = $result->fetch_assoc()) {
     <meta charset="UTF-8">
     <title>Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="./images/logo.png">
+
 
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
