@@ -3,8 +3,11 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+
 session_start();
 require_once __DIR__ . "/config/database.php";
+require_once __DIR__ . '/vendor/autoload.php';
+
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -189,96 +192,163 @@ $filterDate = $_GET['date'] ?? '';
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
             <?php
             $statsData = [
-                ['Total Devices', $totalItems, 'fa-boxes-stacked', 'from-blue-500 to-blue-600', 'blue'],
-                ['Assigned Users', $totalUsers, 'fa-users', 'from-green-500 to-green-600', 'green'],
-                ['In Storage', $inStorage, 'fa-warehouse', 'from-amber-500 to-orange-600', 'amber'],
-                ['Retired Devices', $retiredDevices, 'fa-trash-can', 'from-red-500 to-red-600', 'red'],
+                [
+                    'title' => 'Total Devices',
+                    'value' => $totalItems,
+                    'icon' => 'fa-boxes-stacked',
+                    'gradient' => 'from-blue-500 to-blue-600',
+                    'change' => 12,
+                ],
+                [
+                    'title' => 'Assigned Users',
+                    'value' => $totalUsers,
+                    'icon' => 'fa-users',
+                    'gradient' => 'from-green-500 to-green-600',
+                    'change' => -5,
+                ],
+                [
+                    'title' => 'In Storage',
+                    'value' => $inStorage,
+                    'icon' => 'fa-warehouse',
+                    'gradient' => 'from-amber-500 to-orange-600',
+                    'change' => 3,
+                ],
+                [
+                    'title' => 'Retired Devices',
+                    'value' => $retiredDevices,
+                    'icon' => 'fas fa-archive',
+                    'gradient' => 'from-red-500 to-red-600',
+                    'change' => 0,
+                ],
             ];
-            foreach ($statsData as $index => [$title, $value, $icon, $gradient, $color]):
+            ?>
+
+            <?php foreach ($statsData as $index => $stat):
+                $isPositive = $stat['change'] > 0;
+                $isNegative = $stat['change'] < 0;
+
+                $trendColor = $isPositive
+                    ? 'text-green-600'
+                    : ($isNegative ? 'text-red-600' : 'text-gray-400');
+
+                $trendIcon = $isPositive
+                    ? 'fa-arrow-up'
+                    : ($isNegative ? 'fa-arrow-down' : 'fa-minus');
                 ?>
                 <div class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up"
                     style="animation-delay: <?= $index * 0.1 ?>s;">
+
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
+
                             <div class="flex items-center gap-2 mb-3">
                                 <div
-                                    class="w-12 h-12 rounded-xl bg-gradient-to-br <?= $gradient ?> flex items-center justify-center shadow-lg">
-                                    <i class="fas <?= $icon ?> text-white text-xl"></i>
+                                    class="w-12 h-12 rounded-xl bg-gradient-to-br <?= $stat['gradient'] ?> flex items-center justify-center shadow-lg">
+                                    <i class="fas <?= $stat['icon'] ?> text-white text-xl"></i>
                                 </div>
                             </div>
-                            <p class="text-sm text-gray-500 font-medium mb-1"><?= $title ?></p>
-                            <p class="text-3xl font-bold text-gray-800"><?= number_format($value) ?></p>
-                            <div class="mt-3 flex items-center gap-1">
-                                <span class="text-xs text-green-600 font-semibold flex items-center gap-1">
-                                    <i class="fas fa-arrow-up"></i> 12%
-                                </span>
-                                <span class="text-xs text-gray-400">vs last month</span>
-                            </div>
+
+                            <p class="text-sm text-gray-500 font-medium mb-1">
+                                <?= $stat['title'] ?>
+                            </p>
+
+                            <p class="text-3xl font-bold text-gray-800">
+                                <?= number_format($stat['value']) ?>
+                            </p>
+                            <?php if ($stat['change'] !== 0): ?>
+                                <div class="mt-3 flex items-center gap-1">
+                                    <span class="text-xs font-semibold flex items-center gap-1 <?= $trendColor ?>">
+                                        <i class="fas <?= $trendIcon ?>"></i>
+                                        <?= abs($stat['change']) ?>%
+                                    </span>
+                                    <span class="text-xs text-gray-400">vs last month</span>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
         </div>
-
         <!-- Filter Panel (Hidden by default) -->
-        <div id="filterPanel" class="hidden glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fas fa-filter text-blue-500"></i>
-                    Advanced Filters
-                </h3>
-                <button onclick="clearFilters()" class="text-sm text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times-circle mr-1"></i>Clear All
-                </button>
+        <form method="GET">
+            <div id="filterPanel" class="hidden glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
+
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-filter text-blue-500"></i>
+                        Advanced Filters
+                    </h3>
+
+                    <button type="button" onclick="clearFilters()" class="text-sm text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times-circle mr-1"></i>Clear All
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                    <!-- Status -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Status</label>
+                        <select id="filterStatus" name="status"
+                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+
+                            <option value="">All Status</option>
+
+                            <?php foreach (STATUS_LABELS as $value => $label): ?>
+                                <option value="<?= $value ?>" <?= ($filterStatus === $value) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($label) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <!-- Department -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Department</label>
+                        <select id="filterDepartment" name="department"
+                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">All Departments</option>
+                            <?php foreach ($departmentsArr as $d): ?>
+                                <option value="<?= $d['id'] ?>">
+                                    <?= htmlspecialchars($d['department_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Location -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Location</label>
+                        <select id="filterLocation" name="location"
+                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">All Locations</option>
+                            <?php foreach ($locationsArr as $l): ?>
+                                <option value="<?= $l['id'] ?>">
+                                    <?= htmlspecialchars($l['location_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Date -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Date</label>
+                        <input type="date" id="filterDate" name="date"
+                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+
+                </div>
+
+                <!-- Apply Button -->
+                <div class="mt-6 flex justify-end">
+                    <button type="submit"
+                        class="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition">
+                        Apply Filters
+                    </button>
+                </div>
+
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-2">Status</label>
-                    <select id="filterStatus"
-                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="in_storage">In Storage</option>
-                        <option value="repairing">Repairing</option>
-                        <option value="retired">Retired</option>
-                        <option value="in_use">In Use</option>
-                        <option value="faulty">Faulty</option>
-                    </select>
-                </div>
+        </form>
 
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-2">Department</label>
-                    <select id="filterDepartment"
-                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">All Departments</option>
-                        <?php foreach ($departmentsArr as $d): ?>
-                            <option value="<?= $d['id'] ?>">
-                                <?= htmlspecialchars($d['department_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-2">Location</label>
-                    <select id="filterLocation"
-                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">All Locations</option>
-                        <?php foreach ($locationsArr as $l): ?>
-                            <option value="<?= $l['id'] ?>">
-                                <?= htmlspecialchars($l['location_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-2">Date</label>
-                    <input type="date" id="filterDate"
-                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-            </div>
-        </div>
 
         <!-- Search and Actions Card -->
         <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
@@ -306,10 +376,12 @@ $filterDate = $_GET['date'] ?? '';
                         class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2">
                         <i class="fas fa-sliders"></i> Filter
                     </button>
-                    <button
-                        class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:shadow-md transition-all flex items-center gap-2">
-                        <i class="fas fa-download"></i> Export
-                    </button>
+                    <form method="GET" action="export_assignments.php">
+                        <button type="submit"
+                            class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:shadow-md transition-all flex items-center gap-2">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
