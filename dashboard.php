@@ -203,21 +203,21 @@ $filterDate = $_GET['date'] ?? '';
                     'title' => 'Assigned Users',
                     'value' => $totalUsers,
                     'icon' => 'fa-users',
-                    'gradient' => 'from-green-500 to-green-600',
+                    'gradient' => 'from-blue-500 to-blue-600',
                     'change' => -5,
                 ],
                 [
                     'title' => 'In Storage',
                     'value' => $inStorage,
                     'icon' => 'fa-warehouse',
-                    'gradient' => 'from-amber-500 to-orange-600',
+                    'gradient' => 'from-blue-500 to-blue-600',
                     'change' => 3,
                 ],
                 [
                     'title' => 'Retired Devices',
                     'value' => $retiredDevices,
                     'icon' => 'fas fa-archive',
-                    'gradient' => 'from-red-500 to-red-600',
+                    'gradient' => 'from-blue-500 to-blue-600',
                     'change' => 0,
                 ],
             ];
@@ -355,7 +355,7 @@ $filterDate = $_GET['date'] ?? '';
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
                         <i class="fas fa-clipboard-list text-white text-xl"></i>
                     </div>
                     <div>
@@ -370,6 +370,7 @@ $filterDate = $_GET['date'] ?? '';
                     <div class="relative flex-1 lg:flex-initial">
                         <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input id="searchInput" type="text" placeholder="Search devices, users, tags..."
+                            autocomplete="off"
                             class="w-full lg:w-80 pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <button onclick="toggleFilters()"
@@ -378,7 +379,7 @@ $filterDate = $_GET['date'] ?? '';
                     </button>
                     <form method="GET" action="export_assignments.php">
                         <button type="submit"
-                            class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:shadow-md transition-all flex items-center gap-2">
+                            class="px-5 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl text-sm font-medium hover:shadow-md transition-all flex items-center gap-2">
                             <i class="fas fa-download"></i> Export
                         </button>
                     </form>
@@ -406,7 +407,7 @@ $filterDate = $_GET['date'] ?? '';
                             <th class="py-4 px-4 text-left font-semibold cursor-pointer hover:bg-blue-100 transition-colors rounded-lg"
                                 data-sort="string">
                                 <div class="flex items-center gap-2">
-                                    <i class="fas fa-laptop text-purple-500"></i>
+                                    <i class="fas fa-laptop text-blue-500"></i>
                                     Device
                                     <i class="fas fa-sort ml-1 text-gray-400"></i>
                                 </div>
@@ -414,7 +415,7 @@ $filterDate = $_GET['date'] ?? '';
                             <th class="py-4 px-4 text-left font-semibold cursor-pointer hover:bg-blue-100 transition-colors rounded-lg"
                                 data-sort="string">
                                 <div class="flex items-center gap-2">
-                                    <i class="fas fa-user text-green-500"></i>
+                                    <i class="fas fa-user text-blue-500"></i>
                                     User
                                     <i class="fas fa-sort ml-1 text-gray-400"></i>
                                 </div>
@@ -422,7 +423,7 @@ $filterDate = $_GET['date'] ?? '';
                             <th class="py-4 px-4 text-left font-semibold cursor-pointer hover:bg-blue-100 transition-colors rounded-lg"
                                 data-sort="string">
                                 <div class="flex items-center gap-2">
-                                    <i class="fas fa-building text-amber-500"></i>
+                                    <i class="fas fa-building text-blue-500"></i>
                                     Department
                                     <i class="fas fa-sort ml-1 text-gray-400"></i>
                                 </div>
@@ -430,7 +431,7 @@ $filterDate = $_GET['date'] ?? '';
                             <th class="py-4 px-4 text-left font-semibold cursor-pointer hover:bg-blue-100 transition-colors rounded-lg"
                                 data-sort="string">
                                 <div class="flex items-center gap-2">
-                                    <i class="fas fa-location-dot text-red-500"></i>
+                                    <i class="fas fa-location-dot text-blue-500"></i>
                                     Location
                                     <i class="fas fa-sort ml-1 text-gray-400"></i>
                                 </div>
@@ -484,7 +485,7 @@ $filterDate = $_GET['date'] ?? '';
                                     <td class="py-4 px-4">
                                         <div class="flex items-center gap-2">
                                             <div
-                                                class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                                                class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                                                 <i class="fas fa-laptop text-white text-sm"></i>
                                             </div>
                                             <div>
@@ -500,7 +501,7 @@ $filterDate = $_GET['date'] ?? '';
                                     <td class="py-4 px-4">
                                         <div class="flex items-center gap-2">
                                             <div
-                                                class="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                class="w-9 h-9 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm font-bold shadow-md">
                                                 <?= strtoupper(substr($item['assigned_user'] ?? 'U', 0, 1)) ?>
                                             </div>
                                             <span class="text-gray-700 font-medium">

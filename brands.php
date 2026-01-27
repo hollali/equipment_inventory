@@ -168,7 +168,7 @@ $stmt->close();
                 <div>
                     <div class="flex items-center gap-3 mb-2">
                         <div
-                            class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                            class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                             <i class="fas fa-tags text-white text-xl"></i>
                         </div>
                         <div>
@@ -178,7 +178,7 @@ $stmt->close();
                     </div>
                 </div>
                 <button onclick="openAddModal()"
-                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                     <i class="fas fa-plus mr-2"></i>
                     Add New Brand
                 </button>
@@ -197,8 +197,8 @@ $stmt->close();
                         </p>
                     </div>
                     <div
-                        class="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center">
-                        <i class="fas fa-building text-3xl text-purple-600"></i>
+                        class="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-100 rounded-2xl flex items-center justify-center">
+                        <i class="fas fa-building text-3xl text-blue-600"></i>
                     </div>
                 </div>
             </div>
@@ -214,7 +214,7 @@ $stmt->close();
                         class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                 </div>
                 <button type="submit"
-                    class="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors">
+                    class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
                     <i class="fas fa-search mr-2"></i>Search
                 </button>
                 <?php if ($search): ?>
@@ -296,7 +296,7 @@ $stmt->close();
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
                                             <div
-                                                class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
+                                                class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
                                                 <?= strtoupper(substr($b['brand_name'], 0, 2)) ?>
                                             </div>
                                             <span
@@ -352,7 +352,7 @@ $stmt->close();
                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                     <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
                         <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                                ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white shadow-lg'
                                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
                             <?= $i ?>
                         </a>
@@ -382,7 +382,7 @@ $stmt->close();
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-6 text-white">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-600 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 id="modalTitle" class="text-2xl font-bold mb-1"></h2>
@@ -406,7 +406,7 @@ $stmt->close();
                         <i class="fas fa-tag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="text" name="brand_name" id="brand_name" required
                             placeholder="e.g., Apple, Samsung, Dell"
-                            class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                     </div>
                     <p class="text-xs text-gray-500 mt-2">Enter the official brand or manufacturer name</p>
                 </div>
@@ -418,7 +418,7 @@ $stmt->close();
                         <i class="fas fa-times mr-2"></i>Cancel
                     </button>
                     <button id="modalBtn" type="submit"
-                        class="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg font-medium">
                         <i class="fas fa-save mr-2"></i>Save Brand
                     </button>
                 </div>

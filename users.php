@@ -203,7 +203,7 @@ $adminUsers = $conn->query("SELECT COUNT(*) as count FROM users WHERE role='admi
                     <div class="relative">
                         <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                            placeholder="Search by username, name, or email..."
+                            placeholder="Search by username, name, or email..." autocomplete="off"
                             class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                     </div>
                 </div>
@@ -476,11 +476,11 @@ $adminUsers = $conn->query("SELECT COUNT(*) as count FROM users WHERE role='admi
         <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-green-600 to-green-700 px-8 py-6 text-white">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="text-2xl font-bold mb-1">User Details</h2>
-                        <p class="text-green-100 text-sm">View complete user information</p>
+                        <p class="text-blue-100 text-sm">View complete user information</p>
                     </div>
                     <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-2xl"></i>
@@ -525,7 +525,7 @@ $adminUsers = $conn->query("SELECT COUNT(*) as count FROM users WHERE role='admi
                 <!-- Modal Footer -->
                 <div class="flex justify-end mt-8 pt-6 border-t border-gray-200">
                     <button onclick="closeViewModal()"
-                        class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg font-medium">
                         <i class="fas fa-check mr-2"></i>Close
                     </button>
                 </div>

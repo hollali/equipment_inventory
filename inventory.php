@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once "./config/database.php";
+require_once __DIR__ . '/vendor/autoload.php';
 
 /* ================== ERROR REPORTING ================== */
 ini_set('display_errors', 1);
@@ -233,6 +234,13 @@ if (!empty($_GET['status'])) {
     $paramTypes .= 's';
 }
 
+
+if (!empty($_GET['department'])) {
+    $where[] = "i.department_id = ?";
+    $params[] = (int) $_GET['department'];
+    $paramTypes .= 'i';
+}
+
 if (!empty($_GET['category'])) {
     $where[] = "i.category_id=?";
     $params[] = (int) $_GET['category'];
@@ -252,10 +260,14 @@ $offset = ($page - 1) * $perPage;
 $countQuery = $conn->prepare("
     SELECT COUNT(*) as total
     FROM inventory_items i
-    LEFT JOIN categories c ON i.category_id=c.id
-    LEFT JOIN brands b ON i.brand_id=b.id
+    LEFT JOIN categories c ON i.category_id = c.id
+    LEFT JOIN brands b ON i.brand_id = b.id
+    LEFT JOIN departments d ON i.department_id = d.id
+    LEFT JOIN locations l ON i.location_id = l.id
     $whereSql
 ");
+
+
 if ($params)
     $countQuery->bind_param($paramTypes, ...$params);
 $countQuery->execute();
@@ -437,56 +449,87 @@ if (!empty($_GET['location'])) {
             </div>
             <!-- Filters and Search -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                <form method="GET" class="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                    <!-- Search -->
-                    <div class="flex-1">
+                <form method="GET" class="space-y-4">
+                    <!-- Search Bar - Full Width -->
+                    <div class="w-full">
                         <div class="relative">
                             <i
                                 class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
                                 value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
-                                placeholder="Search by asset, type, brand, model, or user..."
-                                class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                                placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
+                                class="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white">
                         </div>
                     </div>
 
-                    <!-- Filter by Location -->
-                    <div class="w-full md:w-48">
-                        <select name="location" onchange="this.form.submit()"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                            <option value="">All Locations</option>
-                            <?php foreach ($locationsArr as $l): ?>
-                                <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($l['location_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <!-- Status Filter -->
-                    <div class="w-full md:w-48">
-                        <select name="status" id="statusFilter" class="w-full px-4 py-3 border rounded-xl">
-                            <option value="">All Status</option>
-                            <?php foreach ($statuses as $status): ?>
-                                <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <!-- Filters Row -->
+                    <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                        <!-- Location Filter -->
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
+                            <div class="relative">
+                                <i
+                                    class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <select name="location" onchange="this.form.submit()"
+                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                    <option value="">All Locations</option>
+                                    <?php foreach ($locationsArr as $l): ?>
+                                        <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($l['location_name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <i
+                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                            </div>
+                        </div>
 
-                    </div>
+                        <!-- Status Filter -->
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
+                            <div class="relative">
+                                <i
+                                    class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <select name="status" id="statusFilter"
+                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                    <option value="">All Status</option>
+                                    <?php foreach ($statuses as $status): ?>
+                                        <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <i
+                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                            </div>
+                        </div>
 
-                    <!-- Buttons -->
-                    <div class="flex gap-2">
-                        <button type="submit"
-                            class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors inline-flex items-center">
-                            <i class="fas fa-filter mr-2"></i>Filter
-                        </button>
-                        <a href="<?= $_SERVER['PHP_SELF'] ?>"
-                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors inline-flex items-center">
-                            <i class="fas fa-redo mr-2"></i>Reset
-                        </a>
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2 md:self-end">
+                            <button type="submit"
+                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow-md">
+                                <i class="fas fa-filter mr-2"></i>
+                                <span>Apply</span>
+                            </button>
+                            <a href="<?= $_SERVER['PHP_SELF'] ?>"
+                                class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow">
+                                <i class="fas fa-redo mr-2"></i>
+                                <span>Reset</span>
+                            </a>
+                        </div>
                     </div>
                 </form>
+
+                <!-- Export Button - Separate -->
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <form method="GET" action="export_assignments.php">
+                        <button type="submit"
+                            class="px-5 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl text-sm font-medium hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow">
+                            <i class="fas fa-download"></i>
+                            <span>Export to Excel</span>
+                        </button>
+                    </form>
+                </div>
             </div>
 
 
@@ -560,7 +603,7 @@ if (!empty($_GET['location'])) {
                                     <!-- USER -->
                                     <td class="p-4" data-key="assigned_user">
                                         <div class="flex items-center gap-2">
-                                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-700
+                                            <div class="w-8 h-8 rounded-full bg-blue-700
                                 flex items-center justify-center text-white text-xs font-bold">
                                                 <?= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) ?>
                                             </div>
@@ -606,7 +649,7 @@ if (!empty($_GET['location'])) {
                                             </button>
                                             <!-- RETIRE -->
                                             <button onclick="openRetireModal(<?= (int) $row['id'] ?>)"
-                                                class="w-9 h-9 flex items-center justify-center text-orange-600 hover:bg-orange-50 rounded-lg"
+                                                class="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 rounded-lg"
                                                 title="Retire">
                                                 <i class="fas fa-archive"></i>
                                             </button>
@@ -848,8 +891,7 @@ if (!empty($_GET['location'])) {
                 <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
                     onclick="event.stopPropagation()">
                     <!-- Modal Header -->
-                    <div
-                        class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                                 <i class="fas fa-plus text-white"></i>
@@ -871,7 +913,7 @@ if (!empty($_GET['location'])) {
                             <!-- Basic Information -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-info-circle text-green-600"></i>
+                                    <i class="fas fa-info-circle text-blue-600"></i>
                                     Basic Information
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -926,7 +968,7 @@ if (!empty($_GET['location'])) {
                             <!-- Assignment Details -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-user-tag text-green-600"></i>
+                                    <i class="fas fa-user-tag text-blue-600"></i>
                                     Assignment Details
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -968,7 +1010,7 @@ if (!empty($_GET['location'])) {
                             <!-- Status & Category -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-cog text-green-600"></i>
+                                    <i class="fas fa-cog text-blue-600"></i>
                                     Status & Category
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1014,7 +1056,7 @@ if (!empty($_GET['location'])) {
                             <!-- Additional Notes -->
                             <div class="bg-gray-50 rounded-xl p-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-sticky-note text-green-600"></i>
+                                    <i class="fas fa-sticky-note text-blue-600"></i>
                                     Description
                                 </h3>
                                 <textarea name="remarks" rows="4"
@@ -1030,7 +1072,7 @@ if (!empty($_GET['location'])) {
                             <i class="fas fa-times mr-2"></i>Cancel
                         </button>
                         <button type="submit" form="addForm" name="save"
-                            class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium">
+                            class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
                             <i class="fas fa-plus mr-2"></i>Add Item
                         </button>
                     </div>
@@ -1042,8 +1084,7 @@ if (!empty($_GET['location'])) {
                 <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
                     onclick="event.stopPropagation()">
                     <!-- Modal Header -->
-                    <div
-                        class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4 flex items-center justify-between">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                                 <i class="fas fa-eye text-white"></i>
@@ -1060,9 +1101,9 @@ if (!empty($_GET['location'])) {
                     <!-- Modal Body -->
                     <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
                         <!-- Basic Information -->
-                        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-5 mb-5">
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-info-circle text-purple-600"></i>
+                                <i class="fas fa-info-circle text-blue-600"></i>
                                 Basic Information
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1099,7 +1140,7 @@ if (!empty($_GET['location'])) {
                         <!-- Assignment Details -->
                         <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-user-tag text-green-600"></i>
+                                <i class="fas fa-user-tag text-blue-600"></i>
                                 Assignment Details
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1118,9 +1159,9 @@ if (!empty($_GET['location'])) {
                             </div>
                         </div>
                         <!-- Status & Condition -->
-                        <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-5 mb-5">
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-cog text-orange-600"></i>
+                                <i class="fas fa-cog text-blue-600"></i>
                                 Status & Condition
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1137,7 +1178,7 @@ if (!empty($_GET['location'])) {
                         <!-- Additional Notes -->
                         <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-sticky-note text-gray-600"></i>
+                                <i class="fas fa-sticky-note text-blue-600"></i>
                                 Additional Notes
                             </h3>
                             <div class="bg-white rounded-lg p-3">
@@ -1148,7 +1189,7 @@ if (!empty($_GET['location'])) {
                     <!-- Modal Footer -->
                     <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
                         <button onclick="closeViewModal()"
-                            class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium">
+                            class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
                             <i class="fas fa-check mr-2"></i>Close
                         </button>
                     </div>
@@ -1235,7 +1276,7 @@ if (!empty($_GET['location'])) {
                 <form method="POST" class="inline">
                     <input type="hidden" name="retire_id" id="retireId">
                     <button type="submit" name="retire"
-                        class="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700">
+                        class="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700">
                         Yes, Retire
                     </button>
                 </form>

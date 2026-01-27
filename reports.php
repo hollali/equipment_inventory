@@ -28,7 +28,7 @@
 
         <!-- STATISTICS CARDS -->
         <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-green-700 rounded-xl p-6 text-white shadow hover:shadow-lg transition">
+            <div class="bg-blue-600 rounded-xl p-6 text-white shadow hover:shadow-lg transition">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90">Total Users</p>
@@ -46,7 +46,7 @@
                     <i class="fas fa-user-check text-4xl opacity-20"></i>
                 </div>
             </div>
-            <div class="bg-orange-500 rounded-xl p-6 text-white shadow hover:shadow-lg transition">
+            <div class="bg-blue-600 rounded-xl p-6 text-white shadow hover:shadow-lg transition">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90">Inactive Users</p>
@@ -55,7 +55,7 @@
                     <i class="fas fa-user-slash text-4xl opacity-20"></i>
                 </div>
             </div>
-            <div class="bg-red-600 rounded-xl p-6 text-white shadow hover:shadow-lg transition">
+            <div class="bg-blue-600 rounded-xl p-6 text-white shadow hover:shadow-lg transition">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm opacity-90">Administrators</p>
@@ -70,7 +70,7 @@
         <section class="bg-white rounded-xl shadow mb-8 overflow-hidden">
             <div class="p-6 border-b">
                 <h2 class="text-xl font-semibold text-slate-800">
-                    <i class="fas fa-chart-line mr-2 text-green-600"></i>User Metrics
+                    <i class="fas fa-chart-line mr-2 text-blue-600"></i>User Metrics
                 </h2>
             </div>
             <div class="overflow-x-auto">
@@ -103,16 +103,16 @@
         <section class="bg-white rounded-xl shadow overflow-hidden">
             <div class="p-6 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 class="text-xl font-semibold text-slate-800">
-                    <i class="fas fa-history mr-2 text-green-600"></i>Recent Activity Logs
+                    <i class="fas fa-history mr-2 text-blue-600"></i>Recent Activity Logs
                 </h2>
                 <div class="flex gap-3">
                     <div class="relative">
                         <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
                         <input id="searchInput" type="text" placeholder="Search logs..."
-                            class="border border-slate-300 pl-10 pr-4 py-2 rounded-lg focus:ring-2 focus:ring-green-600 focus:outline-none">
+                            class="border border-slate-300 pl-10 pr-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
                     </div>
                     <button id="exportBtn"
-                        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg transition flex items-center gap-2">
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg transition flex items-center gap-2">
                         <i class="fas fa-download"></i>Export CSV
                     </button>
                 </div>
@@ -143,7 +143,7 @@
                             </td>
                             <td class="px-6 py-3">
                                 <span
-                                    class="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                                    class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">
                                     <i class="fas fa-sign-in-alt"></i>Logged In
                                 </span>
                             </td>

@@ -159,7 +159,7 @@ $stmt->close();
                 <div>
                     <div class="flex items-center gap-3 mb-2">
                         <div
-                            class="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                            class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                             <i class="fas fa-sitemap text-white text-xl"></i>
                         </div>
                         <div>
@@ -169,7 +169,7 @@ $stmt->close();
                     </div>
                 </div>
                 <button onclick="openAddModal()"
-                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:from-orange-700 hover:to-red-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                     <i class="fas fa-plus mr-2"></i>
                     Add Department
                 </button>
@@ -188,8 +188,8 @@ $stmt->close();
                         </p>
                     </div>
                     <div
-                        class="w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl flex items-center justify-center">
-                        <i class="fas fa-building text-3xl text-orange-600"></i>
+                        class="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-100 rounded-2xl flex items-center justify-center">
+                        <i class="fas fa-building text-3xl text-blue-600"></i>
                     </div>
                 </div>
             </div>
@@ -202,10 +202,10 @@ $stmt->close();
                     <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                         placeholder="Search departments by name..."
-                        class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                        class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                 </div>
                 <button type="submit"
-                    class="px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors">
+                    class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
                     <i class="fas fa-search mr-2"></i>Search
                 </button>
                 <?php if ($search): ?>
@@ -228,7 +228,7 @@ $stmt->close();
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-3 flex-1">
                                     <div
-                                        class="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
+                                        class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
                                         <?= strtoupper(substr($dep['department_name'], 0, 2)) ?>
                                     </div>
                                     <div>
@@ -293,7 +293,7 @@ $stmt->close();
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
                                             <div
-                                                class="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
+                                                class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
                                                 <?= strtoupper(substr($dep['department_name'], 0, 2)) ?>
                                             </div>
                                             <span
@@ -385,11 +385,11 @@ $stmt->close();
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-orange-600 to-red-600 px-8 py-6 text-white">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-600 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 id="modalTitle" class="text-2xl font-bold mb-1"></h2>
-                        <p class="text-orange-100 text-sm">Enter department information below</p>
+                        <p class="text-blue-100 text-sm">Enter department information below</p>
                     </div>
                     <button onclick="closeModal()" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-2xl"></i>
@@ -403,7 +403,7 @@ $stmt->close();
 
                 <div class="mb-6">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        Department Name <span class="text-red-500">*</span>
+                        Department Name <span class="text-blue-500">*</span>
                     </label>
                     <div class="relative">
                         <i class="fas fa-building absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
@@ -421,7 +421,7 @@ $stmt->close();
                         <i class="fas fa-times mr-2"></i>Cancel
                     </button>
                     <button id="modalBtn" type="submit"
-                        class="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:from-orange-700 hover:to-red-700 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg font-medium">
                         <i class="fas fa-save mr-2"></i>Save Department
                     </button>
                 </div>
@@ -436,7 +436,7 @@ $stmt->close();
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-green-600 to-emerald-700 px-8 py-6 text-white">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="text-2xl font-bold mb-1">Department Details</h2>
@@ -459,7 +459,7 @@ $stmt->close();
                     <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5">
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department Name</p>
                         <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-white font-bold shadow"
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow"
                                 id="view_avatar">
                             </div>
                             <p class="text-lg font-bold text-gray-900" id="view_name"></p>
@@ -470,7 +470,7 @@ $stmt->close();
                 <!-- Modal Footer -->
                 <div class="flex justify-end mt-8 pt-6 border-t border-gray-200">
                     <button onclick="closeViewModal()"
-                        class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl hover:from-green-700 hover:to-emerald-800 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-green-700 hover:to-emerald-800 transition-all shadow-lg font-medium">
                         <i class="fas fa-check mr-2"></i>Close
                     </button>
                 </div>

@@ -169,7 +169,7 @@ $stmt->close();
                 <div>
                     <div class="flex items-center gap-3 mb-2">
                         <div
-                            class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                            class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                             <i class="fas fa-layer-group text-white text-xl"></i>
                         </div>
                         <div>
@@ -179,7 +179,7 @@ $stmt->close();
                     </div>
                 </div>
                 <button onclick="openAddModal()"
-                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                     <i class="fas fa-plus mr-2"></i>
                     Add Category
                 </button>
@@ -198,8 +198,8 @@ $stmt->close();
                         </p>
                     </div>
                     <div
-                        class="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center">
-                        <i class="fas fa-layer-group text-3xl text-emerald-600"></i>
+                        class="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-100 rounded-2xl flex items-center justify-center">
+                        <i class="fas fa-layer-group text-3xl text-blue-600"></i>
                     </div>
                 </div>
             </div>
@@ -215,7 +215,7 @@ $stmt->close();
                         class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition">
                 </div>
                 <button type="submit"
-                    class="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors">
+                    class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
                     <i class="fas fa-search mr-2"></i>Search
                 </button>
                 <?php if ($search): ?>
@@ -238,7 +238,7 @@ $stmt->close();
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-3 flex-1">
                                     <div
-                                        class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
+                                        class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
                                         <?= strtoupper(substr($cat['category_name'], 0, 2)) ?>
                                     </div>
                                     <div>
@@ -251,7 +251,7 @@ $stmt->close();
                             </div>
                             <div class="flex gap-2">
                                 <button onclick='openViewModal(<?= json_encode($cat) ?>)'
-                                    class="flex-1 px-4 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors font-medium">
+                                    class="flex-1 px-4 py-2 bg-blue-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors font-medium">
                                     <i class="fas fa-eye mr-2"></i>View
                                 </button>
                                 <button onclick='openEditModal(<?= json_encode($cat) ?>)'
@@ -303,7 +303,7 @@ $stmt->close();
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
                                             <div
-                                                class="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
+                                                class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
                                                 <?= strtoupper(substr($cat['category_name'], 0, 2)) ?>
                                             </div>
                                             <span
@@ -364,7 +364,7 @@ $stmt->close();
                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                     <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
                         <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
-                                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
+                                ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white shadow-lg'
                                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
                             <?= $i ?>
                         </a>
@@ -394,11 +394,11 @@ $stmt->close();
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-6 text-white">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-600 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 id="modalTitle" class="text-2xl font-bold mb-1"></h2>
-                        <p class="text-emerald-100 text-sm">Enter category information below</p>
+                        <p class="text-blue-100 text-sm">Enter category information below</p>
                     </div>
                     <button onclick="closeModal()" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-2xl"></i>
@@ -430,7 +430,7 @@ $stmt->close();
                         <i class="fas fa-times mr-2"></i>Cancel
                     </button>
                     <button id="modalBtn" type="submit"
-                        class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg font-medium">
                         <i class="fas fa-save mr-2"></i>Save Category
                     </button>
                 </div>
@@ -445,11 +445,11 @@ $stmt->close();
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-green-600 to-emerald-700 px-8 py-6 text-white">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="text-2xl font-bold mb-1">Category Details</h2>
-                        <p class="text-green-100 text-sm">View category information</p>
+                        <p class="text-blue-100 text-sm">View category information</p>
                     </div>
                     <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-2xl"></i>
@@ -468,7 +468,7 @@ $stmt->close();
                     <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5">
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Category Name</p>
                         <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white font-bold shadow"
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow"
                                 id="view_avatar">
                             </div>
                             <p class="text-lg font-bold text-gray-900" id="view_name"></p>
@@ -479,7 +479,7 @@ $stmt->close();
                 <!-- Modal Footer -->
                 <div class="flex justify-end mt-8 pt-6 border-t border-gray-200">
                     <button onclick="closeViewModal()"
-                        class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl hover:from-green-700 hover:to-emerald-800 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg font-medium">
                         <i class="fas fa-check mr-2"></i>Close
                     </button>
                 </div>

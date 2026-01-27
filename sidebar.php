@@ -114,12 +114,12 @@ function active($page, $current)
     </nav>
 
     <!-- Logout -->
-    <!--<div class="absolute bottom-0 w-full p-3 border-t">
+    <div class="absolute bottom-0 w-full p-3 border-t">
         <a href="../logout.php" class="flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50">
             <i class="fas fa-right-from-bracket w-5 text-center"></i>
             <span class="nav-text">Logout</span>
         </a>
-    </div>-->
+    </div>
 
 </aside>
 
