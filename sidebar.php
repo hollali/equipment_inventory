@@ -14,13 +14,11 @@ function active($page, $current)
     /* Sidebar collapsed styles */
     #sidebar {
         width: 16rem;
-        /* 64 = w-64 */
         transition: width 0.3s ease;
     }
 
     #sidebar.collapsed {
         width: 5rem;
-        /* 20 = w-20 */
     }
 
     #sidebar.collapsed .nav-text,
@@ -37,9 +35,20 @@ function active($page, $current)
     #mainContent.collapsed {
         margin-left: 5rem;
     }
+
+    /* Toggle button text hidden when collapsed */
+    #toggleSidebar .toggle-text {
+        transition: opacity 0.2s ease, margin-right 0.2s ease;
+    }
+
+    #sidebar.collapsed #toggleSidebar .toggle-text {
+        opacity: 0;
+        width: 0;
+        margin-right: 0;
+    }
 </style>
 
-<aside id="sidebar" class="fixed top-0 left-0 h-screen bg-white border-r shadow-sm">
+<aside id="sidebar" class="fixed top-0 left-0 h-screen bg-white border-r shadow-sm z-40">
 
     <!-- Header -->
     <div class="flex items-center justify-between p-4 border-b">
@@ -53,8 +62,9 @@ function active($page, $current)
             </div>
         </div>
 
-        <button id="toggleSidebar" class="text-gray-600 hover:text-gray-900 focus:outline-none">
-            <i class="fas fa-bars"></i>
+        <button id="toggleSidebar"
+            class="flex items-center gap-2 text-gray-600 hover:text-gray-900 focus:outline-none p-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <i class="fas fa-bars text-lg"></i>
         </button>
     </div>
 
@@ -114,12 +124,12 @@ function active($page, $current)
     </nav>
 
     <!-- Logout -->
-    <div class="absolute bottom-0 w-full p-3 border-t">
+    <!--<div class="absolute bottom-0 w-full p-3 border-t">
         <a href="../logout.php" class="flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50">
             <i class="fas fa-right-from-bracket w-5 text-center"></i>
             <span class="nav-text">Logout</span>
         </a>
-    </div>
+    </div>-->
 
 </aside>
 
@@ -128,28 +138,58 @@ function active($page, $current)
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('mainContent');
     const toggleBtn = document.getElementById('toggleSidebar');
+    const toggleText = document.querySelector('#toggleSidebar .toggle-text');
 
     // Restore sidebar state from localStorage on page load
-    if (localStorage.getItem('sidebarCollapsed') === 'true') {
-        sidebar.classList.add('collapsed');
-        if (mainContent) {
-            mainContent.classList.add('collapsed');
+    function restoreSidebarState() {
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+        if (isCollapsed) {
+            sidebar.classList.add('collapsed');
+            if (mainContent) {
+                mainContent.classList.add('collapsed');
+            }
+            // Update toggle button text when collapsed
+            if (toggleText) {
+                toggleText.textContent = 'Expand';
+            }
         }
     }
 
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', restoreSidebarState);
+
     // Toggle sidebar
     toggleBtn.addEventListener('click', () => {
+        const isCollapsing = !sidebar.classList.contains('collapsed');
+
         sidebar.classList.toggle('collapsed');
 
         if (mainContent) {
             mainContent.classList.toggle('collapsed');
         }
 
-        // Save state
-        if (sidebar.classList.contains('collapsed')) {
-            localStorage.setItem('sidebarCollapsed', 'true');
-        } else {
-            localStorage.setItem('sidebarCollapsed', 'false');
+        // Update toggle button text
+        if (toggleText) {
+            if (sidebar.classList.contains('collapsed')) {
+                toggleText.textContent = 'Expand';
+                localStorage.setItem('sidebarCollapsed', 'true');
+            } else {
+                toggleText.textContent = 'Collapse';
+                localStorage.setItem('sidebarCollapsed', 'false');
+            }
         }
     });
+
+    // Adjust main content height on resize
+    window.addEventListener('resize', () => {
+        if (mainContent) {
+            mainContent.style.minHeight = window.innerHeight + 'px';
+        }
+    });
+
+    // Set initial min-height for main content
+    if (mainContent) {
+        mainContent.style.minHeight = window.innerHeight + 'px';
+    }
 </script>

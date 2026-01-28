@@ -484,10 +484,10 @@ $filterDate = $_GET['date'] ?? '';
                                     </td>
                                     <td class="py-4 px-4">
                                         <div class="flex items-center gap-2">
-                                            <div
+                                            <!--<div
                                                 class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                                                 <i class="fas fa-laptop text-white text-sm"></i>
-                                            </div>
+                                            </div>-->
                                             <div>
                                                 <p class="font-medium text-gray-800">
                                                     <?= htmlspecialchars($item['brand_name'] ?? 'Unknown') ?>
@@ -500,40 +500,40 @@ $filterDate = $_GET['date'] ?? '';
                                     </td>
                                     <td class="py-4 px-4">
                                         <div class="flex items-center gap-2">
-                                            <div
+                                            <!--<div
                                                 class="w-9 h-9 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm font-bold shadow-md">
-                                                <?= strtoupper(substr($item['assigned_user'] ?? 'U', 0, 1)) ?>
-                                            </div>
-                                            <span class="text-gray-700 font-medium">
-                                                <?= htmlspecialchars($item['assigned_user'] ?? 'N/A') ?>
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td class="py-4 px-4">
-                                        <span class="text-gray-700">
-                                            <?= htmlspecialchars($item['department_name'] ?? 'N/A') ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-4 px-4">
-                                        <div class="flex items-center gap-2 text-gray-700">
-                                            <i class="fas fa-map-marker-alt text-gray-400"></i>
-                                            <?= htmlspecialchars($item['location_name'] ?? 'N/A') ?>
-                                        </div>
-                                    </td>
-                                    <td class="py-4 px-4">
-                                        <span class="px-3 py-1.5 text-xs rounded-full font-semibold border <?= $statusClass ?>">
-                                            <?= ucfirst(str_replace('_', ' ', htmlspecialchars($item['status']))) ?>
-                                        </span>
-                                    </td>
-                                    <td class="py-4 px-4 text-center">
-                                        <button
-                                            class="w-9 h-9 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all viewBtn"
-                                            data-item='<?= json_encode($item) ?>'>
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; endif; ?>
+                                                <?/*= strtoupper(substr($item['assigned_user'] ?? 'U', 0, 1)) */ ?>
+                                            </div>--->
+                                    <span class="text-gray-700 font-medium">
+                                        <?= htmlspecialchars($item['assigned_user'] ?? 'N/A') ?>
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="py-4 px-4">
+                                <span class="text-gray-700">
+                                    <?= htmlspecialchars($item['department_name'] ?? 'N/A') ?>
+                                </span>
+                            </td>
+                            <td class="py-4 px-4">
+                                <div class="flex items-center gap-2 text-gray-700">
+                                    <i class="fas fa-map-marker-alt text-gray-400"></i>
+                                    <?= htmlspecialchars($item['location_name'] ?? 'N/A') ?>
+                                </div>
+                            </td>
+                            <td class="py-4 px-4">
+                                <span class="px-3 py-1.5 text-xs rounded-full font-semibold border <?= $statusClass ?>">
+                                    <?= ucfirst(str_replace('_', ' ', htmlspecialchars($item['status']))) ?>
+                                </span>
+                            </td>
+                            <td class="py-4 px-4 text-center">
+                                <button
+                                    class="w-9 h-9 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all viewBtn"
+                                    data-item='<?= json_encode($item) ?>'>
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -587,28 +587,34 @@ $filterDate = $_GET['date'] ?? '';
     </main>
 
     <!-- Modal -->
+    <!-- Modal -->
     <div id="viewModal"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-fade-in-up">
-            <div class="sticky top-0 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600 text-white p-6">
+            <!-- Modal Header -->
+            <div class="sticky top-0 bg-white border-b border-gray-200 p-6">
                 <button id="closeModal"
-                    class="absolute top-6 right-6 text-white hover:text-gray-200 text-xl w-10 h-10 rounded-full hover:bg-white/20 transition-all">
+                    class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 text-xl w-10 h-10 rounded-full hover:bg-gray-100 transition-all">
                     <i class="fas fa-times"></i>
                 </button>
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <i class="fas fa-info-circle text-2xl"></i>
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+                        <i class="fas fa-info-circle text-blue-600 text-xl"></i>
                     </div>
                     <div>
-                        <h2 class="text-2xl font-bold">Device Details</h2>
-                        <p class="text-blue-100 text-sm mt-1">Complete information and specifications</p>
+                        <h2 class="text-2xl font-bold text-gray-900">Device Details</h2>
+                        <p class="text-gray-500 text-sm mt-1">Complete information and specifications</p>
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Content -->
             <div id="modalContent" class="p-6 overflow-y-auto" style="max-height: calc(90vh - 120px);">
                 <!-- Dynamic content goes here -->
             </div>
         </div>
+    </div>
+    </div>
     </div>
 
     <!-- JS -->
@@ -696,89 +702,96 @@ $filterDate = $_GET['date'] ?? '';
                 const statusClass = statusColors[item.status] || 'bg-gray-50 text-gray-700 border border-gray-200';
 
                 modalContent.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border border-blue-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <i class="fas fa-tag text-blue-500"></i>
-                                <p class="text-xs text-blue-600 uppercase font-semibold">Asset Tag</p>
-                            </div>
-                            <p class="font-bold text-xl text-blue-700">${escapeHtml(item.asset_tag)}</p>
-                        </div>
-                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-5 rounded-xl border border-purple-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <i class="fas fa-laptop text-purple-500"></i>
-                                <p class="text-xs text-purple-600 uppercase font-semibold">Device</p>
-                            </div>
-                            <p class="font-bold text-lg text-purple-700">${escapeHtml(item.brand_name)}</p>
-                            <p class="text-sm text-purple-600 mt-1">${escapeHtml(item.model)}</p>
-                        </div>
-                        <div class="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-xl border border-green-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <i class="fas fa-user text-green-500"></i>
-                                <p class="text-xs text-green-600 uppercase font-semibold">Assigned User</p>
-                            </div>
-                            <div class="flex items-center gap-3 mt-2">
-                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold shadow-md">
-                                    ${escapeHtml(item.assigned_user.charAt(0).toUpperCase())}
-                                </div>
-                                <p class="font-bold text-green-700">${escapeHtml(item.assigned_user)}</p>
-                            </div>
-                        </div>
-                        <div class="bg-gradient-to-br from-amber-50 to-amber-100 p-5 rounded-xl border border-amber-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <i class="fas fa-building text-amber-500"></i>
-                                <p class="text-xs text-amber-600 uppercase font-semibold">Department</p>
-                            </div>
-                            <p class="font-bold text-lg text-amber-700">${escapeHtml(item.department_name || 'N/A')}</p>
-                        </div>
-                        <div class="bg-gradient-to-br from-red-50 to-red-100 p-5 rounded-xl border border-red-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <i class="fas fa-location-dot text-red-500"></i>
-                                <p class="text-xs text-red-600 uppercase font-semibold">Location</p>
-                            </div>
-                            <p class="font-bold text-lg text-red-700">
-                                <i class="fas fa-map-marker-alt mr-2"></i>${escapeHtml(item.location_name || 'N/A')}
-                            </p>
-                        </div>
-                        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-5 rounded-xl border border-indigo-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <i class="fas fa-circle-info text-indigo-500"></i>
-                                <p class="text-xs text-indigo-600 uppercase font-semibold">Status</p>
-                            </div>
-                            <span class="inline-block px-4 py-2 text-sm rounded-full font-bold ${statusClass}">
-                                ${escapeHtml(item.status.replace('_', ' ').toUpperCase())}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="mt-6 bg-gradient-to-br from-gray-50 to-gray-100 p-5 rounded-xl border border-gray-200">
-                        <div class="flex items-center gap-2 mb-3">
-                            <i class="fas fa-clock text-gray-500"></i>
-                            <p class="text-xs text-gray-600 uppercase font-semibold">Timeline</p>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-xs text-gray-500 mb-1">Last Updated</p>
-                                <p class="font-semibold text-gray-700">
-                                    <i class="fas fa-calendar-alt text-gray-400 mr-2"></i>${escapeHtml(item.updated_at || 'N/A')}
-                                </p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 mb-1">Serial Number</p>
-                                <p class="font-semibold text-gray-700">
-                                    <i class="fas fa-hashtag text-gray-400 mr-2"></i>${escapeHtml(item.serial_number || 'N/A')}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-6 flex gap-3">
-                        <button class="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
-                            <i class="fas fa-edit mr-2"></i>Edit Device
-                        </button>
-                        <button class="flex-1 px-4 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all">
-                            <i class="fas fa-history mr-2"></i>View History
-                        </button>
-                    </div>
-                `;
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-tag text-gray-500"></i>
+                <p class="text-xs text-gray-600 uppercase font-semibold">Asset Tag</p>
+            </div>
+            <p class="font-bold text-xl text-gray-900">${escapeHtml(item.asset_tag)}</p>
+        </div>
+        
+        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-laptop text-gray-500"></i>
+                <p class="text-xs text-gray-600 uppercase font-semibold">Device</p>
+            </div>
+            <p class="font-bold text-lg text-gray-900">${escapeHtml(item.brand_name)}</p>
+            <p class="text-sm text-gray-600 mt-1">${escapeHtml(item.model)}</p>
+        </div>
+        
+        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-user text-gray-500"></i>
+                <p class="text-xs text-gray-600 uppercase font-semibold">Assigned User</p>
+            </div>
+            <div class="flex items-center gap-3 mt-2">
+                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold shadow-sm">
+                    ${escapeHtml(item.assigned_user.charAt(0).toUpperCase())}
+                </div>
+                <p class="font-bold text-gray-900">${escapeHtml(item.assigned_user)}</p>
+            </div>
+        </div>
+        
+        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-building text-gray-500"></i>
+                <p class="text-xs text-gray-600 uppercase font-semibold">Department</p>
+            </div>
+            <p class="font-bold text-lg text-gray-900">${escapeHtml(item.department_name || 'N/A')}</p>
+        </div>
+        
+        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-location-dot text-gray-500"></i>
+                <p class="text-xs text-gray-600 uppercase font-semibold">Location</p>
+            </div>
+            <p class="font-bold text-lg text-gray-900">
+                <i class="fas fa-map-marker-alt text-gray-400 mr-2"></i>${escapeHtml(item.location_name || 'N/A')}
+            </p>
+        </div>
+        
+        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-circle-info text-gray-500"></i>
+                <p class="text-xs text-gray-600 uppercase font-semibold">Status</p>
+            </div>
+            <span class="inline-block px-4 py-2 text-sm rounded-full font-bold ${statusClass}">
+                ${escapeHtml(item.status.replace('_', ' ').toUpperCase())}
+            </span>
+        </div>
+    </div>
+    
+    <div class="mt-6 bg-gray-50 p-5 rounded-xl border border-gray-200">
+        <div class="flex items-center gap-2 mb-3">
+            <i class="fas fa-clock text-gray-500"></i>
+            <p class="text-xs text-gray-600 uppercase font-semibold">Timeline</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-xs text-gray-500 mb-1">Last Updated</p>
+                <p class="font-semibold text-gray-700">
+                    <i class="fas fa-calendar-alt text-gray-400 mr-2"></i>${escapeHtml(item.updated_at || 'N/A')}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 mb-1">Serial Number</p>
+                <p class="font-semibold text-gray-700">
+                    <i class="fas fa-hashtag text-gray-400 mr-2"></i>${escapeHtml(item.serial_number || 'N/A')}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-6 flex gap-3">
+        <button class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md">
+            <i class="fas fa-edit mr-2"></i>Edit Device
+        </button>
+        <button class="flex-1 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm hover:shadow">
+            <i class="fas fa-history mr-2"></i>View History
+        </button>
+    </div>
+`;
                 modal.classList.remove('hidden');
             });
         });

@@ -249,7 +249,7 @@ $stmt->close();
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
 
     <?php include 'sidebar.php'; ?>
 
@@ -435,10 +435,10 @@ $stmt->close();
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-8 py-6">
                                         <div class="flex items-center gap-4">
-                                            <div
+                                            <!--<div
                                                 class="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
-                                                <?= strtoupper(substr($user['firstname'], 0, 2)) ?>
-                                            </div>
+                                                <?/*= strtoupper(substr($user['firstname'], 0, 2)) */ ?>
+                                            </div>-->
                                             <div>
                                                 <p class="text-gray-900 text-base">
                                                     <?= htmlspecialchars($user['firstname']) ?>

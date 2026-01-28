@@ -402,7 +402,7 @@ if (!empty($_GET['location'])) {
     </style>
 </head>
 
-<body class="bg-gray-100">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
     <div class="flex">
         <?php include "sidebar.php"; ?>
         <main id="mainContent" class="w-full p-6">
@@ -418,85 +418,80 @@ if (!empty($_GET['location'])) {
                 </button>
             </div>
 
-            <!-- Filters and Search -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                <form method="GET" class="space-y-4">
-                    <!-- Search Bar - Full Width -->
-                    <div class="w-full">
-                        <div class="relative">
-                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                            <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
-                                value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
-                                placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
-                                class="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white">
-                        </div>
-                    </div>
-
-                    <!-- Filters Row -->
-                    <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-                        <!-- Location Filter -->
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
-                            <div class="relative">
-                                <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <select name="location" onchange="this.form.submit()"
-                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
-                                    <option value="">All Locations</option>
-                                    <?php foreach ($locationsArr as $l): ?>
-                                        <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($l['location_name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-                            </div>
-                        </div>
-
-                        <!-- Status Filter -->
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
-                            <div class="relative">
-                                <i class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <select name="status" id="statusFilter"
-                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
-                                    <option value="">All Status</option>
-                                    <?php foreach ($statuses as $status): ?>
-                                        <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex gap-2 md:self-end">
-                            <button type="submit"
-                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow-md">
-                                <i class="fas fa-filter mr-2"></i>
-                                <span>Apply</span>
-                            </button>
-                            <a href="<?= $_SERVER['PHP_SELF'] ?>"
-                                class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow">
-                                <i class="fas fa-redo mr-2"></i>
-                                <span>Reset</span>
-                            </a>
-                        </div>
-                    </div>
-                </form>
-
-                <!-- Export Button -->
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                    <form method="GET" action="export_assignments.php">
-                        <button type="submit"
-                            class="px-5 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl text-sm font-medium hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow">
-                            <i class="fas fa-download"></i>
-                            <span>Export to Excel</span>
-                        </button>
-                    </form>
+<!-- Filters and Search -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <form method="GET" class="w-full">
+        <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-end">
+            <!-- Search Bar -->
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Search</label>
+                <div class="relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
+                        value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
+                        placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
+                        class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white">
                 </div>
             </div>
+
+            <!-- Location Filter -->
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
+                <div class="relative">
+                    <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <select name="location"
+                        class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                        <option value="">All Locations</option>
+                        <?php foreach ($locationsArr as $l): ?>
+                            <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($l['location_name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                </div>
+            </div>
+
+<!-- Status Filter -->
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
+                <div class="relative">
+                    <i class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <select name="status" id="statusFilter"
+                        class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                        <option value="">All Status</option>
+                        <?php foreach ($statuses as $status): ?>
+                            <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <button type="submit"
+                    class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow-md whitespace-nowrap">
+                    <i class="fas fa-filter mr-2"></i>
+                    <span>Apply</span>
+                </button>
+                <a href="<?= $_SERVER['PHP_SELF'] ?>"
+                    class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow whitespace-nowrap">
+                    <i class="fas fa-redo mr-2"></i>
+                    <span>Reset</span>
+                </a>
+                <!-- Export Button (inline) -->
+                <button type="button" onclick="window.location.href='export_assignments.php'"
+                    class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
+                    <i class="fas fa-download"></i>
+                    <span>Export</span>
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
 
             <!-- ================= TABLE ================= -->
             <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
@@ -566,9 +561,9 @@ if (!empty($_GET['location'])) {
                                     <!-- USER -->
                                     <td class="p-4" data-key="assigned_user">
                                         <div class="flex items-center gap-2">
-                                            <div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-white text-xs font-bold">
-                                                <?= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) ?>
-                                            </div>
+                                            <!--<div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-white text-xs font-bold">
+                                                <?/*= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) */?>
+                                            </div>--->
                                             <span class="text-gray-700 text-sm">
                                                 <?= htmlspecialchars($row['assigned_user'] ?? 'Unassigned') ?>
                                             </span>
