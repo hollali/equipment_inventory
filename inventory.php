@@ -15,7 +15,6 @@ if (!$conn)
 
 /* ================== ADD INVENTORY ================== */
 if (isset($_POST['save'])) {
-
     $stmt = $conn->prepare("
         INSERT INTO inventory_items (
             asset_tag,
@@ -60,8 +59,6 @@ if (isset($_POST['save'])) {
     }
 }
 
-
-
 /* ================== EDIT MODES ================== */
 $editMode = isset($_GET['edit']) && is_numeric($_GET['edit']);
 
@@ -77,7 +74,6 @@ if ($editMode) {
 
 /* ================== UPDATE INVENTORY ================== */
 if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
-
     $stmt = $conn->prepare("
         UPDATE inventory_items SET
             device_type=?,
@@ -120,7 +116,6 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
     }
 }
 
-
 /* ================== RETIRE INVENTORY ================== */
 if (isset($_POST['retire'], $_POST['retire_id'])) {
     $id = (int) $_POST['retire_id'];
@@ -148,7 +143,6 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     header("Location: inventory.php?msg=deleted");
     exit;
 }
-
 
 /* ================== AUTO ASSET TAG ================== */
 $year = date("Y");
@@ -227,13 +221,11 @@ if (!empty($_GET['search'])) {
     $paramTypes .= str_repeat('s', 7);
 }
 
-
 if (!empty($_GET['status'])) {
     $where[] = "i.status=?";
     $params[] = $_GET['status'];
     $paramTypes .= 's';
 }
-
 
 if (!empty($_GET['department'])) {
     $where[] = "i.department_id = ?";
@@ -252,11 +244,15 @@ $orderBy = 'i.id';
 $orderDir = (($_GET['sort'] ?? '') === 'asc') ? 'ASC' : 'DESC';
 
 /* ================== PAGINATION ================== */
-$perPage = 10; // items per page
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
-$offset = ($page - 1) * $perPage;
+$limit = isset($_GET['limit']) && in_array((int)$_GET['limit'], [10, 25, 50, 100]) 
+    ? (int)$_GET['limit'] 
+    : 10;
 
-// 1️ Get total records for pagination
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max($page, 1);
+$offset = ($page - 1) * $limit;
+
+/* ================== COUNT TOTAL RECORDS ================== */
 $countQuery = $conn->prepare("
     SELECT COUNT(*) as total
     FROM inventory_items i
@@ -267,37 +263,16 @@ $countQuery = $conn->prepare("
     $whereSql
 ");
 
-
-if ($params)
+if ($params) {
     $countQuery->bind_param($paramTypes, ...$params);
+}
 $countQuery->execute();
-$totalRecords = $countQuery->get_result()->fetch_assoc()['total'] ?? 0;
-$totalPages = ceil($totalRecords / $perPage);
+$countResult = $countQuery->get_result();
+$totalRecords = $countResult->fetch_assoc()['total'] ?? 0;
+$totalPages = ceil($totalRecords / $limit);
 
-// Total records for pagination
-$countSql = "SELECT COUNT(*) as total FROM inventory_items i
-    LEFT JOIN brands b ON i.brand_id = b.id
-    LEFT JOIN categories c ON i.category_id = c.id
-    LEFT JOIN departments d ON i.department_id = d.id
-    LEFT JOIN locations l ON i.location_id = l.id
-    $whereSql";
-
-// Pagination
-$limit = 10; // number of items per page
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
-$page = max($page, 1); // make sure page is at least 1
-$offset = ($page - 1) * $limit;
-
-
-// Pagination
-$limit = 10; // number of items per page
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
-$page = max($page, 1); // ensure page is at least 1
-$offset = ($page - 1) * $limit;
-
-
-// 2️ Fetch paginated inventory
-$listQuery = $conn->prepare("
+/* ================== FETCH PAGINATED INVENTORY ================== */
+$sql = "
     SELECT i.*, c.category_name, b.brand_name, d.department_name, l.location_name
     FROM inventory_items i
     LEFT JOIN categories c ON i.category_id = c.id
@@ -306,34 +281,37 @@ $listQuery = $conn->prepare("
     LEFT JOIN locations l ON i.location_id = l.id
     $whereSql
     ORDER BY $orderBy $orderDir
-    LIMIT $limit OFFSET $offset
-");
+    LIMIT ? OFFSET ?
+";
+
+// Add limit and offset to params
+$params[] = $limit;
+$params[] = $offset;
+$paramTypes .= "ii";
+
+$listQuery = $conn->prepare($sql);
 if ($params) {
     $listQuery->bind_param($paramTypes, ...$params);
 }
 $listQuery->execute();
 $list = $listQuery->get_result();
 
-
-
 /* ================== ACTIVE FILTER TAGS ================== */
 $activeFilters = [];
-if (!empty($_GET['search']))
+if (!empty($_GET['search'])) {
     $activeFilters[] = ['label' => 'Search: ' . htmlspecialchars($_GET['search']), 'param' => 'search'];
-if (!empty($_GET['status']))
+}
+if (!empty($_GET['status'])) {
     $activeFilters[] = ['label' => 'Status: ' . htmlspecialchars($statusLabels[$_GET['status']] ?? $_GET['status']), 'param' => 'status'];
+}
 if (!empty($_GET['category'])) {
     $catName = '';
-    foreach ($categoriesArr as $c)
-        if ($c['id'] == $_GET['category'])
+    foreach ($categoriesArr as $c) {
+        if ($c['id'] == $_GET['category']) {
             $catName = $c['category_name'];
+        }
+    }
     $activeFilters[] = ['label' => 'Category: ' . htmlspecialchars($catName), 'param' => 'category'];
-}
-
-if (!empty($_GET['department'])) {
-    $where[] = "i.department_id = ?";
-    $params[] = (int) $_GET['department'];
-    $paramTypes .= 'i';
 }
 
 if (!empty($_GET['department'])) {
@@ -352,12 +330,6 @@ if (!empty($_GET['department'])) {
 }
 
 if (!empty($_GET['location'])) {
-    $where[] = "i.location_id = ?";
-    $params[] = (int) $_GET['location'];
-    $paramTypes .= 'i';
-}
-
-if (!empty($_GET['location'])) {
     $locName = '';
     foreach ($locationsArr as $l) {
         if ($l['id'] == $_GET['location']) {
@@ -371,7 +343,6 @@ if (!empty($_GET['location'])) {
         'param' => 'location'
     ];
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -432,7 +403,6 @@ if (!empty($_GET['location'])) {
 </head>
 
 <body class="bg-gray-100">
-
     <div class="flex">
         <?php include "sidebar.php"; ?>
         <main id="mainContent" class="w-full p-6">
@@ -447,14 +417,14 @@ if (!empty($_GET['location'])) {
                     <i class="fa fa-plus text-xs mr-1"></i> Add Item
                 </button>
             </div>
+
             <!-- Filters and Search -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
                 <form method="GET" class="space-y-4">
                     <!-- Search Bar - Full Width -->
                     <div class="w-full">
                         <div class="relative">
-                            <i
-                                class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
                                 value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
                                 placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
@@ -468,8 +438,7 @@ if (!empty($_GET['location'])) {
                         <div class="flex-1">
                             <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
                             <div class="relative">
-                                <i
-                                    class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                                 <select name="location" onchange="this.form.submit()"
                                     class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
                                     <option value="">All Locations</option>
@@ -479,8 +448,7 @@ if (!empty($_GET['location'])) {
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <i
-                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                             </div>
                         </div>
 
@@ -488,8 +456,7 @@ if (!empty($_GET['location'])) {
                         <div class="flex-1">
                             <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
                             <div class="relative">
-                                <i
-                                    class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <i class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                                 <select name="status" id="statusFilter"
                                     class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
                                     <option value="">All Status</option>
@@ -499,8 +466,7 @@ if (!empty($_GET['location'])) {
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <i
-                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                             </div>
                         </div>
 
@@ -520,7 +486,7 @@ if (!empty($_GET['location'])) {
                     </div>
                 </form>
 
-                <!-- Export Button - Separate -->
+                <!-- Export Button -->
                 <div class="mt-4 pt-4 border-t border-gray-100">
                     <form method="GET" action="export_assignments.php">
                         <button type="submit"
@@ -532,13 +498,11 @@ if (!empty($_GET['location'])) {
                 </div>
             </div>
 
-
             <!-- ================= TABLE ================= -->
             <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
                 <div class="overflow-x-auto">
-
                     <table id="inventoryTable" class="w-full">
-                        <!-- ================= TABLE HEADER ================= -->
+                        <!-- Table Header -->
                         <thead class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                             <tr class="text-gray-700">
                                 <th class="p-4 text-left text-sm font-semibold uppercase">Asset</th>
@@ -553,9 +517,8 @@ if (!empty($_GET['location'])) {
                             </tr>
                         </thead>
 
-                        <!-- ================= TABLE BODY ================= -->
+                        <!-- Table Body -->
                         <tbody id="inventoryTableBody" class="divide-y divide-gray-100">
-
                             <?php
                             $statusColors = [
                                 'active' => 'bg-green-100 text-green-700 border-green-200',
@@ -578,7 +541,6 @@ if (!empty($_GET['location'])) {
 
                             <?php while ($row = $list->fetch_assoc()): ?>
                                 <tr class="hover:bg-gray-50 transition">
-
                                     <!-- ASSET TAG -->
                                     <td class="p-4" data-key="">
                                         <span class="font-bold text-blue-600 text-sm">
@@ -600,11 +562,11 @@ if (!empty($_GET['location'])) {
                                     <td class="p-4 text-gray-700 text-sm" data-key="model">
                                         <?= htmlspecialchars($row['model']) ?>
                                     </td>
+                                    
                                     <!-- USER -->
                                     <td class="p-4" data-key="assigned_user">
                                         <div class="flex items-center gap-2">
-                                            <div class="w-8 h-8 rounded-full bg-blue-700
-                                flex items-center justify-center text-white text-xs font-bold">
+                                            <div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-white text-xs font-bold">
                                                 <?= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) ?>
                                             </div>
                                             <span class="text-gray-700 text-sm">
@@ -612,31 +574,33 @@ if (!empty($_GET['location'])) {
                                             </span>
                                         </div>
                                     </td>
+                                    
                                     <!-- LOCATION -->
                                     <td class="p-4 text-gray-600 text-sm" data-key="location_name">
                                         <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
                                         <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
                                     </td>
+                                    
                                     <!-- STATUS -->
                                     <td class="p-4">
                                         <?php
                                         $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
                                         ?>
-                                        <span
-                                            class="px-3 py-1 text-xs font-semibold rounded-full border <?= $statusClass ?>">
+                                        <span class="px-3 py-1 text-xs font-semibold rounded-full border <?= $statusClass ?>">
                                             <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
                                         </span>
                                     </td>
+                                    
                                     <!-- CATEGORY -->
                                     <td class="p-4 text-gray-600 text-sm" data-key="category_name">
                                         <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
                                     </td>
+                                    
                                     <!-- ACTIONS -->
                                     <td class="p-4">
                                         <div class="flex justify-center gap-2">
                                             <!-- VIEW -->
-                                            <button
-                                                onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
+                                            <button onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
                                                 class="w-9 h-9 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-lg"
                                                 title="View">
                                                 <i class="fas fa-eye"></i>
@@ -662,229 +626,309 @@ if (!empty($_GET['location'])) {
                                         </div>
                                     </td>
                                 </tr>
-                                <!-- ================= EDIT MODAL ================= -->
-                                <div id="editModal<?= $row['id'] ?>"
-                                    class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
-                                    onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
-
-                                    <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
-                                        onclick="event.stopPropagation()">
-
-                                        <!-- Modal Header -->
-                                        <div
-                                            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-                                            <div class="flex items-center gap-3">
-                                                <div
-                                                    class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                                    <i class="fas fa-edit text-white"></i>
-                                                </div>
-                                                <div>
-                                                    <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
-                                                    <p class="text-blue-100 text-sm">
-                                                        <?= htmlspecialchars($row['asset_tag'] ?? '') ?>
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                                class="text-white/80 hover:text-white transition">
-                                                <i class="fas fa-times text-xl"></i>
-                                            </button>
-                                        </div>
-                                        <!-- Modal Body -->
-                                        <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
-                                            <form method="POST" action="inventory.php" id="editForm<?= $row['id'] ?>">
-                                                <!-- REQUIRED: inventory ID -->
-                                                <input type="hidden" name="id" value="<?= $row['id'] ?>">
-                                                <!-- Basic Information -->
-                                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                                    <h3
-                                                        class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                        <i class="fas fa-info-circle text-blue-600"></i>
-                                                        Basic Information
-                                                    </h3>
-                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div class="md:col-span-2">
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Asset
-                                                                Tag</label>
-                                                            <input readonly name="asset_tag"
-                                                                value="<?= htmlspecialchars($row['asset_tag']) ?>"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Device
-                                                                Type *</label>
-                                                            <input name="device_type" required
-                                                                value="<?= htmlspecialchars($row['device_type']) ?>"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
-                                                            <select name="brand_id" required
-                                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                                <?php foreach ($brandsArr as $b): ?>
-                                                                    <option value="<?= $b['id'] ?>"
-                                                                        <?= $row['brand_id'] == $b['id'] ? 'selected' : '' ?>>
-                                                                        <?= htmlspecialchars($b['brand_name']) ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                                                            <input name="model"
-                                                                value="<?= htmlspecialchars($row['model']) ?>"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Serial
-                                                                Number</label>
-                                                            <input name="serial_number"
-                                                                value="<?= htmlspecialchars($row['serial_number']) ?>"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                                        </div>
-                                                        <div class="md:col-span-2">
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
-                                                            <input name="specifications"
-                                                                value="<?= htmlspecialchars($row['specifications']) ?>"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <!-- Assignment Details -->
-                                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                                    <h3
-                                                        class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                        <i class="fas fa-user-tag text-blue-600"></i>
-                                                        Assignment Details
-                                                    </h3>
-                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                                            <select name="department_id" required
-                                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                                <?php foreach ($departmentsArr as $d): ?>
-                                                                    <option value="<?= $d['id'] ?>"
-                                                                        <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
-                                                                        <?= htmlspecialchars($d['department_name']) ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Assigned
-                                                                User</label>
-                                                            <input name="assigned_user"
-                                                                value="<?= htmlspecialchars($row['assigned_user']) ?>"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                                        </div>
-                                                        <div class="md:col-span-2">
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                                                            <select name="location_id" required
-                                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                                <?php foreach ($locationsArr as $l): ?>
-                                                                    <option value="<?= $l['id'] ?>"
-                                                                        <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
-                                                                        <?= htmlspecialchars($l['location_name']) ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <!-- Status & Category -->
-                                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                                    <h3
-                                                        class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                        <i class="fas fa-cog text-blue-600"></i>
-                                                        Status & Category
-                                                    </h3>
-                                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
-                                                            <select name="condition"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                                <?php foreach (['Excellent', 'Good', 'Fair', 'Poor'] as $c): ?>
-                                                                    <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>><?= $c ?></option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                                                            <select name="status"
-                                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                                <?php
-                                                                $allowedStatuses = [
-                                                                    'active' => 'Active',
-                                                                    'in_storage' => 'In Storage',
-                                                                    'in_use' => 'In Use',
-                                                                    'repairing' => 'Repairing',
-                                                                    'faulty' => 'Faulty',
-                                                                    'retired' => 'Retired'
-                                                                ];
-                                                                foreach ($allowedStatuses as $value => $label): ?>
-                                                                    <option value="<?= $value ?>" <?= $row['status'] === $value ? 'selected' : '' ?>>
-                                                                        <?= $label ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label
-                                                                class="block text-sm font-medium text-gray-700 mb-2">Category
-                                                                *</label>
-                                                            <select name="category_id" required
-                                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                                <?php foreach ($categoriesArr as $c): ?>
-                                                                    <option value="<?= $c['id'] ?>"
-                                                                        <?= $row['category_id'] == $c['id'] ? 'selected' : '' ?>>
-                                                                        <?= htmlspecialchars($c['category_name']) ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <!-- Additional Notes -->
-                                                <div class="bg-gray-50 rounded-xl p-4">
-                                                    <h3
-                                                        class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                                        <i class="fas fa-sticky-note text-blue-600"></i>
-                                                        Additional Notes
-                                                    </h3>
-                                                    <textarea name="remarks" rows="4"
-                                                        class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500"><?= htmlspecialchars($row['remarks']) ?></textarea>
-                                                </div>
-                                            </form>
-                                        </div>
-                                        <!-- Modal Footer -->
-                                        <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                                class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium">
-                                                Cancel
-                                            </button>
-                                            <button type="submit" form="editForm<?= $row['id'] ?>" name="update_inventory"
-                                                class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                                                Save Changes
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
                             <?php endwhile; ?>
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            <!-- ================= PAGINATION ================= -->
+            <?php if ($totalPages > 1): ?>
+                <?php
+                // Build query string with all current filters
+                $queryParams = $_GET;
+                unset($queryParams['page']); // Remove page from params to rebuild
+                
+                // Build the base URL with all parameters
+                $baseUrl = '?' . (!empty($queryParams) ? http_build_query($queryParams) . '&' : '');
+                ?>
+                
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <!-- Results Count -->
+                        <div class="text-sm text-gray-600">
+                            Showing <span class="font-medium"><?= min($limit, $totalRecords - (($page - 1) * $limit)) ?></span> of 
+                            <span class="font-medium"><?= $totalRecords ?></span> inventory items
+                        </div>
+                        
+                        <!-- Pagination Controls -->
+                        <div class="flex flex-col items-center gap-4">
+                            <!-- Page Numbers -->
+                            <div class="flex flex-wrap items-center justify-center gap-1">
+                                <?php if ($page > 1): ?>
+                                    <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>"
+                                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm hover:shadow">
+                                        <i class="fas fa-chevron-left text-sm"></i>
+                                    </a>
+                                <?php endif; ?>
+
+                                <?php
+                                // Smart pagination: Show first page, last page, and pages around current
+                                $showDotsStart = false;
+                                $showDotsEnd = false;
+
+                                for ($i = 1; $i <= $totalPages; $i++):
+                                    // Show first page, last page, and pages around current (within 2 pages)
+                                    $shouldShow = false;
+
+                                    if ($i == 1 || $i == $totalPages) {
+                                        $shouldShow = true;
+                                    } elseif ($i >= $page - 2 && $i <= $page + 2) {
+                                        $shouldShow = true;
+                                    }
+
+                                    if ($shouldShow):
+                                        if ($i == 1 && $page > 4):
+                                            $showDotsStart = true;
+                                            ?>
+                                            <a href="<?= $baseUrl ?>page=1"
+                                                class="px-3 py-2 rounded-lg transition-colors font-medium text-sm bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
+                                                1
+                                            </a>
+                                            <?php if ($showDotsStart): ?>
+                                                <span class="px-2 text-gray-400">...</span>
+                                            <?php endif; ?>
+                                        <?php elseif ($i == $totalPages && $page < $totalPages - 3):
+                                            $showDotsEnd = true;
+                                            if ($showDotsEnd): ?>
+                                                <span class="px-2 text-gray-400">...</span>
+                                            <?php endif; ?>
+                                            <a href="<?= $baseUrl ?>page=<?= $totalPages ?>"
+                                                class="px-3 py-2 rounded-lg transition-colors font-medium text-sm bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
+                                                <?= $totalPages ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="<?= $baseUrl ?>page=<?= $i ?>"
+                                                class="px-3 py-2 rounded-lg transition-colors font-medium text-sm <?= $i == $page
+                                                    ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white shadow-lg'
+                                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm hover:shadow' ?>">
+                                                <?= $i ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                <?php endfor; ?>
+
+                                <?php if ($page < $totalPages): ?>
+                                    <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>"
+                                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm hover:shadow">
+                                        <i class="fas fa-chevron-right text-sm"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <!-- Page Info -->
+                            <p class="text-center text-sm text-gray-500">
+                                Page <?= $page ?> of <?= $totalPages ?>
+                            </p>
+                        </div>
+                        
+                        <!-- Items per page selector -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-600">Show:</span>
+                            <select onchange="changeItemsPerPage(this)" 
+                                    class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
+                                <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
+                                <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
+                                <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
+                            </select>
+                            <span class="text-sm text-gray-600">per page</span>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <!-- ================= EDIT MODALS ================= -->
+            <?php 
+            // Reset pointer to beginning of results
+            $list->data_seek(0);
+            while ($row = $list->fetch_assoc()): 
+            ?>
+                <div id="editModal<?= $row['id'] ?>"
+                    class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
+                    onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
+
+                    <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
+                        onclick="event.stopPropagation()">
+
+                        <!-- Modal Header -->
+                        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-edit text-white"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
+                                    <p class="text-blue-100 text-sm">
+                                        <?= htmlspecialchars($row['asset_tag'] ?? '') ?>
+                                    </p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
+                                class="text-white/80 hover:text-white transition">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Modal Body -->
+                        <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                            <form method="POST" action="inventory.php" id="editForm<?= $row['id'] ?>">
+                                <input type="hidden" name="id" value="<?= $row['id'] ?>">
+                                
+                                <!-- Basic Information -->
+                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-info-circle text-blue-600"></i>
+                                        Basic Information
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
+                                            <input readonly name="asset_tag" value="<?= htmlspecialchars($row['asset_tag']) ?>"
+                                                class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Device Type *</label>
+                                            <input name="device_type" required value="<?= htmlspecialchars($row['device_type']) ?>"
+                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                                            <select name="brand_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <?php foreach ($brandsArr as $b): ?>
+                                                    <option value="<?= $b['id'] ?>" <?= $row['brand_id'] == $b['id'] ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($b['brand_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                                            <input name="model" value="<?= htmlspecialchars($row['model']) ?>"
+                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Serial Number</label>
+                                            <input name="serial_number" value="<?= htmlspecialchars($row['serial_number']) ?>"
+                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                            <input name="specifications" value="<?= htmlspecialchars($row['specifications']) ?>"
+                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Assignment Details -->
+                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-user-tag text-blue-600"></i>
+                                        Assignment Details
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                            <select name="department_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <?php foreach ($departmentsArr as $d): ?>
+                                                    <option value="<?= $d['id'] ?>" <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($d['department_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Assigned User</label>
+                                            <input name="assigned_user" value="<?= htmlspecialchars($row['assigned_user']) ?>"
+                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                                            <select name="location_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <?php foreach ($locationsArr as $l): ?>
+                                                    <option value="<?= $l['id'] ?>" <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($l['location_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Status & Category -->
+                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-cog text-blue-600"></i>
+                                        Status & Category
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
+                                            <select name="condition" class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <?php foreach (['Excellent', 'Good', 'Fair', 'Poor'] as $c): ?>
+                                                    <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>><?= $c ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                            <select name="status" class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <?php
+                                                $allowedStatuses = [
+                                                    'active' => 'Active',
+                                                    'in_storage' => 'In Storage',
+                                                    'in_use' => 'In Use',
+                                                    'repairing' => 'Repairing',
+                                                    'faulty' => 'Faulty',
+                                                    'retired' => 'Retired'
+                                                ];
+                                                foreach ($allowedStatuses as $value => $label): ?>
+                                                    <option value="<?= $value ?>" <?= $row['status'] === $value ? 'selected' : '' ?>>
+                                                        <?= $label ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                                            <select name="category_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <?php foreach ($categoriesArr as $c): ?>
+                                                    <option value="<?= $c['id'] ?>" <?= $row['category_id'] == $c['id'] ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($c['category_name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Additional Notes -->
+                                <div class="bg-gray-50 rounded-xl p-4">
+                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-sticky-note text-blue-600"></i>
+                                        Additional Notes
+                                    </h3>
+                                    <textarea name="remarks" rows="4"
+                                        class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500"><?= htmlspecialchars($row['remarks']) ?></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- Modal Footer -->
+                        <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
+                                class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium">
+                                Cancel
+                            </button>
+                            <button type="submit" form="editForm<?= $row['id'] ?>" name="update_inventory"
+                                class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+
             <!-- ================= ADD MODAL ================= -->
             <div id="addModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
                 onclick="closeModalOnBackdrop(event, 'addModal')">
@@ -919,20 +963,17 @@ if (!empty($_GET['location'])) {
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="md:col-span-2">
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
-                                        <input readonly name="asset_tag"
-                                            value="<?= htmlspecialchars($asset_tag_preview) ?>"
+                                        <input readonly name="asset_tag" value="<?= htmlspecialchars($asset_tag_preview) ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Type <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Type <span class="text-red-500">*</span></label>
                                         <input name="device_type" value="<?= $item['device_type'] ?? '' ?>" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., Laptop, Desktop, Monitor">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span class="text-red-500">*</span></label>
                                         <select name="brand_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Brand</option>
@@ -950,21 +991,20 @@ if (!empty($_GET['location'])) {
                                             placeholder="e.g., XPS 15, ThinkPad X1">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial
-                                            Number</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial Number</label>
                                         <input name="serial_number" value="<?= $item['serial_number'] ?? '' ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., SN123456789">
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label
-                                            class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
                                         <input name="specifications" value="<?= $item['specifications'] ?? '' ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., Intel i7, 16GB RAM, 512GB SSD">
                                     </div>
                                 </div>
                             </div>
+                            
                             <!-- Assignment Details -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -973,8 +1013,7 @@ if (!empty($_GET['location'])) {
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department <span class="text-red-500">*</span></label>
                                         <select name="department_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Department</option>
@@ -986,15 +1025,13 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
-                                            User</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Assigned User</label>
                                         <input name="assigned_user" value="<?= $item['assigned_user'] ?? '' ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., John Doe">
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Location <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Location <span class="text-red-500">*</span></label>
                                         <select name="location_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Location</option>
@@ -1007,6 +1044,7 @@ if (!empty($_GET['location'])) {
                                     </div>
                                 </div>
                             </div>
+                            
                             <!-- Status & Category -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1015,8 +1053,7 @@ if (!empty($_GET['location'])) {
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span class="text-red-500">*</span></label>
                                         <select name="condition" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="Excellent" <?= (isset($item['condition']) && $item['condition'] == 'Excellent') ? 'selected' : '' ?>>Excellent</option>
@@ -1026,8 +1063,7 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span class="text-red-500">*</span></label>
                                         <select name="status" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="active" <?= (isset($item['status']) && $item['status'] == 'active') ? 'selected' : '' ?>>Active</option>
@@ -1039,8 +1075,7 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category <span
-                                                class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
                                         <select name="category_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Category</option>
@@ -1053,6 +1088,7 @@ if (!empty($_GET['location'])) {
                                     </div>
                                 </div>
                             </div>
+                            
                             <!-- Additional Notes -->
                             <div class="bg-gray-50 rounded-xl p-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1065,6 +1101,7 @@ if (!empty($_GET['location'])) {
                             </div>
                         </form>
                     </div>
+                    
                     <!-- Modal Footer -->
                     <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
                         <button type="button" onclick="closeModal('addModal')"
@@ -1078,6 +1115,7 @@ if (!empty($_GET['location'])) {
                     </div>
                 </div>
             </div>
+
             <!-- ================= VIEW MODAL ================= -->
             <div id="viewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
                 onclick="closeModalOnBackdrop(event, 'viewModal')">
@@ -1098,6 +1136,7 @@ if (!empty($_GET['location'])) {
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
+                    
                     <!-- Modal Body -->
                     <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
                         <!-- Basic Information -->
@@ -1137,6 +1176,7 @@ if (!empty($_GET['location'])) {
                                 </div>
                             </div>
                         </div>
+                        
                         <!-- Assignment Details -->
                         <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1158,6 +1198,7 @@ if (!empty($_GET['location'])) {
                                 </div>
                             </div>
                         </div>
+                        
                         <!-- Status & Condition -->
                         <div class="bg-gradient-to-br from-blue-50 to-blue-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1175,6 +1216,7 @@ if (!empty($_GET['location'])) {
                                 </div>
                             </div>
                         </div>
+                        
                         <!-- Additional Notes -->
                         <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1186,6 +1228,7 @@ if (!empty($_GET['location'])) {
                             </div>
                         </div>
                     </div>
+                    
                     <!-- Modal Footer -->
                     <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
                         <button onclick="closeViewModal()"
@@ -1196,130 +1239,74 @@ if (!empty($_GET['location'])) {
                 </div>
             </div>
 
-            <?php if ($totalPages > 1): ?>
-                <div class="mt-6 flex flex-wrap items-center justify-center gap-2">
-                    <?php
-                    // Preserve all GET parameters except 'page'
-                    $queryParams = $_GET;
-                    ?>
-
-                    <?php if ($page > 1): ?>
-                        <?php $queryParams['page'] = $page - 1; ?>
-                        <a href="?<?= http_build_query($queryParams) ?>"
-                            class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-chevron-left"></i>
-                        </a>
-                    <?php endif; ?>
-
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
-                            <?php $queryParams['page'] = $i; ?>
-                            <a href="?<?= http_build_query($queryParams) ?>" class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
-                                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
-                                <?= $i ?>
-                            </a>
-                        <?php elseif (abs($i - $page) == 3): ?>
-                            <span class="px-2 text-gray-400">...</span>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-
-                    <?php if ($page < $totalPages): ?>
-                        <?php $queryParams['page'] = $page + 1; ?>
-                        <a href="?<?= http_build_query($queryParams) ?>"
-                            class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-chevron-right"></i>
-                        </a>
-                    <?php endif; ?>
+            <!-- ================= RETIRE MODAL ================= -->
+            <div id="retireModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">Retire Device</h3>
+                        <button onclick="closeRetireModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Body -->
+                    <div class="px-6 py-5 text-gray-700">
+                        <p class="mb-2 font-medium">Are you sure you want to retire this device?</p>
+                        <p class="text-sm text-gray-500">
+                            The device will no longer be assignable but will remain in records.
+                        </p>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="px-6 py-4 border-t flex justify-end gap-3">
+                        <button onclick="closeRetireModal()"
+                            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                            Cancel
+                        </button>
+                        <form method="POST" class="inline">
+                            <input type="hidden" name="retire_id" id="retireId">
+                            <button type="submit" name="retire"
+                                class="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700">
+                                Yes, Retire
+                            </button>
+                        </form>
+                    </div>
                 </div>
+            </div>
 
-                <p class="text-center text-sm text-gray-500 mt-4">
-                    Page <?= $page ?> of <?= $totalPages ?> (<?= $totalRecords ?> total inventory items)
-                </p>
-            <?php endif; ?>
-
+            <!-- ================= DELETE MODAL ================= -->
+            <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">Confirm Delete</h3>
+                        <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Body -->
+                    <div class="px-6 py-5 text-gray-700">
+                        <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
+                        <p class="text-sm text-gray-500">
+                            This action <span class="text-red-600 font-semibold">cannot be undone</span>.
+                        </p>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="px-6 py-4 border-t flex justify-end gap-3">
+                        <button onclick="closeDeleteModal()"
+                            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                            Cancel
+                        </button>
+                        <a id="confirmDeleteBtn" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+                            Yes, Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
         </main>
-    </div>
-
-
-    <!-- ================= RETIRE MODAL ================= -->
-    <div id="retireModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-
-        <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
-            <!-- Header -->
-            <div class="px-6 py-4 border-b flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-800">
-                    Retire Device
-                </h3>
-                <button onclick="closeRetireModal()" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <!-- Body -->
-            <div class="px-6 py-5 text-gray-700">
-                <p class="mb-2 font-medium">
-                    Are you sure you want to retire this device?
-                </p>
-                <p class="text-sm text-gray-500">
-                    The device will no longer be assignable but will remain in records.
-                </p>
-            </div>
-
-            <!-- Footer -->
-            <div class="px-6 py-4 border-t flex justify-end gap-3">
-                <button onclick="closeRetireModal()"
-                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
-                    Cancel
-                </button>
-
-                <form method="POST" class="inline">
-                    <input type="hidden" name="retire_id" id="retireId">
-                    <button type="submit" name="retire"
-                        class="px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700">
-                        Yes, Retire
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- ================= DELETE MODAL ================= -->
-    <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-
-        <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
-            <!-- Header -->
-            <div class="px-6 py-4 border-b flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-800">
-                    Confirm Delete
-                </h3>
-                <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <!-- Body -->
-            <div class="px-6 py-5 text-gray-700">
-                <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
-                <p class="text-sm text-gray-500">
-                    This action <span class="text-red-600 font-semibold">cannot be undone</span>.
-                </p>
-            </div>
-
-            <!-- Footer -->
-            <div class="px-6 py-4 border-t flex justify-end gap-3">
-                <button onclick="closeDeleteModal()"
-                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
-                    Cancel
-                </button>
-
-                <!-- This triggers your existing PHP delete -->
-                <a id="confirmDeleteBtn" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-                    Yes, Delete
-                </a>
-            </div>
-        </div>
-    </div>
     </div>
 
     <script>
@@ -1331,7 +1318,7 @@ if (!empty($_GET['location'])) {
                 return;
             }
             modal.classList.remove('hidden');
-            modal.classList.add('flex'); // ensure flex layout
+            modal.classList.add('flex');
         }
 
         function closeModal(id) {
@@ -1366,11 +1353,9 @@ if (!empty($_GET['location'])) {
             document.getElementById('viewModal').classList.remove('hidden');
         }
 
-
         function closeViewModal() {
             document.getElementById('viewModal').classList.add('hidden');
         }
-
 
         // ==================== RETIRE MODAL ====================
         function openRetireModal(id) {
@@ -1406,171 +1391,17 @@ if (!empty($_GET['location'])) {
                 const assignedUser = row.querySelector('[data-key="assigned_user"]')?.textContent.toLowerCase() || '';
 
                 const searchableText = `${assetTag} ${deviceType} ${brandName} ${model} ${assignedUser}`;
-
-                // Show row if it matches, hide otherwise
                 row.style.display = searchableText.includes(searchTerm) ? "" : "none";
             });
-
-            // Optional: if you have filter tags UI
-            if (typeof updateActiveFilters === "function") {
-                updateActiveFilters();
-            }
         }
 
-
-        // ==================== SORT FUNCTION ====================
-        let currentSort = { column: null, order: null };
-        function sortTable(columnIndex, order) {
-            const table = document.getElementById("inventoryTable");
-            const tbody = table.tBodies[0];
-            const rows = Array.from(tbody.rows);
-
-            currentSort = { column: columnIndex, order: order };
-
-            rows.sort((a, b) => {
-                const cellA = a.cells[columnIndex].textContent.trim().toLowerCase();
-                const cellB = b.cells[columnIndex].textContent.trim().toLowerCase();
-                return order === "asc" ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
-            });
-
-            rows.forEach(row => tbody.appendChild(row));
-        }
-
-        // ==================== FILTER FUNCTIONS ====================
-        let currentFilters = { status: '', category: '', brand: '' };
-
-        function filterByStatus() {
-            const value = document.getElementById("statusFilter").value.toLowerCase();
-            currentFilters.status = value;
-            applyFilters();
-        }
-
-        function filterByCategory() {
-            const value = document.getElementById("categoryFilter").value;
-            currentFilters.category = value;
-            applyFilters();
-        }
-
-        function filterByBrand() {
-            const value = document.getElementById("brandFilter").value;
-            currentFilters.brand = value;
-            applyFilters();
-        }
-
-        function applyFilters() {
-            const rows = document.querySelectorAll("#inventoryTable tbody tr");
-
-            rows.forEach(row => {
-                let show = true;
-
-                // Status filter
-                if (currentFilters.status) {
-                    const statusText = row.cells[6].querySelector('span')?.textContent.trim().toLowerCase() || '';
-                    if (!statusText.includes(currentFilters.status)) show = false;
-                }
-
-                // Category filter
-                if (currentFilters.category) {
-                    const categoryText = row.cells[7]?.textContent.trim() || '';
-                    const selectedCategoryName = document.querySelector(`#categoryFilter option[value="${currentFilters.category}"]`)?.textContent.trim() || '';
-                    if (categoryText !== selectedCategoryName) show = false;
-                }
-
-                // Brand filter
-                if (currentFilters.brand) {
-                    const brandText = row.querySelector('[data-key="brand_name"]')?.textContent.trim() || '';
-                    const selectedBrandName = document.querySelector(`#brandFilter option[value="${currentFilters.brand}"]`)?.textContent.trim() || '';
-                    if (brandText !== selectedBrandName) show = false;
-                }
-
-                row.style.display = show ? '' : 'none';
-            });
-
-            updateActiveFilters();
-        }
-
-        // ==================== CLEAR ALL FILTERS ====================
-        function clearAllFilters() {
-            document.getElementById("searchInput").value = "";
-            document.getElementById("statusFilter").value = "";
-            document.getElementById("categoryFilter").value = "";
-            document.getElementById("brandFilter").value = "";
-
-            currentFilters = { status: '', category: '', brand: '' };
-
-            const rows = document.querySelectorAll("#inventoryTable tbody tr");
-            rows.forEach(row => row.style.display = "");
-
-            updateActiveFilters();
-        }
-
-        // ==================== ACTIVE FILTERS DISPLAY ====================
-        function updateActiveFilters() {
-            const container = document.getElementById("activeFilters");
-            const tags = document.getElementById("activeFilterTags");
-            tags.innerHTML = "";
-
-            let hasFilters = false;
-
-            // Search
-            const searchVal = document.getElementById("searchInput").value.trim();
-            if (searchVal) {
-                hasFilters = true;
-                addFilterTag("Search", searchVal, () => {
-                    document.getElementById("searchInput").value = "";
-                    searchTable();
-                });
-            }
-
-            // Status
-            if (currentFilters.status) {
-                hasFilters = true;
-                const statusText = document.querySelector(`#statusFilter option[value="${currentFilters.status}"]`)?.textContent || '';
-                addFilterTag("Status", statusText, () => {
-                    document.getElementById("statusFilter").value = "";
-                    filterByStatus();
-                });
-            }
-
-            // Category
-            if (currentFilters.category) {
-                hasFilters = true;
-                const categoryText = document.querySelector(`#categoryFilter option[value="${currentFilters.category}"]`)?.textContent || '';
-                addFilterTag("Category", categoryText, () => {
-                    document.getElementById("categoryFilter").value = "";
-                    filterByCategory();
-                });
-            }
-
-            // Brand
-            if (currentFilters.brand) {
-                hasFilters = true;
-                const brandText = document.querySelector(`#brandFilter option[value="${currentFilters.brand}"]`)?.textContent || '';
-                addFilterTag("Brand", brandText, () => {
-                    document.getElementById("brandFilter").value = "";
-                    filterByBrand();
-                });
-            }
-
-            container.classList.toggle('hidden', !hasFilters);
-        }
-
-        function addFilterTag(label, value, removeCallback) {
-            const activeFilterTags = document.getElementById("activeFilterTags");
-
-            const tag = document.createElement("span");
-            tag.className = "inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium";
-            tag.innerHTML = `
-        <span>${label}: ${value}</span>
-        <button onclick="this.parentElement.remove(); (${removeCallback.toString()})();" 
-                class="hover:text-blue-900 transition">
-            <i class="fas fa-times text-xs"></i>
-        </button>
-    `;
-
-            activeFilterTags.appendChild(tag);
+        // ==================== PAGINATION ====================
+        function changeItemsPerPage(select) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('limit', select.value);
+            url.searchParams.set('page', 1);
+            window.location.href = url.toString();
         }
     </script>
 </body>
-
 </html>
