@@ -24,18 +24,17 @@ if (isset($_POST['save'])) {
             serial_number,
             specifications,
             department_id,
-            assigned_user,
             location_id,
             `condition`,
             status,
             category_id,
             remarks,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
     $stmt->bind_param(
-        "ssisssissssss",
+        "ssisssisssss",
         $_POST['asset_tag'],
         $_POST['device_type'],
         $_POST['brand_id'],
@@ -43,7 +42,6 @@ if (isset($_POST['save'])) {
         $_POST['serial_number'],
         $_POST['specifications'],
         $_POST['department_id'],
-        $_POST['assigned_user'],
         $_POST['location_id'],
         $_POST['condition'],
         $_POST['status'],
@@ -52,6 +50,26 @@ if (isset($_POST['save'])) {
     );
 
     if ($stmt->execute()) {
+        $inventory_id = $stmt->insert_id;
+
+        // If user is assigned during creation, create assignment record
+        if (!empty($_POST['assigned_user']) && $_POST['status'] == 'in_use') {
+            $userId = $_POST['assigned_user'];
+
+            // Create new assignment (no need to check for existing assignments since users can have multiple)
+            $assignStmt = $conn->prepare("
+                INSERT INTO device_user_assignments (
+                    inventory_id,
+                    user_id,
+                    assigned_at,
+                    status
+                ) VALUES (?, ?, NOW(), 'assigned')
+            ");
+            $assignStmt->bind_param("ii", $inventory_id, $userId);
+            $assignStmt->execute();
+            $assignStmt->close();
+        }
+
         header("Location: inventory.php?success=added");
         exit;
     } else {
@@ -59,67 +77,284 @@ if (isset($_POST['save'])) {
     }
 }
 
+$users = [];
+$result = $conn->query("
+    SELECT id, firstname, lastname, email, role, status
+    FROM users
+    WHERE status = 'active'
+    ORDER BY firstname ASC
+");
+
+while ($row = $result->fetch_assoc()) {
+    $users[] = $row;
+}
+
 /* ================== EDIT MODES ================== */
 $editMode = isset($_GET['edit']) && is_numeric($_GET['edit']);
 
 /* ================== FETCH ITEM FOR EDIT ================== */
 $item = null;
+$currentAssignment = null;
 
 if ($editMode) {
     $stmt = $conn->prepare("SELECT * FROM inventory_items WHERE id = ?");
     $stmt->bind_param("i", $_GET['edit']);
     $stmt->execute();
     $item = $stmt->get_result()->fetch_assoc();
+
+    // Get current active assignment
+    $assignStmt = $conn->prepare("
+        SELECT dua.*, u.firstname, u.lastname 
+        FROM device_user_assignments dua
+        JOIN users u ON dua.user_id = u.id
+        WHERE dua.inventory_id = ? AND dua.status = 'assigned'
+        ORDER BY dua.assigned_at DESC 
+        LIMIT 1
+    ");
+    $assignStmt->bind_param("i", $_GET['edit']);
+    $assignStmt->execute();
+    $currentAssignment = $assignStmt->get_result()->fetch_assoc();
+    $assignStmt->close();
 }
 
 /* ================== UPDATE INVENTORY ================== */
 if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
-    $stmt = $conn->prepare("
-        UPDATE inventory_items SET
-            device_type=?,
-            brand_id=?,
-            model=?,
-            serial_number=?,
-            specifications=?,
-            department_id=?,
-            assigned_user=?,
-            location_id=?,
-            `condition`=?,
-            status=?,
-            category_id=?,
-            remarks=?
-        WHERE id=?
-    ");
+    // Start transaction
+    $conn->begin_transaction();
 
-    $stmt->bind_param(
-        "sisssissssssi",
-        $_POST['device_type'],
-        $_POST['brand_id'],
-        $_POST['model'],
-        $_POST['serial_number'],
-        $_POST['specifications'],
-        $_POST['department_id'],
-        $_POST['assigned_user'],
-        $_POST['location_id'],
-        $_POST['condition'],
-        $_POST['status'],
-        $_POST['category_id'],
-        $_POST['remarks'],
-        $_POST['id']
-    );
+    try {
+        $stmt = $conn->prepare("
+            UPDATE inventory_items SET
+                device_type=?,
+                brand_id=?,
+                model=?,
+                serial_number=?,
+                specifications=?,
+                department_id=?,
+                location_id=?,
+                `condition`=?,
+                status=?,
+                category_id=?,
+                remarks=?
+            WHERE id=?
+        ");
 
-    if ($stmt->execute()) {
+        $stmt->bind_param(
+            "sisssisssssi",
+            $_POST['device_type'],
+            $_POST['brand_id'],
+            $_POST['model'],
+            $_POST['serial_number'],
+            $_POST['specifications'],
+            $_POST['department_id'],
+            $_POST['location_id'],
+            $_POST['condition'],
+            $_POST['status'],
+            $_POST['category_id'],
+            $_POST['remarks'],
+            $_POST['id']
+        );
+
+        if (!$stmt->execute()) {
+            throw new Exception("Update failed: " . $stmt->error);
+        }
+
+        // Handle assignment changes
+        $assignedUserId = $_POST['assigned_user'] ?? null;
+        $status = $_POST['status'];
+
+        if (!empty($assignedUserId) && $status == 'in_use') {
+            // Check if there's already an active assignment for this device
+            $checkStmt = $conn->prepare("
+                SELECT id FROM device_user_assignments 
+                WHERE inventory_id = ? AND status = 'assigned'
+            ");
+            $checkStmt->bind_param("i", $_POST['id']);
+            $checkStmt->execute();
+            $checkResult = $checkStmt->get_result();
+
+            if ($checkResult->num_rows > 0) {
+                // Update existing active assignment
+                $updateAssignStmt = $conn->prepare("
+                    UPDATE device_user_assignments 
+                    SET user_id = ?
+                    WHERE inventory_id = ? AND status = 'assigned'
+                ");
+                $updateAssignStmt->bind_param("ii", $assignedUserId, $_POST['id']);
+                if (!$updateAssignStmt->execute()) {
+                    throw new Exception("Assignment update failed: " . $updateAssignStmt->error);
+                }
+                $updateAssignStmt->close();
+            } else {
+                // Create new assignment
+                $assignStmt = $conn->prepare("
+                    INSERT INTO device_user_assignments (
+                        inventory_id,
+                        user_id,
+                        assigned_at,
+                        status
+                    ) VALUES (?, ?, NOW(), 'assigned')
+                ");
+                $assignStmt->bind_param("ii", $_POST['id'], $assignedUserId);
+                if (!$assignStmt->execute()) {
+                    throw new Exception("Assignment creation failed: " . $assignStmt->error);
+                }
+                $assignStmt->close();
+            }
+            $checkStmt->close();
+        } elseif (empty($assignedUserId) || $status != 'in_use') {
+            // If no user assigned or status not 'in_use', end any active assignments
+            $endAssignStmt = $conn->prepare("
+                UPDATE device_user_assignments 
+                SET status = 'retrieved', returned_at = NOW()
+                WHERE inventory_id = ? AND status = 'assigned'
+            ");
+            $endAssignStmt->bind_param("i", $_POST['id']);
+            if (!$endAssignStmt->execute()) {
+                throw new Exception("Assignment ending failed: " . $endAssignStmt->error);
+            }
+            $endAssignStmt->close();
+        }
+
+        // Commit transaction
+        $conn->commit();
         header("Location: inventory.php?success=updated");
         exit;
-    } else {
-        die($stmt->error);
+
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        die("Error: " . $e->getMessage());
     }
+}
+
+/* ================== RESIGN DEVICE ================== */
+if (isset($_POST['resign_device']) && is_numeric($_POST['resign_id'])) {
+    $id = (int) $_POST['resign_id'];
+    $reason = $_POST['resign_reason'] ?? '';
+
+    // End the active assignment
+    $stmt = $conn->prepare("
+        UPDATE device_user_assignments 
+        SET status = 'retrieved', 
+            returned_at = NOW()
+        WHERE inventory_id = ? AND status = 'assigned'
+    ");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    // Update inventory status
+    $updateStmt = $conn->prepare("
+        UPDATE inventory_items 
+        SET status = 'in_storage',
+            remarks = CONCAT(IFNULL(remarks, ''), '\nResigned on ', NOW(), ': ', ?)
+        WHERE id = ?
+    ");
+    $updateStmt->bind_param("si", $reason, $id);
+    $updateStmt->execute();
+
+    header("Location: inventory.php?msg=resigned");
+    exit;
+}
+
+/* ================== ASSIGN DEVICE ================== */
+if (isset($_POST['assign_device']) && is_numeric($_POST['assign_id'])) {
+    $id = (int) $_POST['assign_id'];
+    $userId = $_POST['assign_user'] ?? '';
+    $assign_notes = $_POST['assign_notes'] ?? '';
+
+    // Start transaction
+    $conn->begin_transaction();
+
+    try {
+        // First, end any existing active assignment for this device
+        $endStmt = $conn->prepare("
+            UPDATE device_user_assignments 
+            SET status = 'retrieved', returned_at = NOW()
+            WHERE inventory_id = ? AND status = 'assigned'
+        ");
+        $endStmt->bind_param("i", $id);
+        $endStmt->execute();
+        $endStmt->close();
+
+        // Create new assignment (users can have multiple devices)
+        $assignStmt = $conn->prepare("
+            INSERT INTO device_user_assignments (
+                inventory_id,
+                user_id,
+                assigned_at,
+                status
+            ) VALUES (?, ?, NOW(), 'assigned')
+        ");
+        $assignStmt->bind_param("ii", $id, $userId);
+        $assignStmt->execute();
+        $assignStmt->close();
+
+        // Update inventory status
+        $updateStmt = $conn->prepare("
+            UPDATE inventory_items 
+            SET status = 'in_use',
+                remarks = CONCAT(IFNULL(remarks, ''), '\nAssigned on ', NOW(), ': ', ?)
+            WHERE id = ?
+        ");
+        $updateStmt->bind_param("si", $assign_notes, $id);
+        $updateStmt->execute();
+        $updateStmt->close();
+
+        $conn->commit();
+        header("Location: inventory.php?msg=assigned");
+        exit;
+
+    } catch (Exception $e) {
+        $conn->rollback();
+        die("Error: " . $e->getMessage());
+    }
+}
+
+/* ================== RETRIEVE DEVICE ================== */
+if (isset($_POST['retrieve_device']) && is_numeric($_POST['retrieve_id'])) {
+    $id = (int) $_POST['retrieve_id'];
+    $retrieve_notes = $_POST['retrieve_notes'] ?? '';
+
+    // End the active assignment
+    $stmt = $conn->prepare("
+        UPDATE device_user_assignments 
+        SET status = 'retrieved', 
+            returned_at = NOW()
+        WHERE inventory_id = ? AND status = 'assigned'
+    ");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+
+    // Update inventory status
+    $updateStmt = $conn->prepare("
+        UPDATE inventory_items 
+        SET status = 'in_storage',
+            remarks = CONCAT(IFNULL(remarks, ''), '\nRetrieved on ', NOW(), ': ', ?)
+        WHERE id = ?
+    ");
+    $updateStmt->bind_param("si", $retrieve_notes, $id);
+    $updateStmt->execute();
+
+    header("Location: inventory.php?msg=retrieved");
+    exit;
 }
 
 /* ================== RETIRE INVENTORY ================== */
 if (isset($_POST['retire'], $_POST['retire_id'])) {
     $id = (int) $_POST['retire_id'];
 
+    // First end any active assignment
+    $endStmt = $conn->prepare("
+        UPDATE device_user_assignments 
+        SET status = 'retrieved', returned_at = NOW()
+        WHERE inventory_id = ? AND status = 'assigned'
+    ");
+    $endStmt->bind_param("i", $id);
+    $endStmt->execute();
+    $endStmt->close();
+
+    // Then retire the device
     $stmt = $conn->prepare("
         UPDATE inventory_items 
         SET status = 'retired'
@@ -136,12 +371,30 @@ if (isset($_POST['retire'], $_POST['retire_id'])) {
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $id = (int) $_GET['delete'];
 
-    $stmt = $conn->prepare("DELETE FROM inventory_items WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
+    // Start transaction
+    $conn->begin_transaction();
 
-    header("Location: inventory.php?msg=deleted");
-    exit;
+    try {
+        // First delete assignments
+        $deleteAssignStmt = $conn->prepare("DELETE FROM device_user_assignments WHERE inventory_id = ?");
+        $deleteAssignStmt->bind_param("i", $id);
+        $deleteAssignStmt->execute();
+        $deleteAssignStmt->close();
+
+        // Then delete inventory item
+        $deleteStmt = $conn->prepare("DELETE FROM inventory_items WHERE id = ?");
+        $deleteStmt->bind_param("i", $id);
+        $deleteStmt->execute();
+        $deleteStmt->close();
+
+        $conn->commit();
+        header("Location: inventory.php?msg=deleted");
+        exit;
+
+    } catch (Exception $e) {
+        $conn->rollback();
+        die("Error: " . $e->getMessage());
+    }
 }
 
 /* ================== AUTO ASSET TAG ================== */
@@ -165,7 +418,7 @@ $allowedStatuses = ['active', 'in_storage', 'in_use', 'repairing', 'faulty', 're
 $statusLabels = [
     'active' => 'Active',
     'retired' => 'Retired',
-    'in_storage' => 'In Storage',
+    'in_storage' => 'Store',
     'repairing' => 'Repairing',
     'in_use' => 'In Use',
     'faulty' => 'Faulty'
@@ -191,7 +444,7 @@ if ($statusQuery && $statusQuery->num_rows > 0) {
 if (empty($statuses))
     $statuses = $allowedStatuses;
 
-/* ================== LIST INVENTORY WITH SEARCH, FILTER, SORT & PAGINATION ================== */
+/* ================== LIST INVENTORY WITH JOIN FOR ASSIGNMENTS ================== */
 $where = [];
 $params = [];
 $paramTypes = '';
@@ -201,7 +454,7 @@ if (!empty($_GET['search'])) {
                 OR i.device_type LIKE ? 
                 OR b.brand_name LIKE ? 
                 OR i.model LIKE ? 
-                OR i.assigned_user LIKE ? 
+                OR CONCAT(u.firstname, ' ', u.lastname) LIKE ? 
                 OR d.department_name LIKE ? 
                 OR l.location_name LIKE ?)";
 
@@ -244,11 +497,11 @@ $orderBy = 'i.id';
 $orderDir = (($_GET['sort'] ?? '') === 'asc') ? 'ASC' : 'DESC';
 
 /* ================== PAGINATION ================== */
-$limit = isset($_GET['limit']) && in_array((int)$_GET['limit'], [10, 25, 50, 100]) 
-    ? (int)$_GET['limit'] 
+$limit = isset($_GET['limit']) && in_array((int) $_GET['limit'], [10, 25, 50, 100])
+    ? (int) $_GET['limit']
     : 10;
 
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
 $page = max($page, 1);
 $offset = ($page - 1) * $limit;
 
@@ -271,14 +524,30 @@ $countResult = $countQuery->get_result();
 $totalRecords = $countResult->fetch_assoc()['total'] ?? 0;
 $totalPages = ceil($totalRecords / $limit);
 
-/* ================== FETCH PAGINATED INVENTORY ================== */
+/* ================== FETCH PAGINATED INVENTORY WITH ASSIGNMENTS ================== */
 $sql = "
-    SELECT i.*, c.category_name, b.brand_name, d.department_name, l.location_name
+    SELECT 
+        i.*, 
+        c.category_name, 
+        b.brand_name, 
+        d.department_name, 
+        l.location_name,
+        u.firstname,
+        u.lastname,
+        dua.user_id as assigned_user_id,
+        dua.assigned_at,
+        dua.returned_at
     FROM inventory_items i
     LEFT JOIN categories c ON i.category_id = c.id
     LEFT JOIN brands b ON i.brand_id = b.id
     LEFT JOIN departments d ON i.department_id = d.id
     LEFT JOIN locations l ON i.location_id = l.id
+    LEFT JOIN (
+        SELECT dua1.* 
+        FROM device_user_assignments dua1
+        WHERE dua1.status = 'assigned'
+    ) dua ON i.id = dua.inventory_id
+    LEFT JOIN users u ON dua.user_id = u.id
     $whereSql
     ORDER BY $orderBy $orderDir
     LIMIT ? OFFSET ?
@@ -418,80 +687,85 @@ if (!empty($_GET['location'])) {
                 </button>
             </div>
 
-<!-- Filters and Search -->
-<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-    <form method="GET" class="w-full">
-        <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-end">
-            <!-- Search Bar -->
-            <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Search</label>
-                <div class="relative">
-                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
-                        value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
-                        placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
-                        class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white">
-                </div>
-            </div>
+            <!-- Filters and Search -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                <form method="GET" class="w-full">
+                    <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-end">
+                        <!-- Search Bar -->
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Search</label>
+                            <div class="relative">
+                                <i
+                                    class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
+                                    value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
+                                    placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
+                                    class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white">
+                            </div>
+                        </div>
 
-            <!-- Location Filter -->
-            <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
-                <div class="relative">
-                    <i class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                    <select name="location"
-                        class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
-                        <option value="">All Locations</option>
-                        <?php foreach ($locationsArr as $l): ?>
-                            <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($l['location_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-                </div>
-            </div>
+                        <!-- Location Filter -->
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
+                            <div class="relative">
+                                <i
+                                    class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <select name="location"
+                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                    <option value="">All Locations</option>
+                                    <?php foreach ($locationsArr as $l): ?>
+                                        <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($l['location_name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <i
+                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                            </div>
+                        </div>
 
-<!-- Status Filter -->
-            <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
-                <div class="relative">
-                    <i class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                    <select name="status" id="statusFilter"
-                        class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
-                        <option value="">All Status</option>
-                        <?php foreach ($statuses as $status): ?>
-                            <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
-                </div>
-            </div>
+                        <!-- Status Filter -->
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
+                            <div class="relative">
+                                <i
+                                    class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <select name="status" id="statusFilter"
+                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                    <option value="">All Status</option>
+                                    <?php foreach ($statuses as $status): ?>
+                                        <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($statusLabels[$status] ?? ucfirst($status)) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <i
+                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                            </div>
+                        </div>
 
-            <!-- Action Buttons -->
-            <div class="flex gap-2">
-                <button type="submit"
-                    class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow-md whitespace-nowrap">
-                    <i class="fas fa-filter mr-2"></i>
-                    <span>Apply</span>
-                </button>
-                <a href="<?= $_SERVER['PHP_SELF'] ?>"
-                    class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow whitespace-nowrap">
-                    <i class="fas fa-redo mr-2"></i>
-                    <span>Reset</span>
-                </a>
-                <!-- Export Button (inline) -->
-                <button type="button" onclick="window.location.href='export_assignments.php'"
-                    class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
-                    <i class="fas fa-download"></i>
-                    <span>Export</span>
-                </button>
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2">
+                            <button type="submit"
+                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow-md whitespace-nowrap">
+                                <i class="fas fa-filter mr-2"></i>
+                                <span>Apply</span>
+                            </button>
+                            <a href="<?= $_SERVER['PHP_SELF'] ?>"
+                                class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow whitespace-nowrap">
+                                <i class="fas fa-redo mr-2"></i>
+                                <span>Reset</span>
+                            </a>
+                            <!-- Export Button (inline) -->
+                            <button type="button" onclick="window.location.href='export_assignments.php'"
+                                class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
+                                <i class="fas fa-download"></i>
+                                <span>Export</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
-        </div>
-    </form>
-</div>
 
             <!-- ================= TABLE ================= -->
             <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
@@ -505,7 +779,7 @@ if (!empty($_GET['location'])) {
                                 <th class="p-4 text-left text-sm font-semibold uppercase">Brand</th>
                                 <th class="p-4 text-left text-sm font-semibold uppercase">Model</th>
                                 <th class="p-4 text-left text-sm font-semibold uppercase">User</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Location</th>
+                                <th class="p-4 text-left text-sm font-semibold uppercase">Device Location</th>
                                 <th class="p-4 text-left text-sm font-semibold uppercase">Status</th>
                                 <th class="p-4 text-left text-sm font-semibold uppercase">Category</th>
                                 <th class="p-4 text-center text-sm font-semibold uppercase">Actions</th>
@@ -527,7 +801,7 @@ if (!empty($_GET['location'])) {
                             $statusLabels = [
                                 'active' => 'Active',
                                 'in_use' => 'In Use',
-                                'in_storage' => 'In Storage',
+                                'in_storage' => 'Store',
                                 'repairing' => 'Repairing',
                                 'faulty' => 'Faulty',
                                 'retired' => 'Retired'
@@ -535,6 +809,12 @@ if (!empty($_GET['location'])) {
                             ?>
 
                             <?php while ($row = $list->fetch_assoc()): ?>
+                                <?php
+                                $fullName = '';
+                                if (!empty($row['firstname']) && !empty($row['lastname'])) {
+                                    $fullName = $row['firstname'] . ' ' . $row['lastname'];
+                                }
+                                ?>
                                 <tr class="hover:bg-gray-50 transition">
                                     <!-- ASSET TAG -->
                                     <td class="p-4" data-key="">
@@ -557,45 +837,63 @@ if (!empty($_GET['location'])) {
                                     <td class="p-4 text-gray-700 text-sm" data-key="model">
                                         <?= htmlspecialchars($row['model']) ?>
                                     </td>
-                                    
+
                                     <!-- USER -->
                                     <td class="p-4" data-key="assigned_user">
                                         <div class="flex items-center gap-2">
-                                            <!--<div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-white text-xs font-bold">
-                                                <?/*= strtoupper(substr($row['assigned_user'] ?? 'U', 0, 1)) */?>
-                                            </div>--->
-                                            <span class="text-gray-700 text-sm">
-                                                <?= htmlspecialchars($row['assigned_user'] ?? 'Unassigned') ?>
-                                            </span>
+                                            <?php if (!empty($fullName)): ?>
+                                                <div
+                                                    class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold">
+                                                    <?= strtoupper(substr($fullName, 0, 1)) ?>
+                                                </div>
+                                                <div>
+                                                    <span class="text-gray-700 text-sm font-medium">
+                                                        <?= htmlspecialchars($fullName) ?>
+                                                    </span>
+                                                    <?php if (!empty($row['assigned_at'])): ?>
+                                                        <p class="text-xs text-gray-500">
+                                                            Since <?= date('M d, Y', strtotime($row['assigned_at'])) ?>
+                                                        </p>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <div
+                                                    class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs">
+                                                    <i class="fas fa-user-slash"></i>
+                                                </div>
+                                                <span class="text-gray-500 text-sm">Unassigned</span>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
-                                    
+
                                     <!-- LOCATION -->
                                     <td class="p-4 text-gray-600 text-sm" data-key="location_name">
                                         <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
                                         <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
                                     </td>
-                                    
+
                                     <!-- STATUS -->
                                     <td class="p-4">
                                         <?php
                                         $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
                                         ?>
-                                        <span class="px-3 py-1 text-xs font-semibold rounded-full border <?= $statusClass ?>">
+                                        <span
+                                            class="px-3 py-1 text-xs font-semibold rounded-full border <?= $statusClass ?>">
                                             <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
                                         </span>
                                     </td>
-                                    
+
                                     <!-- CATEGORY -->
                                     <td class="p-4 text-gray-600 text-sm" data-key="category_name">
                                         <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
                                     </td>
-                                    
+
                                     <!-- ACTIONS -->
                                     <td class="p-4">
                                         <div class="flex justify-center gap-2">
                                             <!-- VIEW -->
-                                            <button onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
+                                            <button
+                                                onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
                                                 class="w-9 h-9 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-lg"
                                                 title="View">
                                                 <i class="fas fa-eye"></i>
@@ -606,6 +904,24 @@ if (!empty($_GET['location'])) {
                                                 title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </button>
+                                            <!-- ASSIGN (only if not assigned and not retired) -->
+                                            <?php if (empty($fullName) && $row['status'] !== 'retired'): ?>
+                                                <button
+                                                    onclick="openAssignModal(<?= (int) $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>')"
+                                                    class="w-9 h-9 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                                                    title="Assign Device">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                            <!-- RESIGN/RETRIEVE (only if assigned and not retired) -->
+                                            <?php if (!empty($fullName) && $row['status'] !== 'retired'): ?>
+                                                <button
+                                                    onclick="openResignModal(<?= (int) $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')"
+                                                    class="w-9 h-9 flex items-center justify-center text-amber-600 hover:bg-amber-50 rounded-lg"
+                                                    title="Resign/Retrieve Device">
+                                                    <i class="fas fa-user-minus"></i>
+                                                </button>
+                                            <?php endif; ?>
                                             <!-- RETIRE -->
                                             <button onclick="openRetireModal(<?= (int) $row['id'] ?>)"
                                                 class="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 rounded-lg"
@@ -633,19 +949,20 @@ if (!empty($_GET['location'])) {
                 // Build query string with all current filters
                 $queryParams = $_GET;
                 unset($queryParams['page']); // Remove page from params to rebuild
-                
+            
                 // Build the base URL with all parameters
                 $baseUrl = '?' . (!empty($queryParams) ? http_build_query($queryParams) . '&' : '');
                 ?>
-                
+
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <div class="flex flex-col md:flex-row items-center justify-between gap-4">
                         <!-- Results Count -->
                         <div class="text-sm text-gray-600">
-                            Showing <span class="font-medium"><?= min($limit, $totalRecords - (($page - 1) * $limit)) ?></span> of 
+                            Showing <span
+                                class="font-medium"><?= min($limit, $totalRecords - (($page - 1) * $limit)) ?></span> of
                             <span class="font-medium"><?= $totalRecords ?></span> inventory items
                         </div>
-                        
+
                         <!-- Pagination Controls -->
                         <div class="flex flex-col items-center gap-4">
                             <!-- Page Numbers -->
@@ -710,18 +1027,18 @@ if (!empty($_GET['location'])) {
                                     </a>
                                 <?php endif; ?>
                             </div>
-                            
+
                             <!-- Page Info -->
                             <p class="text-center text-sm text-gray-500">
                                 Page <?= $page ?> of <?= $totalPages ?>
                             </p>
                         </div>
-                        
+
                         <!-- Items per page selector -->
                         <div class="flex items-center gap-2">
                             <span class="text-sm text-gray-600">Show:</span>
-                            <select onchange="changeItemsPerPage(this)" 
-                                    class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <select onchange="changeItemsPerPage(this)"
+                                class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
                                 <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
                                 <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
                                 <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
@@ -734,11 +1051,26 @@ if (!empty($_GET['location'])) {
             <?php endif; ?>
 
             <!-- ================= EDIT MODALS ================= -->
-            <?php 
+            <?php
             // Reset pointer to beginning of results
             $list->data_seek(0);
-            while ($row = $list->fetch_assoc()): 
-            ?>
+            while ($row = $list->fetch_assoc()):
+                // Get current assignment for this item
+                $assignStmt = $conn->prepare("
+                    SELECT dua.*, u.firstname, u.lastname 
+                    FROM device_user_assignments dua
+                    JOIN users u ON dua.user_id = u.id
+                    WHERE dua.inventory_id = ? AND dua.status = 'assigned'
+                    ORDER BY dua.assigned_at DESC 
+                    LIMIT 1
+                ");
+                $assignStmt->bind_param("i", $row['id']);
+                $assignStmt->execute();
+                $itemAssignment = $assignStmt->get_result()->fetch_assoc();
+                $assignStmt->close();
+
+                $currentUserId = $itemAssignment['user_id'] ?? '';
+                ?>
                 <div id="editModal<?= $row['id'] ?>"
                     class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
                     onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
@@ -764,12 +1096,12 @@ if (!empty($_GET['location'])) {
                                 <i class="fas fa-times text-xl"></i>
                             </button>
                         </div>
-                        
+
                         <!-- Modal Body -->
                         <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
                             <form method="POST" action="inventory.php" id="editForm<?= $row['id'] ?>">
                                 <input type="hidden" name="id" value="<?= $row['id'] ?>">
-                                
+
                                 <!-- Basic Information -->
                                 <div class="bg-gray-50 rounded-xl p-4 mb-6">
                                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -779,17 +1111,21 @@ if (!empty($_GET['location'])) {
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div class="md:col-span-2">
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
-                                            <input readonly name="asset_tag" value="<?= htmlspecialchars($row['asset_tag']) ?>"
+                                            <input readonly name="asset_tag"
+                                                value="<?= htmlspecialchars($row['asset_tag']) ?>"
                                                 class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Device Type *</label>
-                                            <input name="device_type" required value="<?= htmlspecialchars($row['device_type']) ?>"
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Device Name
+                                                *</label>
+                                            <input name="device_type" required
+                                                value="<?= htmlspecialchars($row['device_type']) ?>"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
-                                            <select name="brand_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                            <select name="brand_id" required
+                                                class="w-full border border-gray-300 p-3 rounded-lg">
                                                 <?php foreach ($brandsArr as $b): ?>
                                                     <option value="<?= $b['id'] ?>" <?= $row['brand_id'] == $b['id'] ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($b['brand_name']) ?>
@@ -803,18 +1139,22 @@ if (!empty($_GET['location'])) {
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Serial Number</label>
-                                            <input name="serial_number" value="<?= htmlspecialchars($row['serial_number']) ?>"
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Serial
+                                                Number</label>
+                                            <input name="serial_number"
+                                                value="<?= htmlspecialchars($row['serial_number']) ?>"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
                                         </div>
                                         <div class="md:col-span-2">
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
-                                            <input name="specifications" value="<?= htmlspecialchars($row['specifications']) ?>"
+                                            <label
+                                                class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                            <input name="specifications"
+                                                value="<?= htmlspecialchars($row['specifications']) ?>"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Assignment Details -->
                                 <div class="bg-gray-50 rounded-xl p-4 mb-6">
                                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -824,7 +1164,8 @@ if (!empty($_GET['location'])) {
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                            <select name="department_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                            <select name="department_id" required
+                                                class="w-full border border-gray-300 p-3 rounded-lg">
                                                 <?php foreach ($departmentsArr as $d): ?>
                                                     <option value="<?= $d['id'] ?>" <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($d['department_name']) ?>
@@ -833,13 +1174,27 @@ if (!empty($_GET['location'])) {
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Assigned User</label>
-                                            <input name="assigned_user" value="<?= htmlspecialchars($row['assigned_user']) ?>"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
+                                                User</label>
+                                            <select name="assigned_user"
+                                                class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <option value="">— Not Assigned —</option>
+                                                <?php foreach ($users as $user): ?>
+                                                    <?php
+                                                    $fullName = $user['firstname'] . ' ' . $user['lastname'];
+                                                    $selected = $currentUserId == $user['id'] ? 'selected' : '';
+                                                    ?>
+                                                    <option value="<?= $user['id'] ?>" <?= $selected ?>>
+                                                        <?= htmlspecialchars($fullName) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
                                         </div>
                                         <div class="md:col-span-2">
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                                            <select name="location_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Device
+                                                Location</label>
+                                            <select name="location_id" required
+                                                class="w-full border border-gray-300 p-3 rounded-lg">
                                                 <?php foreach ($locationsArr as $l): ?>
                                                     <option value="<?= $l['id'] ?>" <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($l['location_name']) ?>
@@ -849,7 +1204,7 @@ if (!empty($_GET['location'])) {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Status & Category -->
                                 <div class="bg-gray-50 rounded-xl p-4 mb-6">
                                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -860,8 +1215,10 @@ if (!empty($_GET['location'])) {
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
                                             <select name="condition" class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php foreach (['Excellent', 'Good', 'Fair', 'Poor'] as $c): ?>
-                                                    <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>><?= $c ?></option>
+                                                <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
+                                                    <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>>
+                                                        <?= $c ?>
+                                                    </option>
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
@@ -886,7 +1243,8 @@ if (!empty($_GET['location'])) {
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-                                            <select name="category_id" required class="w-full border border-gray-300 p-3 rounded-lg">
+                                            <select name="category_id" required
+                                                class="w-full border border-gray-300 p-3 rounded-lg">
                                                 <?php foreach ($categoriesArr as $c): ?>
                                                     <option value="<?= $c['id'] ?>" <?= $row['category_id'] == $c['id'] ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($c['category_name']) ?>
@@ -896,7 +1254,7 @@ if (!empty($_GET['location'])) {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Additional Notes -->
                                 <div class="bg-gray-50 rounded-xl p-4">
                                     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -908,7 +1266,7 @@ if (!empty($_GET['location'])) {
                                 </div>
                             </form>
                         </div>
-                        
+
                         <!-- Modal Footer -->
                         <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
                             <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
@@ -958,17 +1316,20 @@ if (!empty($_GET['location'])) {
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="md:col-span-2">
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
-                                        <input readonly name="asset_tag" value="<?= htmlspecialchars($asset_tag_preview) ?>"
+                                        <input readonly name="asset_tag"
+                                            value="<?= htmlspecialchars($asset_tag_preview) ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Type <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Name<span
+                                                class="text-red-500">*</span></label>
                                         <input name="device_type" value="<?= $item['device_type'] ?? '' ?>" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., Laptop, Desktop, Monitor">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span
+                                                class="text-red-500">*</span></label>
                                         <select name="brand_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Brand</option>
@@ -986,20 +1347,22 @@ if (!empty($_GET['location'])) {
                                             placeholder="e.g., XPS 15, ThinkPad X1">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial Number</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial
+                                            Number</label>
                                         <input name="serial_number" value="<?= $item['serial_number'] ?? '' ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., SN123456789">
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                        <label
+                                            class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
                                         <input name="specifications" value="<?= $item['specifications'] ?? '' ?>"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             placeholder="e.g., Intel i7, 16GB RAM, 512GB SSD">
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Assignment Details -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1008,7 +1371,8 @@ if (!empty($_GET['location'])) {
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department <span
+                                                class="text-red-500">*</span></label>
                                         <select name="department_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Department</option>
@@ -1020,13 +1384,26 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Assigned User</label>
-                                        <input name="assigned_user" value="<?= $item['assigned_user'] ?? '' ?>"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            placeholder="e.g., John Doe">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Assigned User
+                                        </label>
+                                        <select name="assigned_user"
+                                            class="w-full border border-gray-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">— Not Assigned —</option>
+                                            <?php foreach ($users as $user): ?>
+                                                <?php
+                                                $fullName = $user['firstname'] . ' ' . $user['lastname'];
+                                                $selected = ($currentAssignment['user_id'] ?? '') == $user['id'] ? 'selected' : '';
+                                                ?>
+                                                <option value="<?= $user['id'] ?>" <?= $selected ?>>
+                                                    <?= htmlspecialchars($fullName) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Location <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Location<span
+                                                class="text-red-500">*</span></label>
                                         <select name="location_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Location</option>
@@ -1039,7 +1416,7 @@ if (!empty($_GET['location'])) {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Status & Category -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1048,17 +1425,18 @@ if (!empty($_GET['location'])) {
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span
+                                                class="text-red-500">*</span></label>
                                         <select name="condition" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="Excellent" <?= (isset($item['condition']) && $item['condition'] == 'Excellent') ? 'selected' : '' ?>>Excellent</option>
-                                            <option value="Good" <?= (isset($item['condition']) && $item['condition'] == 'Good') ? 'selected' : '' ?>>Good</option>
-                                            <option value="Fair" <?= (isset($item['condition']) && $item['condition'] == 'Fair') ? 'selected' : '' ?>>Fair</option>
-                                            <option value="Poor" <?= (isset($item['condition']) && $item['condition'] == 'Poor') ? 'selected' : '' ?>>Poor</option>
+                                            <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
+                                                <option value="<?= $c ?>" <?= (isset($item['condition']) && $item['condition'] == $c) ? 'selected' : '' ?>><?= $c ?></option>
+                                            <?php endforeach; ?>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span
+                                                class="text-red-500">*</span></label>
                                         <select name="status" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="active" <?= (isset($item['status']) && $item['status'] == 'active') ? 'selected' : '' ?>>Active</option>
@@ -1070,7 +1448,8 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category <span
+                                                class="text-red-500">*</span></label>
                                         <select name="category_id" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Category</option>
@@ -1083,12 +1462,12 @@ if (!empty($_GET['location'])) {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Additional Notes -->
                             <div class="bg-gray-50 rounded-xl p-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <i class="fas fa-sticky-note text-blue-600"></i>
-                                    Description
+                                    Remarks
                                 </h3>
                                 <textarea name="remarks" rows="4"
                                     class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
@@ -1096,7 +1475,7 @@ if (!empty($_GET['location'])) {
                             </div>
                         </form>
                     </div>
-                    
+
                     <!-- Modal Footer -->
                     <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
                         <button type="button" onclick="closeModal('addModal')"
@@ -1131,7 +1510,7 @@ if (!empty($_GET['location'])) {
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
-                    
+
                     <!-- Modal Body -->
                     <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
                         <!-- Basic Information -->
@@ -1171,7 +1550,7 @@ if (!empty($_GET['location'])) {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Assignment Details -->
                         <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1187,13 +1566,21 @@ if (!empty($_GET['location'])) {
                                     <p class="text-xs text-gray-500 mb-1">Assigned User</p>
                                     <p class="font-semibold text-gray-800" id="view_assigned_user"></p>
                                 </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">User ID</p>
+                                    <p class="font-semibold text-gray-800" id="view_assigned_user_id"></p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3">
+                                    <p class="text-xs text-gray-500 mb-1">Assigned Since</p>
+                                    <p class="font-semibold text-gray-800" id="view_assigned_at"></p>
+                                </div>
                                 <div class="bg-white rounded-lg p-3 md:col-span-2">
                                     <p class="text-xs text-gray-500 mb-1">Location</p>
                                     <p class="font-semibold text-gray-800" id="view_location"></p>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Status & Condition -->
                         <div class="bg-gradient-to-br from-blue-50 to-blue-50 rounded-xl p-5 mb-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1211,7 +1598,7 @@ if (!empty($_GET['location'])) {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Additional Notes -->
                         <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -1223,12 +1610,122 @@ if (!empty($_GET['location'])) {
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Modal Footer -->
                     <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
                         <button onclick="closeViewModal()"
                             class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
                             <i class="fas fa-check mr-2"></i>Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ASSIGN MODAL ================= -->
+            <div id="assignModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">Assign Device</h3>
+                        <button onclick="closeAssignModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="px-6 py-5">
+                        <p class="mb-4 text-gray-700">
+                            Assigning: <span id="assignAssetTag" class="font-bold text-blue-600"></span>
+                        </p>
+                        <form method="POST" id="assignForm">
+                            <input type="hidden" name="assign_id" id="assignId">
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Select User <span class="text-red-500">*</span>
+                                </label>
+                                <select name="assign_user" required
+                                    class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">Select User</option>
+                                    <?php foreach ($users as $user): ?>
+                                        <?php
+                                        $fullName = $user['firstname'] . ' ' . $user['lastname'];
+                                        ?>
+                                        <option value="<?= $user['id'] ?>">
+                                            <?= htmlspecialchars($fullName) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Assignment Notes (Optional)
+                                </label>
+                                <textarea name="assign_notes" rows="3"
+                                    class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    placeholder="Add any notes about this assignment..."></textarea>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 border-t flex justify-end gap-3">
+                        <button onclick="closeAssignModal()"
+                            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                            Cancel
+                        </button>
+                        <button type="submit" form="assignForm" name="assign_device"
+                            class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+                            Assign Device
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= RESIGN MODAL ================= -->
+            <div id="resignModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">Resign/Retrieve Device</h3>
+                        <button onclick="closeResignModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="px-6 py-5">
+                        <p class="mb-4 text-gray-700">
+                            Device: <span id="resignAssetTag" class="font-bold text-blue-600"></span>
+                        </p>
+                        <p class="mb-4 text-gray-700">
+                            Currently assigned to: <span id="resignAssignedUser"
+                                class="font-semibold text-amber-600"></span>
+                        </p>
+                        <form method="POST" id="resignForm">
+                            <input type="hidden" name="resign_id" id="resignId">
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Reason for Resignation/Retrieval (Optional)
+                                </label>
+                                <textarea name="resign_reason" rows="3"
+                                    class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    placeholder="e.g., Employee left, Device upgrade, etc..."></textarea>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 border-t flex justify-end gap-3">
+                        <button onclick="closeResignModal()"
+                            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                            Cancel
+                        </button>
+                        <button type="submit" form="resignForm" name="resign_device"
+                            class="px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700">
+                            Resign/Retrieve
                         </button>
                     </div>
                 </div>
@@ -1244,7 +1741,7 @@ if (!empty($_GET['location'])) {
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    
+
                     <!-- Body -->
                     <div class="px-6 py-5 text-gray-700">
                         <p class="mb-2 font-medium">Are you sure you want to retire this device?</p>
@@ -1252,7 +1749,7 @@ if (!empty($_GET['location'])) {
                             The device will no longer be assignable but will remain in records.
                         </p>
                     </div>
-                    
+
                     <!-- Footer -->
                     <div class="px-6 py-4 border-t flex justify-end gap-3">
                         <button onclick="closeRetireModal()"
@@ -1280,7 +1777,7 @@ if (!empty($_GET['location'])) {
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    
+
                     <!-- Body -->
                     <div class="px-6 py-5 text-gray-700">
                         <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
@@ -1288,7 +1785,7 @@ if (!empty($_GET['location'])) {
                             This action <span class="text-red-600 font-semibold">cannot be undone</span>.
                         </p>
                     </div>
-                    
+
                     <!-- Footer -->
                     <div class="px-6 py-4 border-t flex justify-end gap-3">
                         <button onclick="closeDeleteModal()"
@@ -1339,7 +1836,9 @@ if (!empty($_GET['location'])) {
             document.getElementById('view_category').textContent = item.category_name || '';
             document.getElementById('view_specifications').textContent = item.specifications || '';
             document.getElementById('view_department').textContent = item.department_name || '';
-            document.getElementById('view_assigned_user').textContent = item.assigned_user || '';
+            document.getElementById('view_assigned_user').textContent = (item.firstname && item.lastname) ? item.firstname + ' ' + item.lastname : 'Unassigned';
+            document.getElementById('view_assigned_user_id').textContent = item.assigned_user_id || 'N/A';
+            document.getElementById('view_assigned_at').textContent = item.assigned_at ? new Date(item.assigned_at).toLocaleDateString() : 'N/A';
             document.getElementById('view_location').textContent = item.location_name || '';
             document.getElementById('view_condition').textContent = item.condition || '';
             document.getElementById('view_status').textContent = item.status || '';
@@ -1350,6 +1849,29 @@ if (!empty($_GET['location'])) {
 
         function closeViewModal() {
             document.getElementById('viewModal').classList.add('hidden');
+        }
+
+        // ==================== ASSIGN MODAL ====================
+        function openAssignModal(id, assetTag) {
+            document.getElementById('assignId').value = id;
+            document.getElementById('assignAssetTag').textContent = assetTag;
+            openModal('assignModal');
+        }
+
+        function closeAssignModal() {
+            closeModal('assignModal');
+        }
+
+        // ==================== RESIGN MODAL ====================
+        function openResignModal(id, assetTag, assignedUser) {
+            document.getElementById('resignId').value = id;
+            document.getElementById('resignAssetTag').textContent = assetTag;
+            document.getElementById('resignAssignedUser').textContent = assignedUser;
+            openModal('resignModal');
+        }
+
+        function closeResignModal() {
+            closeModal('resignModal');
         }
 
         // ==================== RETIRE MODAL ====================
@@ -1399,4 +1921,5 @@ if (!empty($_GET['location'])) {
         }
     </script>
 </body>
+
 </html>

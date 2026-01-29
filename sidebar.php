@@ -79,12 +79,12 @@ function active($page, $current)
         <a href="inventory.php"
             class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('inventory.php', $current) ?>">
             <i class="fas fa-boxes-stacked w-5 text-center"></i>
-            <span class="nav-text">Inventory</span>
+            <span class="nav-text">Device Inventory</span>
         </a>
 
         <a href="users.php" class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('users.php', $current) ?>">
             <i class="fas fa-users w-5 text-center"></i>
-            <span class="nav-text">Users</span>
+            <span class="nav-text">Users Management</span>
         </a>
 
         <a href="brands.php" class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('brands.php', $current) ?>">
@@ -95,7 +95,7 @@ function active($page, $current)
         <a href="categories.php"
             class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('categories.php', $current) ?>">
             <i class="fas fa-tags w-5 text-center"></i>
-            <span class="nav-text">Categories</span>
+            <span class="nav-text">Device Categories</span>
         </a>
 
         <a href="departments.php"
@@ -107,7 +107,7 @@ function active($page, $current)
         <a href="locations.php"
             class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('locations.php', $current) ?>">
             <i class="fa-solid fa-location-dot w-5 text-center"></i>
-            <span class="nav-text">Locations</span>
+            <span class="nav-text">Device Locations</span>
         </a>
 
         <a href="reports.php"
