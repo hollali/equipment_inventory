@@ -27,6 +27,10 @@ function active($page, $current)
         display: none;
     }
 
+    #sidebar.collapsed .badge {
+        display: none;
+    }
+
     #mainContent {
         margin-left: 16rem;
         transition: margin-left 0.3s ease;
@@ -36,22 +40,46 @@ function active($page, $current)
         margin-left: 5rem;
     }
 
-    /* Toggle button text hidden when collapsed */
-    #toggleSidebar .toggle-text {
-        transition: opacity 0.2s ease, margin-right 0.2s ease;
+    /* Navigation link styles */
+    .nav-link {
+        position: relative;
+        transition: all 0.2s ease;
     }
 
-    #sidebar.collapsed #toggleSidebar .toggle-text {
-        opacity: 0;
-        width: 0;
-        margin-right: 0;
+    .nav-link:hover {
+        transform: translateX(2px);
+    }
+
+    .nav-link.active {
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Badge positioning */
+    .badge {
+        transition: opacity 0.2s ease;
+    }
+
+    /* Smooth icon transitions */
+    .nav-link i {
+        transition: transform 0.2s ease;
+    }
+
+    .nav-link:hover i {
+        transform: scale(1.1);
+    }
+
+    /* Divider style */
+    .nav-divider {
+        height: 1px;
+        background: linear-gradient(to right, transparent, #e5e7eb, transparent);
+        margin: 0.5rem 1rem;
     }
 </style>
 
-<aside id="sidebar" class="fixed top-0 left-0 h-screen bg-white border-r shadow-sm z-40">
+<aside id="sidebar" class="fixed top-0 left-0 h-screen bg-white border-r border-gray-200 shadow-sm z-40">
 
     <!-- Header -->
-    <div class="flex items-center justify-between p-4 border-b">
+    <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
         <div class="flex items-center gap-3 overflow-hidden">
             <img id="logo" src="./images/logo.png" class="w-10 h-10 rounded transition-all duration-300" alt="Logo">
             <div class="header-text transition-all duration-300">
@@ -63,73 +91,113 @@ function active($page, $current)
         </div>
 
         <button id="toggleSidebar"
-            class="flex items-center gap-2 text-gray-600 hover:text-gray-900 focus:outline-none p-2 rounded-lg hover:bg-gray-100 transition-colors">
+            class="flex items-center gap-2 text-gray-600 hover:text-gray-900 focus:outline-none p-2 rounded-lg hover:bg-gray-100 transition-all">
             <i class="fas fa-bars text-lg"></i>
         </button>
     </div>
 
     <!-- Navigation -->
-    <nav class="p-3 space-y-1">
+    <nav class="p-3 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
+        <!-- Dashboard -->
         <a href="dashboard.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('dashboard.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('dashboard.php', $current) ?>">
             <i class="fas fa-chart-line w-5 text-center"></i>
             <span class="nav-text">Dashboard</span>
         </a>
 
+        <div class="nav-divider"></div>
+
+        <!-- Inventory Section -->
+        <div class="nav-text px-4 py-2">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Inventory</span>
+        </div>
+
         <a href="inventory.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('inventory.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('inventory.php', $current) ?>">
             <i class="fas fa-boxes-stacked w-5 text-center"></i>
-            <span class="nav-text">Device Inventory</span>
+            <span class="nav-text">All Devices</span>
         </a>
 
-        <a href="users.php" class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('users.php', $current) ?>">
+        <a href="unassigned_devices.php"
+            class="nav-link flex items-center justify-between gap-3 px-4 py-3 rounded-lg <?= active('unassigned_devices.php', $current) ?>">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-box-open w-5 text-center"></i>
+                <span class="nav-text">Unassigned</span>
+            </div>
+            <?php
+            // Get unassigned devices count for badge
+            if (file_exists(__DIR__ . "/config/database.php")) {
+                require_once __DIR__ . "/config/database.php";
+                $db = new Database();
+                $conn = $db->getConnection();
+                $unassignedQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE (assigned_user IS NULL OR assigned_user = '') AND status != 'retired'";
+                $unassignedResult = $conn->query($unassignedQuery);
+                if ($unassignedResult) {
+                    $unassignedCount = $unassignedResult->fetch_assoc()['count'];
+                    if ($unassignedCount > 0) {
+                        echo '<span class="badge bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
+                    }
+                }
+            }
+            ?>
+        </a>
+
+        <div class="nav-divider"></div>
+
+        <!-- Management Section -->
+        <div class="nav-text px-4 py-2">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</span>
+        </div>
+
+        <a href="users.php"
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('users.php', $current) ?>">
             <i class="fas fa-users w-5 text-center"></i>
-            <span class="nav-text">Users Management</span>
+            <span class="nav-text">Users</span>
         </a>
 
-        <a href="brands.php" class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('brands.php', $current) ?>">
+        <a href="brands.php"
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('brands.php', $current) ?>">
             <i class="fa-solid fa-laptop w-5 text-center"></i>
             <span class="nav-text">Brands</span>
         </a>
 
         <a href="categories.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('categories.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('categories.php', $current) ?>">
             <i class="fas fa-tags w-5 text-center"></i>
-            <span class="nav-text">Device Categories</span>
+            <span class="nav-text">Categories</span>
         </a>
 
         <a href="departments.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('departments.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('departments.php', $current) ?>">
             <i class="fa-regular fa-building w-5 text-center"></i>
             <span class="nav-text">Departments</span>
         </a>
 
         <a href="locations.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('locations.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('locations.php', $current) ?>">
             <i class="fa-solid fa-location-dot w-5 text-center"></i>
-            <span class="nav-text">Device Locations</span>
+            <span class="nav-text">Locations</span>
         </a>
 
+        <div class="nav-divider"></div>
+
+        <!-- Analytics & Settings Section -->
+        <div class="nav-text px-4 py-2">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">System</span>
+        </div>
+
         <a href="reports.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('reports.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('reports.php', $current) ?>">
             <i class="fas fa-chart-bar w-5 text-center"></i>
             <span class="nav-text">Reports</span>
         </a>
 
         <a href="settings.php"
-            class="flex items-center gap-3 px-4 py-3 rounded-lg <?= active('settings.php', $current) ?>">
+            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('settings.php', $current) ?>">
             <i class="fas fa-gear w-5 text-center"></i>
             <span class="nav-text">Settings</span>
         </a>
     </nav>
-
-    <!-- Logout -->
-    <!--<div class="absolute bottom-0 w-full p-3 border-t">
-        <a href="../logout.php" class="flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50">
-            <i class="fas fa-right-from-bracket w-5 text-center"></i>
-            <span class="nav-text">Logout</span>
-        </a>
-    </div>-->
 
 </aside>
 
