@@ -6,15 +6,14 @@ error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . "/config/database.php";
 
-// Check if user is logged in and has admin privileges
-/*if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.php");
-    exit();
-}*/
+// Authorization check removed as requested
+// if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+//     header("Location: login.php");
+//     exit();
+// }
 
 $db = new Database();
 $conn = $db->getConnection();
-
 
 /* Fetch Departments, Locations, and Categories for Filters */
 $departmentsArr = [];
@@ -51,18 +50,20 @@ if ($userResult) {
     }
 }
 
-/* Get unassigned devices count */
-$unassignedCountQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE (assigned_user IS NULL OR assigned_user = '') AND status != 'retired'";
+/* Get unassigned and stored devices count */
+$unassignedCountQuery = "SELECT COUNT(*) as count FROM inventory_items 
+                         WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
+                         AND status != 'retired'";
 $unassignedCountResult = $conn->query($unassignedCountQuery);
 $unassignedCount = $unassignedCountResult->fetch_assoc()['count'];
 
-/* Get unassigned devices with pagination */
+/* Get unassigned and stored devices with pagination */
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $perPage = 15;
 $offset = ($page - 1) * $perPage;
 
 // Build WHERE clause for filters
-$whereConditions = ["(i.assigned_user IS NULL OR i.assigned_user = '')", "i.status != 'retired'"];
+$whereConditions = ["(i.assigned_user IS NULL OR i.assigned_user = '' OR i.status = 'in_storage')", "i.status != 'retired'"];
 $params = [];
 $paramTypes = "";
 
@@ -73,13 +74,13 @@ if (!empty($_GET['status'])) {
 }
 
 if (!empty($_GET['department'])) {
-    $whereConditions[] = "i.department = ?";
+    $whereConditions[] = "d.department_name = ?";
     $params[] = $_GET['department'];
     $paramTypes .= "s";
 }
 
 if (!empty($_GET['location'])) {
-    $whereConditions[] = "i.location = ?";
+    $whereConditions[] = "l.location_name = ?";
     $params[] = $_GET['location'];
     $paramTypes .= "s";
 }
@@ -105,7 +106,10 @@ if (!empty($_GET['condition'])) {
 $whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
 
 /* Get total count with filters */
-$countQuery = "SELECT COUNT(*) as total FROM inventory_items i $whereClause";
+$countQuery = "SELECT COUNT(*) as total FROM inventory_items i 
+               LEFT JOIN departments d ON i.department_id = d.id
+               LEFT JOIN locations l ON i.location_id = l.id
+               $whereClause";
 $countStmt = $conn->prepare($countQuery);
 if (!empty($params)) {
     $countStmt->bind_param($paramTypes, ...$params);
@@ -115,7 +119,7 @@ $countResult = $countStmt->get_result();
 $totalUnassigned = $countResult->fetch_assoc()['total'];
 $totalPages = ceil($totalUnassigned / $perPage);
 
-/* Get unassigned devices */
+/* Get unassigned and stored devices */
 $unassignedDevices = [];
 $query = " 
     SELECT 
@@ -134,6 +138,7 @@ $query = "
     LIMIT ? OFFSET ?
 ";
 
+// Add pagination parameters
 $params[] = $perPage;
 $params[] = $offset;
 $paramTypes .= "ii";
@@ -238,12 +243,13 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     return ['color' => $colorClass, 'label' => $label];
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>Unassigned Devices - Equipment Inventory</title>
+    <title>Unassigned & Stored Devices - Equipment Inventory</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="./images/logo.png">
 
@@ -362,6 +368,35 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             font-size: 11px;
             color: #64748b;
         }
+
+        /* Modal centering */
+        .modal-container {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            padding: 1rem;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            position: relative;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: hidden;
+            animation: fadeInUp 0.3s ease-out;
+        }
     </style>
 </head>
 
@@ -379,24 +414,19 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                 <div>
                     <h1
                         class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        Unassigned Devices
+                        Unassigned & Stored Devices
                     </h1>
                     <p class="text-gray-600 text-sm mt-2 flex items-center gap-2">
                         <i class="fas fa-boxes-stacked text-blue-500"></i>
-                        Manage devices that are not assigned to any user
+                        Manage devices that are not assigned to any user or are in storage
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
                     <div
                         class="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg flex items-center gap-2">
                         <i class="fas fa-tools"></i>
-                        <span class="font-semibold text-sm">INVENTORY</span>
+                        <span class="font-semibold text-sm">UNASSIGNED INVENTORY</span>
                     </div>
-                    <a href="dashboard.php"
-                        class="px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition flex items-center gap-2">
-                        <i class="fas fa-arrow-left"></i>
-                        Back to Dashboard
-                    </a>
                 </div>
             </div>
         </div>
@@ -410,7 +440,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <i class="fas fa-laptop text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-sm text-gray-500">Total Unassigned</p>
+                        <p class="text-sm text-gray-500">Total Available</p>
                         <p class="text-2xl font-bold text-gray-800"><?= number_format($unassignedCount) ?></p>
                     </div>
                 </div>
@@ -426,7 +456,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <p class="text-sm text-gray-500">In Store</p>
                         <p class="text-2xl font-bold text-gray-800">
                             <?php
-                            $storeQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE (assigned_user IS NULL OR assigned_user = '') AND status = 'in_storage'";
+                            $storeQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'in_storage' AND status != 'retired'";
                             $storeResult = $conn->query($storeQuery);
                             echo number_format($storeResult->fetch_assoc()['count']);
                             ?>
@@ -445,7 +475,9 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <p class="text-sm text-gray-500">New Condition</p>
                         <p class="text-2xl font-bold text-gray-800">
                             <?php
-                            $newQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE (assigned_user IS NULL OR assigned_user = '') AND `condition` = 'new'";
+                            $newQuery = "SELECT COUNT(*) as count FROM inventory_items 
+                                         WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
+                                         AND `condition` = 'new' AND status != 'retired'";
                             $newResult = $conn->query($newQuery);
                             echo number_format($newResult->fetch_assoc()['count']);
                             ?>
@@ -464,7 +496,9 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <p class="text-sm text-gray-500">Faulty Devices</p>
                         <p class="text-2xl font-bold text-gray-800">
                             <?php
-                            $faultyQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE (assigned_user IS NULL OR assigned_user = '') AND status = 'faulty'";
+                            $faultyQuery = "SELECT COUNT(*) as count FROM inventory_items 
+                                            WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
+                                            AND status = 'faulty' AND status != 'retired'";
                             $faultyResult = $conn->query($faultyQuery);
                             echo number_format($faultyResult->fetch_assoc()['count']);
                             ?>
@@ -576,8 +610,8 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <i class="fas fa-filter"></i> Apply Filters
                     </button>
                     <button type="button" onclick="exportUnassigned()"
-                        class="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 transition flex items-center gap-2">
-                        <i class="fas fa-download"></i> Export CSV
+                        class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
+                        <i class="fas fa-download"></i> Export
                     </button>
                 </div>
             </div>
@@ -586,7 +620,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
         <!-- View Toggle Buttons -->
         <div class="flex justify-between items-center mb-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-800">Unassigned Devices List</h2>
+                <h2 class="text-lg font-semibold text-gray-800">Available Devices List</h2>
                 <p class="text-sm text-gray-500 mt-1">
                     Showing <?= number_format(min($offset + 1, $totalUnassigned)) ?> -
                     <?= number_format(min($offset + $perPage, $totalUnassigned)) ?> of
@@ -675,7 +709,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                             <i class="fas fa-check-circle text-4xl text-green-400"></i>
                                         </div>
                                         <p class="text-gray-400 font-medium">All devices are assigned!</p>
-                                        <p class="text-xs text-gray-400">No unassigned devices found with current filters
+                                        <p class="text-xs text-gray-400">No available devices found with current filters
                                         </p>
                                     </div>
                                 </td>
@@ -722,7 +756,8 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                                 </p>
                                                 <?php if (!empty($device['serial_number'])): ?>
                                                     <p class="serial-number mt-1">SN:
-                                                        <?= htmlspecialchars($device['serial_number']) ?></p>
+                                                        <?= htmlspecialchars($device['serial_number']) ?>
+                                                    </p>
                                                 <?php endif; ?>
                                             </div>
                                         </div>
@@ -742,12 +777,12 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                             <div class="flex items-center gap-2">
                                                 <i class="fas fa-building text-gray-400 text-sm"></i>
                                                 <span
-                                                    class="text-gray-700 font-medium"><?= htmlspecialchars($device['department'] ?? 'N/A') ?></span>
+                                                    class="text-gray-700 font-medium"><?= htmlspecialchars($device['department_name'] ?? 'N/A') ?></span>
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <i class="fas fa-location-dot text-gray-400 text-sm"></i>
                                                 <span
-                                                    class="text-gray-600 text-sm"><?= htmlspecialchars($device['location'] ?? 'N/A') ?></span>
+                                                    class="text-gray-600 text-sm"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
                                             </div>
                                         </div>
                                     </td>
@@ -852,7 +887,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                 <i class="fas fa-check-circle text-4xl text-green-400"></i>
                             </div>
                             <p class="text-gray-400 font-medium">All devices are assigned!</p>
-                            <p class="text-xs text-gray-400">No unassigned devices found with current filters</p>
+                            <p class="text-xs text-gray-400">No available devices found with current filters</p>
                         </div>
                     </div>
                 </div>
@@ -933,11 +968,13 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                             <div class="space-y-2 mb-6">
                                 <div class="flex items-center gap-2 text-sm">
                                     <i class="fas fa-building text-gray-400"></i>
-                                    <span class="text-gray-700"><?= htmlspecialchars($device['department'] ?? 'N/A') ?></span>
+                                    <span
+                                        class="text-gray-700"><?= htmlspecialchars($device['department_name'] ?? 'N/A') ?></span>
                                 </div>
                                 <div class="flex items-center gap-2 text-sm">
                                     <i class="fas fa-location-dot text-gray-400"></i>
-                                    <span class="text-gray-700"><?= htmlspecialchars($device['location'] ?? 'N/A') ?></span>
+                                    <span
+                                        class="text-gray-700"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
                                 </div>
                                 <div class="flex items-center gap-2 text-sm">
                                     <i class="fas fa-tag text-gray-400"></i>
@@ -975,9 +1012,9 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     </main>
 
     <!-- Assign Device Modal -->
-    <div id="assignModal"
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden animate-fade-in-up">
+    <div id="assignModal" class="modal-container hidden">
+        <div class="modal-backdrop" onclick="closeAssignModal()"></div>
+        <div class="modal-content w-full max-w-md">
             <div class="sticky top-0 bg-white border-b border-gray-200 p-6">
                 <button onclick="closeAssignModal()"
                     class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 text-xl">
@@ -1066,8 +1103,9 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     </div>
 
     <!-- Device Details Modal -->
-    <div id="viewModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-fade-in-up">
+    <div id="viewModal" class="modal-container hidden">
+        <div class="modal-backdrop" onclick="closeViewModal()"></div>
+        <div class="modal-content w-full max-w-2xl">
             <div class="sticky top-0 bg-white border-b border-gray-200 p-6">
                 <button onclick="closeViewModal()"
                     class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 text-xl">
@@ -1206,11 +1244,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             // Initialize Select2 for user dropdown
             $('#userId').select2({
                 placeholder: "Select a user...",
-                dropdownParent: $('#assignModal'),
-                data: users.map(user => ({
-                    id: user.id,
-                    text: `${user.firstname} ${user.lastname} (${user.email})`
-                }))
+                dropdownParent: $('#assignModal')
             });
         }
 
@@ -1224,6 +1258,12 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
         function viewDeviceDetails(device) {
             // Set title
             document.getElementById('deviceTitle').textContent = `${device.brand_name} ${device.model || ''}`;
+
+            // Get status and condition display
+            const statusDisplay = <?php echo json_encode($statusColors); ?>;
+            const statusLabels = <?php echo json_encode($statusLabels); ?>;
+            const conditionDisplay = <?php echo json_encode($conditionColors); ?>;
+            const conditionLabels = <?php echo json_encode($conditionLabels); ?>;
 
             // Build details HTML
             const detailsHTML = `
@@ -1243,11 +1283,11 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <div class="space-y-2">
                             <div class="flex items-center gap-2">
                                 <span class="font-medium">Condition:</span>
-                                <span class="condition-badge ${escapeHtml(device.condition_color || 'bg-gray-100 text-gray-700 border-gray-200')}">${escapeHtml(device.condition_label || device.condition || 'N/A')}</span>
+                                <span class="condition-badge">${escapeHtml(device.condition || 'N/A')}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="font-medium">Status:</span>
-                                <span class="status-badge ${escapeHtml(device.status_color || 'bg-gray-100 text-gray-700 border-gray-200')}">${escapeHtml(device.status_label || device.status || 'N/A')}</span>
+                                <span class="status-badge">${escapeHtml(device.status || 'N/A')}</span>
                             </div>
                             <p><span class="font-medium">Created:</span> ${escapeHtml(device.created_at ? new Date(device.created_at).toLocaleDateString() : 'N/A')}</p>
                             <p><span class="font-medium">Last Updated:</span> ${escapeHtml(device.updated_at ? new Date(device.updated_at).toLocaleDateString() : 'N/A')}</p>
@@ -1266,8 +1306,8 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <div class="space-y-2">
                             <p><span class="font-medium">Brand:</span> ${escapeHtml(device.brand_name || 'N/A')}</p>
                             <p><span class="font-medium">Model:</span> ${escapeHtml(device.model || 'N/A')}</p>
-                            <p><span class="font-medium">Department:</span> ${escapeHtml(device.department || 'N/A')}</p>
-                            <p><span class="font-medium">Location:</span> ${escapeHtml(device.location || 'N/A')}</p>
+                            <p><span class="font-medium">Department:</span> ${escapeHtml(device.department_name || 'N/A')}</p>
+                            <p><span class="font-medium">Location:</span> ${escapeHtml(device.location_name || 'N/A')}</p>
                         </div>
                     </div>
                 </div>
@@ -1277,13 +1317,6 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                     <div class="bg-white p-3 rounded-lg border border-gray-200">
                         <p class="text-gray-700 whitespace-pre-line">${escapeHtml(device.remarks || 'No remarks available.')}</p>
                     </div>
-                </div>
-                
-                <div class="mt-6 flex gap-3">
-                    <button onclick="openAssignModal(${JSON.stringify(device)}, ${JSON.stringify(<?= json_encode($usersArr) ?>)})" 
-                            class="flex-1 px-4 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-all">
-                        <i class="fas fa-user-plus mr-2"></i> Assign This Device
-                    </button>
                 </div>
             `;
 

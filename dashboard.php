@@ -117,7 +117,7 @@ $totalChanges = $countResult->fetch_assoc()['total'];
 $totalPages = ceil($totalChanges / $perPage);
 
 /* Get recent changes in inventory */
-$recentChangesData = []; // Renamed from $recentChanges to avoid conflict
+$recentChangesData = [];
 $query = " 
     SELECT 
         i.*,
@@ -160,9 +160,35 @@ $filterStatus = $_GET['status'] ?? '';
 $filterDepartment = $_GET['department'] ?? '';
 $filterLocation = $_GET['location'] ?? '';
 
-// Function to determine change type based on timestamp and current values
+// Store previous assignments in session to track changes
+if (!isset($_SESSION['previous_assignments'])) {
+    $_SESSION['previous_assignments'] = [];
+}
+
+// Function to determine change type based on current and previous state
 function getChangeType($item)
 {
+    static $previousAssignments = [];
+    $deviceId = $item['id'];
+
+    // Track assignment changes
+    $currentAssignment = $item['assigned_user'] ?? null;
+    $previousAssignment = $previousAssignments[$deviceId] ?? null;
+
+    // Store current assignment for next comparison
+    $previousAssignments[$deviceId] = $currentAssignment;
+
+    // Determine if this is an assignment change
+    if ($currentAssignment !== $previousAssignment) {
+        if ($currentAssignment && !$previousAssignment) {
+            return 'assigned';
+        } elseif (!$currentAssignment && $previousAssignment) {
+            return 'unassigned';
+        } elseif ($currentAssignment && $previousAssignment && $currentAssignment != $previousAssignment) {
+            return 'reassigned';
+        }
+    }
+
     // Determine change type based on how recently it was updated and current state
     $updateTime = strtotime($item['updated_at']);
     $now = time();
@@ -171,18 +197,12 @@ function getChangeType($item)
     // If updated very recently (last 24 hours)
     if ($hoursSinceUpdate < 24) {
         // Check current state to guess what might have changed
-        if (!empty($item['assigned_user'])) {
-            // If recently updated and has an assigned user, likely an assignment
-            return 'assigned';
-        } elseif (empty($item['assigned_user']) && $item['status'] === 'in_storage') {
-            // If recently updated, no assigned user, and in storage
-            return 'unassigned';
-        } elseif ($item['status'] === 'retired') {
-            // If recently updated and status is retired
+        if ($item['status'] === 'retired') {
             return 'retired';
         } elseif ($item['status'] === 'repairing') {
-            // If recently updated and status is repairing
             return 'repair';
+        } elseif ($item['status'] === 'in_storage' && empty($currentAssignment)) {
+            return 'stored';
         }
     }
 
@@ -196,6 +216,8 @@ function getChangeIcon($changeType)
     $icons = [
         'assigned' => 'fa-user-check',
         'unassigned' => 'fa-user-times',
+        'reassigned' => 'fa-user-exchange',
+        'stored' => 'fa-warehouse',
         'status_changed' => 'fa-sync',
         'department_changed' => 'fa-building',
         'location_changed' => 'fa-location-dot',
@@ -217,6 +239,8 @@ function getChangeColor($changeType)
     $colors = [
         'assigned' => 'from-blue-500 to-blue-600',
         'unassigned' => 'from-gray-500 to-gray-600',
+        'reassigned' => 'from-purple-500 to-purple-600',
+        'stored' => 'from-yellow-500 to-yellow-600',
         'status_changed' => 'from-purple-500 to-purple-600',
         'department_changed' => 'from-indigo-500 to-indigo-600',
         'location_changed' => 'from-teal-500 to-teal-600',
@@ -232,36 +256,43 @@ function getChangeColor($changeType)
     return $colors[$changeType] ?? 'from-gray-500 to-gray-600';
 }
 
-// Function to get change description
+// Function to get change description with proper grammar
 function getChangeDescription($item, $changeType)
 {
-    $descriptions = [
-        'assigned' => 'Device assigned to user',
-        'unassigned' => 'Device unassigned from user',
-        'status_changed' => 'Status updated',
-        'department_changed' => 'Department updated',
-        'location_changed' => 'Location updated',
-        'checkout' => 'Device checked out',
-        'return' => 'Device returned',
-        'created' => 'New device added',
-        'updated' => 'Device information updated',
-        'repair' => 'Device sent for repair',
-        'retired' => 'Device retired',
-        'transfer' => 'Device transferred'
-    ];
-
-    $desc = $descriptions[$changeType] ?? 'Device updated';
-
-    // Add specific details
-    if ($changeType === 'assigned' && !empty($item['assigned_firstname'])) {
-        $desc .= " to " . $item['assigned_firstname'] . " " . $item['assigned_lastname'];
-    } elseif ($changeType === 'retired') {
-        $desc = "Device retired from inventory";
-    } elseif ($changeType === 'repair') {
-        $desc = "Device sent for repair";
+    $assignedUserName = '';
+    if (!empty($item['assigned_firstname'])) {
+        $assignedUserName = $item['assigned_firstname'] . ' ' . $item['assigned_lastname'];
     }
 
-    return $desc;
+    switch ($changeType) {
+        case 'assigned':
+            return !empty($assignedUserName)
+                ? "Device was assigned to " . $assignedUserName
+                : "Device was assigned to a user";
+
+        case 'unassigned':
+            return "Device was unassigned";
+
+        case 'reassigned':
+            return !empty($assignedUserName)
+                ? "Device was reassigned to " . $assignedUserName
+                : "Device was reassigned to a different user";
+
+        case 'retired':
+            return "Device was retired from inventory";
+
+        case 'repair':
+            return "Device was sent for repair";
+
+        case 'stored':
+            return "Device was stored in inventory";
+
+        case 'updated':
+            return "Device information was updated";
+
+        default:
+            return "Device was updated";
+    }
 }
 
 // Function to format time ago
@@ -429,7 +460,7 @@ function timeAgo($datetime)
                 ],
                 [
                     'title' => 'Recent Changes',
-                    'value' => $recentChangesCount, // Changed from $recentChanges to $recentChangesCount
+                    'value' => $recentChangesCount,
                     'icon' => 'fa-history',
                     'gradient' => 'from-purple-500 to-purple-600',
                     'change' => 15,
@@ -741,8 +772,76 @@ function timeAgo($datetime)
                                                 <?php endif; ?>
                                             </div>
 
-                                            <!-- Assigned User Info -->
-                                            <?php if (!empty($assignedUserName)): ?>
+                                            <!-- User Assignment Info -->
+                                            <?php if ($changeType === 'unassigned'): ?>
+                                                <!-- Show unassigned state -->
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-user-slash"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-gray-800">Device is now unassigned</p>
+                                                        <p class="text-xs text-gray-500">Was previously assigned to a user</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($changeType === 'assigned' && !empty($assignedUserName)): ?>
+                                                <!-- Show current user for assigned devices -->
+                                                <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full <?= $change['assigned_user_status'] === 'active' ? 'user-status-active' : 'user-status-inactive' ?> flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                                                        <?= strtoupper($assignedUserInitials) ?>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-gray-800">Currently assigned to:
+                                                            <?= htmlspecialchars($assignedUserName) ?></p>
+                                                        <?php if (!empty($change['assigned_email'])): ?>
+                                                            <p class="text-xs text-gray-500">
+                                                                <?= htmlspecialchars($change['assigned_email']) ?></p>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($changeType === 'stored'): ?>
+                                                <!-- Show stored state -->
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-warehouse"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-yellow-800">Device is in storage</p>
+                                                        <p class="text-xs text-yellow-600">Available for assignment</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($changeType === 'retired'): ?>
+                                                <!-- Show retired state -->
+                                                <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-archive"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-red-800">Device has been retired</p>
+                                                        <p class="text-xs text-red-600">No longer in active inventory</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($changeType === 'repair'): ?>
+                                                <!-- Show repair state -->
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-tools"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-orange-800">Device is under repair</p>
+                                                        <p class="text-xs text-orange-600">Currently being serviced</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif (!empty($assignedUserName)): ?>
+                                                <!-- Show general assignment info -->
                                                 <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
                                                     <div
                                                         class="w-10 h-10 rounded-full <?= $change['assigned_user_status'] === 'active' ? 'user-status-active' : 'user-status-inactive' ?> flex items-center justify-center text-white text-sm font-bold shadow-sm">
@@ -757,7 +856,8 @@ function timeAgo($datetime)
                                                         <?php endif; ?>
                                                     </div>
                                                 </div>
-                                            <?php elseif ($changeType === 'unassigned'): ?>
+                                            <?php else: ?>
+                                                <!-- Show unassigned state -->
                                                 <div
                                                     class="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
                                                     <div
@@ -765,7 +865,7 @@ function timeAgo($datetime)
                                                         <i class="fas fa-user-slash"></i>
                                                     </div>
                                                     <div>
-                                                        <p class="font-medium text-gray-800">Device is currently unassigned</p>
+                                                        <p class="font-medium text-gray-800">Device is not assigned</p>
                                                         <p class="text-xs text-gray-500">Available for assignment</p>
                                                     </div>
                                                 </div>
@@ -778,9 +878,15 @@ function timeAgo($datetime)
                                                 title="<?= htmlspecialchars($change['updated_at']) ?>">
                                                 <i class="fas fa-clock mr-1"></i><?= $timeAgo ?>
                                             </span>
-                                            <span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
-                                                Updated
-                                            </span>
+                                            <?php if (in_array($changeType, ['unassigned', 'retired', 'repair', 'stored'])): ?>
+                                                <span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+                                                    <?= ucfirst($changeType) ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+                                                    Updated
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>

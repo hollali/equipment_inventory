@@ -54,8 +54,12 @@ function active($page, $current)
         box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
     }
 
-    /* Badge positioning */
+    /* Badge positioning - FIXED */
     .badge {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
         transition: opacity 0.2s ease;
     }
 
@@ -73,6 +77,19 @@ function active($page, $current)
         height: 1px;
         background: linear-gradient(to right, transparent, #e5e7eb, transparent);
         margin: 0.5rem 1rem;
+    }
+
+    /* Fix for links with badges to maintain alignment */
+    .nav-link.with-badge {
+        position: relative;
+        padding-right: 3rem;
+        /* Extra space for badge */
+    }
+
+    .nav-text {
+        flex: 1;
+        min-width: 0;
+        /* Prevent text from expanding */
     }
 </style>
 
@@ -119,23 +136,48 @@ function active($page, $current)
         </a>
 
         <a href="unassigned_devices.php"
-            class="nav-link flex items-center justify-between gap-3 px-4 py-3 rounded-lg <?= active('unassigned_devices.php', $current) ?>">
-            <div class="flex items-center gap-3">
-                <i class="fas fa-box-open w-5 text-center"></i>
-                <span class="nav-text">Unassigned</span>
-            </div>
+            class="nav-link with-badge flex items-center gap-3 px-4 py-3 rounded-lg <?= active('unassigned_devices.php', $current) ?>">
+            <i class="fas fa-box-open w-5 text-center"></i>
+            <span class="nav-text">Unassigned</span>
             <?php
-            // Get unassigned devices count for badge
+            // Get unassigned AND stored devices count for badge - UPDATED LOGIC
             if (file_exists(__DIR__ . "/config/database.php")) {
                 require_once __DIR__ . "/config/database.php";
                 $db = new Database();
                 $conn = $db->getConnection();
-                $unassignedQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE (assigned_user IS NULL OR assigned_user = '') AND status != 'retired'";
+
+                // Updated query to match unassigned_devices.php logic
+                $unassignedQuery = "SELECT COUNT(*) as count FROM inventory_items 
+                                    WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
+                                    AND status != 'retired'";
                 $unassignedResult = $conn->query($unassignedQuery);
                 if ($unassignedResult) {
                     $unassignedCount = $unassignedResult->fetch_assoc()['count'];
                     if ($unassignedCount > 0) {
                         echo '<span class="badge bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
+                    }
+                }
+            }
+            ?>
+        </a>
+
+        <!-- ADDED: Retired Devices Link -->
+        <a href="retired_devices.php"
+            class="nav-link with-badge flex items-center gap-3 px-4 py-3 rounded-lg <?= active('retired_devices.php', $current) ?>">
+            <i class="fas fa-recycle w-5 text-center"></i>
+            <span class="nav-text">Retired Devices</span>
+            <?php
+            // Get retired devices count for badge
+            if (file_exists(__DIR__ . "/config/database.php")) {
+                require_once __DIR__ . "/config/database.php";
+                $db = new Database();
+                $conn = $db->getConnection();
+                $retiredQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired'";
+                $retiredResult = $conn->query($retiredQuery);
+                if ($retiredResult) {
+                    $retiredCount = $retiredResult->fetch_assoc()['count'];
+                    if ($retiredCount > 0) {
+                        echo '<span class="badge bg-orange-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $retiredCount . '</span>';
                     }
                 }
             }

@@ -1164,7 +1164,7 @@ if (!empty($_GET['location'])) {
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                            <select name="department_id" required
+                                            <select name="department_id"
                                                 class="w-full border border-gray-300 p-3 rounded-lg">
                                                 <?php foreach ($departmentsArr as $d): ?>
                                                     <option value="<?= $d['id'] ?>" <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
@@ -1193,8 +1193,7 @@ if (!empty($_GET['location'])) {
                                         <div class="md:col-span-2">
                                             <label class="block text-sm font-medium text-gray-700 mb-2">Device
                                                 Location</label>
-                                            <select name="location_id" required
-                                                class="w-full border border-gray-300 p-3 rounded-lg">
+                                            <select name="location_id" class="w-full border border-gray-300 p-3 rounded-lg">
                                                 <?php foreach ($locationsArr as $l): ?>
                                                     <option value="<?= $l['id'] ?>" <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($l['location_name']) ?>
@@ -1371,9 +1370,8 @@ if (!empty($_GET['location'])) {
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department <span
-                                                class="text-red-500">*</span></label>
-                                        <select name="department_id" required
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                        <select name="department_id"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Department</option>
                                             <?php foreach ($departmentsArr as $d): ?>
@@ -1402,9 +1400,9 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
                                     <div class="md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Location<span
-                                                class="text-red-500">*</span></label>
-                                        <select name="location_id" required
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device
+                                            Location</label>
+                                        <select name="location_id"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select Location</option>
                                             <?php foreach ($locationsArr as $l): ?>

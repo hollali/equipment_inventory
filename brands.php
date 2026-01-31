@@ -156,7 +156,7 @@ $stmt->close();
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
 
     <?php include 'sidebar.php'; ?>
 
