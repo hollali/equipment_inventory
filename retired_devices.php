@@ -498,12 +498,13 @@ function displayRetiredDevicesPage()
             }
 
             .status-badge {
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 12px;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
                 font-weight: 600;
                 display: inline-block;
                 border: 1px solid;
+                white-space: nowrap;
             }
 
             .condition-badge {
@@ -513,6 +514,7 @@ function displayRetiredDevicesPage()
                 font-weight: 500;
                 display: inline-block;
                 border: 1px solid;
+                white-space: nowrap;
             }
 
             .select2-container--default .select2-selection--single {
@@ -539,52 +541,93 @@ function displayRetiredDevicesPage()
                 box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
             }
 
-            /* Table styling */
-            .table-header {
-                background-color: #f8fafc;
-                border-bottom: 2px solid #e2e8f0;
+            /* Improved Table Styling */
+            .table-container {
+                width: 100%;
+                overflow: visible;
             }
 
-            .table-row-hover:hover {
-                background-color: #f8fafc;
-                transform: scale(1.002);
-                transition: all 0.2s ease;
+            .data-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
             }
 
-            .table-cell {
-                padding: 1rem;
-                vertical-align: middle;
-                border-bottom: 1px solid #f1f5f9;
-            }
-
-            .action-btn {
-                padding: 8px 12px;
-                border-radius: 8px;
-                transition: all 0.2s ease;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                min-width: 40px;
-            }
-
-            .action-btn:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            }
-
-            .asset-tag {
-                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            .data-table thead th {
+                position: sticky;
+                top: 0;
+                background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+                padding: 1rem 1rem;
+                font-size: 0.75rem;
                 font-weight: 600;
-                letter-spacing: 0.5px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: #4b5563;
+                text-align: left;
+                border-bottom: 2px solid #e5e7eb;
+                white-space: nowrap;
             }
 
-            .serial-number {
-                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-                font-size: 11px;
-                color: #64748b;
+            .data-table tbody tr {
+                transition: all 0.15s ease;
             }
 
-            /* Modal centering */
+            .data-table tbody tr:hover {
+                background-color: #f9fafb;
+            }
+
+            .data-table tbody td {
+                padding: 1rem 1rem;
+                font-size: 0.875rem;
+                color: #374151;
+                border-bottom: 1px solid #f3f4f6;
+                vertical-align: middle;
+            }
+
+            .data-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+
+            .compact-column {
+                max-width: 120px;
+                min-width: 120px;
+            }
+
+            .compact-column-sm {
+                max-width: 100px;
+                min-width: 100px;
+            }
+
+            .compact-column-xs {
+                max-width: 90px;
+                min-width: 90px;
+            }
+
+            .actions-column {
+                max-width: 120px;
+                min-width: 120px;
+                white-space: nowrap;
+            }
+
+            /* Hide scrollbar for Chrome, Safari and Opera */
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+
+            /* Hide scrollbar for IE, Edge and Firefox */
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                /* IE and Edge */
+                scrollbar-width: none;
+                /* Firefox */
+            }
+
+            .text-ellipsis {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
             .modal-container {
                 position: fixed;
                 inset: 0;
@@ -613,19 +656,60 @@ function displayRetiredDevicesPage()
                 animation: fadeInUp 0.3s ease-out;
             }
 
-            .retired-tag {
-                background: linear-gradient(45deg, #f87171, #dc2626);
-                color: white;
-                font-weight: bold;
+            .device-icon {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
             }
 
-            .error-message {
-                background-color: #fee;
-                border: 1px solid #fcc;
-                color: #c00;
-                padding: 1rem;
-                border-radius: 0.5rem;
-                margin: 1rem 0;
+            .action-btn {
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s ease;
+            }
+
+            .action-btn:hover {
+                transform: translateY(-1px);
+            }
+
+            .asset-tag-badge {
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-weight: 600;
+                font-size: 0.8rem;
+                padding: 4px 8px;
+                border-radius: 6px;
+                display: inline-block;
+                background-color: #fef2f2;
+                color: #dc2626;
+                border: 1px solid #fecaca;
+            }
+
+            .user-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: white;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+
+            .retired-overlay {
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(45deg, rgba(220, 38, 38, 0.05), rgba(239, 68, 68, 0.05));
+                pointer-events: none;
             }
         </style>
     </head>
@@ -664,16 +748,11 @@ function displayRetiredDevicesPage()
                             <i class="fas fa-history"></i>
                             <span class="font-semibold text-sm">RETIRED</span>
                         </div>
-                        <!--<a href="unassigned_devices.php"
-                            class="px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition flex items-center gap-2">
-                            <i class="fas fa-arrow-left"></i>
-                            Back to Unassigned
-                        </a>--->
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Database Connection Error -->
+            <!-- Database Connection Error -->
             <?php if (!$conn): ?>
                 <div class="error-message">
                     <h3 class="font-bold text-lg mb-2">Database Connection Error</h3>
@@ -782,8 +861,9 @@ function displayRetiredDevicesPage()
                             <i class="fas fa-filter text-red-500"></i>
                             Filter Retired Devices
                         </h3>
-                        <button type="button" onclick="clearFilters()" class="text-sm text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times-circle mr-1"></i>Clear Filters
+                        <button type="button" onclick="clearFilters()"
+                            class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                            <i class="fas fa-times-circle"></i> Clear Filters
                         </button>
                     </div>
 
@@ -863,14 +943,14 @@ function displayRetiredDevicesPage()
                             <i class="fas fa-filter"></i> Apply Filters
                         </button>
                         <button type="button" onclick="exportRetired()"
-                            class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
+                            class="px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium">
                             <i class="fas fa-download"></i> Export
                         </button>
                     </div>
                 </div>
             </form>
 
-            <!-- View Toggle Buttons -->
+            <!-- View Toggle and Info -->
             <div class="flex justify-between items-center mb-4">
                 <div>
                     <h2 class="text-lg font-semibold text-gray-800">Retired Devices List</h2>
@@ -881,17 +961,19 @@ function displayRetiredDevicesPage()
                     </p>
                 </div>
                 <div class="flex gap-2">
-                    <button id="tableViewBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg">
+                    <button id="tableViewBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2">
                         <i class="fas fa-table"></i> Table View
                     </button>
-                    <button id="cardViewBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">
+                    <button id="cardViewBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2">
                         <i class="fas fa-th-large"></i> Card View
                     </button>
                 </div>
             </div>
 
             <!-- Table View -->
-            <div id="tableView" class="glass-effect rounded-2xl shadow-lg overflow-hidden border border-gray-100 mb-8">
+            <div id="tableView"
+                class="glass-effect rounded-2xl shadow-lg overflow-hidden border border-gray-100 mb-8 relative">
+                <div class="retired-overlay"></div>
                 <div class="p-6 border-b border-gray-200">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
@@ -905,65 +987,24 @@ function displayRetiredDevicesPage()
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full">
+                <div class="table-container">
+                    <table class="data-table">
                         <thead>
-                            <tr class="table-header">
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-laptop text-gray-500"></i>
-                                        Device Info
-                                    </div>
-                                </th>
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-tag text-gray-500"></i>
-                                        Asset Tag
-                                    </div>
-                                </th>
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-building text-gray-500"></i>
-                                        Location
-                                    </div>
-                                </th>
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-user text-gray-500"></i>
-                                        Assigned To
-                                    </div>
-                                </th>
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-battery-half text-gray-500"></i>
-                                        Status & Condition
-                                    </div>
-                                </th>
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-calendar-alt text-gray-500"></i>
-                                        Last Updated
-                                    </div>
-                                </th>
-                                <th
-                                    class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-cogs text-gray-500"></i>
-                                        Actions
-                                    </div>
-                                </th>
+                            <tr>
+                                <th class="compact-column-sm">Device</th>
+                                <th class="compact-column-xs">Asset Tag</th>
+                                <th class="compact-column-sm">Location</th>
+                                <th class="compact-column-xs">Assigned To</th>
+                                <th class="compact-column-xs">Condition</th>
+                                <th class="compact-column-xs">Status</th>
+                                <th class="compact-column-xs">Last Updated</th>
+                                <th class="actions-column">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200">
+                        <tbody>
                             <?php if (empty($retiredDevices)): ?>
                                 <tr>
-                                    <td colspan="7" class="py-12 text-center">
+                                    <td colspan="8" class="py-12 text-center">
                                         <div class="flex flex-col items-center gap-3">
                                             <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
                                                 <i class="fas fa-check-circle text-4xl text-green-400"></i>
@@ -984,12 +1025,11 @@ function displayRetiredDevicesPage()
                                     // Check if device is assigned
                                     $isAssigned = !empty($device['assigned_user']);
                                     ?>
-                                    <tr class="table-row-hover transition-all duration-200">
+                                    <tr>
                                         <!-- Device Info -->
-                                        <td class="table-cell">
+                                        <td>
                                             <div class="flex items-center gap-3">
-                                                <div
-                                                    class="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                                <div class="device-icon bg-gradient-to-br from-gray-100 to-gray-200">
                                                     <?php
                                                     $deviceType = strtolower($device['device_type'] ?? 'laptop');
                                                     if (strpos($deviceType, 'phone') !== false || strpos($deviceType, 'mobile') !== false): ?>
@@ -1006,89 +1046,93 @@ function displayRetiredDevicesPage()
                                                         <i class="fas fa-laptop text-gray-600"></i>
                                                     <?php endif; ?>
                                                 </div>
-                                                <div>
-                                                    <p class="font-semibold text-gray-900">
+                                                <div class="min-w-0">
+                                                    <p class="font-semibold text-gray-900 text-sm text-ellipsis"
+                                                        title="<?= htmlspecialchars($device['brand_name'] ?? 'Unknown') . ' ' . htmlspecialchars($device['model'] ?? '') ?>">
                                                         <?= htmlspecialchars($device['brand_name'] ?? 'Unknown') ?>
-                                                        <?= !empty($device['model']) ? ' ' . htmlspecialchars($device['model']) : '' ?>
+                                                        <?php if (!empty($device['model'])): ?>
+                                                            <span class="text-gray-600"><?= htmlspecialchars($device['model']) ?></span>
+                                                        <?php endif; ?>
                                                     </p>
-                                                    <p class="text-xs text-gray-500 mt-1">
+                                                    <p class="text-xs text-gray-500 mt-1 text-ellipsis"
+                                                        title="<?= htmlspecialchars($device['device_type'] ?? 'Device') . (!empty($device['category_name']) ? ' • ' . htmlspecialchars($device['category_name']) : '') ?>">
                                                         <?= htmlspecialchars($device['device_type'] ?? 'Device') ?>
                                                         <?php if (!empty($device['category_name'])): ?>
                                                             • <?= htmlspecialchars($device['category_name']) ?>
                                                         <?php endif; ?>
                                                     </p>
-                                                    <?php if (!empty($device['serial_number'])): ?>
-                                                        <p class="serial-number mt-1">SN:
-                                                            <?= htmlspecialchars($device['serial_number']) ?>
-                                                        </p>
-                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                         </td>
 
                                         <!-- Asset Tag -->
-                                        <td class="table-cell">
-                                            <span class="asset-tag retired-tag px-3 py-1.5 rounded-lg">
+                                        <td>
+                                            <span class="asset-tag-badge"
+                                                title="Asset Tag: <?= htmlspecialchars($device['asset_tag'] ?? 'N/A') ?>">
                                                 <?= htmlspecialchars($device['asset_tag'] ?? 'N/A') ?>
                                             </span>
                                         </td>
 
                                         <!-- Location -->
-                                        <td class="table-cell">
+                                        <td>
                                             <div class="space-y-1">
                                                 <div class="flex items-center gap-2">
-                                                    <i class="fas fa-building text-gray-400 text-sm"></i>
-                                                    <span
-                                                        class="text-gray-700 font-medium"><?= htmlspecialchars($device['department_name'] ?? 'N/A') ?></span>
+                                                    <i class="fas fa-building text-gray-400 text-xs"></i>
+                                                    <span class="text-gray-700 text-sm text-ellipsis"
+                                                        title="<?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>">
+                                                        <?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>
+                                                    </span>
                                                 </div>
                                                 <div class="flex items-center gap-2">
-                                                    <i class="fas fa-location-dot text-gray-400 text-sm"></i>
-                                                    <span
-                                                        class="text-gray-600 text-sm"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
+                                                    <i class="fas fa-location-dot text-gray-400 text-xs"></i>
+                                                    <span class="text-gray-600 text-xs text-ellipsis"
+                                                        title="<?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>">
+                                                        <?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
 
                                         <!-- Assigned To -->
-                                        <td class="table-cell">
+                                        <td>
                                             <?php if ($isAssigned && !empty($device['assigned_firstname'])): ?>
-                                                <div class="space-y-1">
-                                                    <div class="flex items-center gap-2">
-                                                        <i class="fas fa-user text-gray-400 text-sm"></i>
-                                                        <span class="text-gray-700 font-medium">
-                                                            <?= htmlspecialchars($device['assigned_firstname'] . ' ' . $device['assigned_lastname']) ?>
-                                                        </span>
+                                                <div class="flex items-center gap-2">
+                                                    <div class="user-avatar"
+                                                        title="<?= htmlspecialchars($device['assigned_firstname'] . ' ' . $device['assigned_lastname']) ?>">
+                                                        <?= strtoupper(substr($device['assigned_firstname'], 0, 1)) . strtoupper(substr($device['assigned_lastname'], 0, 1)) ?>
                                                     </div>
-                                                    <div class="flex items-center gap-2">
-                                                        <i class="fas fa-envelope text-gray-400 text-sm"></i>
-                                                        <span class="text-gray-600 text-sm">
-                                                            <?= htmlspecialchars($device['assigned_email'] ?? '') ?>
-                                                        </span>
+                                                    <div class="min-w-0">
+                                                        <p class="text-gray-700 text-xs font-medium text-ellipsis"
+                                                            title="<?= htmlspecialchars($device['assigned_firstname'] . ' ' . $device['assigned_lastname']) ?>">
+                                                            <?= htmlspecialchars($device['assigned_firstname'] . ' ' . $device['assigned_lastname']) ?>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             <?php else: ?>
-                                                <span class="text-gray-400 text-sm italic">Unassigned</span>
+                                                <span class="text-gray-400 text-xs italic">Unassigned</span>
                                             <?php endif; ?>
                                         </td>
 
-                                        <!-- Status & Condition -->
-                                        <td class="table-cell">
-                                            <div class="space-y-2">
-                                                <span class="condition-badge <?= $conditionDisplay['color'] ?>">
-                                                    <?= htmlspecialchars($conditionDisplay['label']) ?>
-                                                </span>
-                                                <br>
-                                                <span class="status-badge <?= $statusDisplay['color'] ?>">
-                                                    <i class="fas fa-skull-crossbones mr-1"></i>
-                                                    <?= htmlspecialchars($statusDisplay['label']) ?>
-                                                </span>
-                                            </div>
+                                        <!-- Condition -->
+                                        <td>
+                                            <span class="condition-badge <?= $conditionDisplay['color'] ?>"
+                                                title="Condition: <?= htmlspecialchars($conditionDisplay['label']) ?>">
+                                                <?= htmlspecialchars($conditionDisplay['label']) ?>
+                                            </span>
+                                        </td>
+
+                                        <!-- Status -->
+                                        <td>
+                                            <span class="status-badge <?= $statusDisplay['color'] ?>"
+                                                title="Status: <?= htmlspecialchars($statusDisplay['label']) ?>">
+                                                <?= htmlspecialchars($statusDisplay['label']) ?>
+                                            </span>
                                         </td>
 
                                         <!-- Last Updated -->
-                                        <td class="table-cell">
+                                        <td>
                                             <div class="flex flex-col">
-                                                <span class="text-sm font-medium text-gray-700">
+                                                <span class="text-xs font-medium text-gray-700">
                                                     <?= date('M j, Y', strtotime($device['updated_at'] ?? 'now')) ?>
                                                 </span>
                                                 <span class="text-xs text-gray-500">
@@ -1098,23 +1142,23 @@ function displayRetiredDevicesPage()
                                         </td>
 
                                         <!-- Actions -->
-                                        <td class="table-cell">
-                                            <div class="flex gap-2">
+                                        <td>
+                                            <div class="flex gap-1">
                                                 <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
                                                     class="action-btn bg-blue-500 text-white hover:bg-blue-600"
                                                     title="View Details">
-                                                    <i class="fas fa-eye"></i>
+                                                    <i class="fas fa-eye text-xs"></i>
                                                 </button>
                                                 <button onclick="restoreDevice(<?= $device['id'] ?>)"
                                                     class="action-btn bg-green-500 text-white hover:bg-green-600"
                                                     title="Restore Device">
-                                                    <i class="fas fa-undo"></i>
+                                                    <i class="fas fa-undo text-xs"></i>
                                                 </button>
                                                 <button
                                                     onclick="showDeleteConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
                                                     class="action-btn bg-red-500 text-white hover:bg-red-600"
                                                     title="Delete Permanently">
-                                                    <i class="fas fa-trash"></i>
+                                                    <i class="fas fa-trash text-xs"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -1184,7 +1228,6 @@ function displayRetiredDevicesPage()
                 <?php else: ?>
                     <?php foreach ($retiredDevices as $device): ?>
                         <?php
-                        // Get status and condition display
                         $statusDisplay = getStatusDisplay($device['status'] ?? '', $statusColors, $statusLabels);
                         $conditionDisplay = getConditionDisplay($device['condition'] ?? '', $conditionColors, $conditionLabels);
 
@@ -1224,7 +1267,7 @@ function displayRetiredDevicesPage()
                                             </p>
                                         </div>
                                     </div>
-                                    <span class="retired-tag px-2 py-1 rounded text-xs">RETIRED</span>
+                                    <span class="asset-tag-badge">RETIRED</span>
                                 </div>
                             </div>
 
@@ -1232,7 +1275,7 @@ function displayRetiredDevicesPage()
                             <div class="p-6">
                                 <!-- Asset Tag -->
                                 <div class="mb-4">
-                                    <span class="font-semibold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                                    <span class="asset-tag-badge text-lg">
                                         <?= htmlspecialchars($device['asset_tag'] ?? 'N/A') ?>
                                     </span>
                                 </div>
@@ -1243,20 +1286,9 @@ function displayRetiredDevicesPage()
                                         <?= htmlspecialchars($conditionDisplay['label']) ?>
                                     </span>
                                     <span class="status-badge <?= $statusDisplay['color'] ?>">
-                                        <i class="fas fa-skull-crossbones mr-1"></i>
                                         <?= htmlspecialchars($statusDisplay['label']) ?>
                                     </span>
                                 </div>
-
-                                <!-- Serial Number -->
-                                <?php if (!empty($device['serial_number'])): ?>
-                                    <div class="mb-4">
-                                        <p class="text-xs text-gray-500">
-                                            <span class="font-medium">Serial Number:</span>
-                                            <?= htmlspecialchars($device['serial_number']) ?>
-                                        </p>
-                                    </div>
-                                <?php endif; ?>
 
                                 <!-- Location Info -->
                                 <div class="space-y-2 mb-4">
@@ -1270,21 +1302,22 @@ function displayRetiredDevicesPage()
                                         <span
                                             class="text-gray-700"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
                                     </div>
-                                    <div class="flex items-center gap-2 text-sm">
-                                        <i class="fas fa-tag text-gray-400"></i>
-                                        <span
-                                            class="text-gray-700"><?= htmlspecialchars($device['category_name'] ?? 'N/A') ?></span>
-                                    </div>
                                 </div>
 
                                 <!-- Assigned User -->
                                 <?php if ($isAssigned && !empty($device['assigned_firstname'])): ?>
                                     <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                                         <p class="text-xs text-gray-500 mb-1">Assigned To:</p>
-                                        <p class="text-sm font-medium text-gray-700">
-                                            <?= htmlspecialchars($device['assigned_firstname'] . ' ' . $device['assigned_lastname']) ?>
-                                        </p>
-                                        <p class="text-xs text-gray-500"><?= htmlspecialchars($device['assigned_email'] ?? '') ?></p>
+                                        <div class="flex items-center gap-2">
+                                            <div class="user-avatar">
+                                                <?= strtoupper(substr($device['assigned_firstname'], 0, 1)) . strtoupper(substr($device['assigned_lastname'], 0, 1)) ?>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-700">
+                                                    <?= htmlspecialchars($device['assigned_firstname'] . ' ' . $device['assigned_lastname']) ?>
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 <?php endif; ?>
 
@@ -1297,14 +1330,20 @@ function displayRetiredDevicesPage()
                                 <!-- Action Buttons -->
                                 <div class="flex gap-2">
                                     <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
-                                        class="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+                                        class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
                                         title="View Details">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                     <button onclick="restoreDevice(<?= $device['id'] ?>)"
-                                        class="flex-1 px-4 py-2.5 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                                        class="flex-1 px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2"
                                         title="Restore Device">
                                         <i class="fas fa-undo"></i> Restore
+                                    </button>
+                                    <button
+                                        onclick="showDeleteConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
+                                        class="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-all flex items-center justify-center gap-2"
+                                        title="Delete">
+                                        <i class="fas fa-trash"></i> Delete
                                     </button>
                                 </div>
                             </div>
@@ -1401,28 +1440,67 @@ function displayRetiredDevicesPage()
                     $(this).removeClass('bg-gray-200 text-gray-700').addClass('bg-red-600 text-white');
                     $('#tableViewBtn').removeClass('bg-red-600 text-white').addClass('bg-gray-200 text-gray-700');
                 });
+
+                // Make table responsive on mobile
+                function adjustTableLayout() {
+                    const table = document.querySelector('.data-table');
+                    const container = document.querySelector('.table-container');
+                    const screenWidth = window.innerWidth;
+
+                    if (screenWidth < 768) {
+                        container.style.overflowX = 'auto';
+                        container.classList.remove('no-scrollbar');
+                    } else {
+                        container.style.overflowX = 'visible';
+                        container.classList.add('no-scrollbar');
+                    }
+                }
+
+                // Initial adjustment
+                adjustTableLayout();
+
+                // Adjust on resize
+                window.addEventListener('resize', adjustTableLayout);
             });
 
             // Table search functionality
             document.getElementById('searchTable').addEventListener('input', function (e) {
                 const searchTerm = e.target.value.toLowerCase();
                 const rows = document.querySelectorAll('#tableView tbody tr');
+                let visibleCount = 0;
 
                 rows.forEach(row => {
                     const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
                 });
-            });
 
-            // Card view search functionality
-            document.getElementById('searchTable').addEventListener('input', function (e) {
-                const searchTerm = e.target.value.toLowerCase();
-                const cards = document.querySelectorAll('#cardView .device-card');
+                // Show/hide no results message
+                const tbody = document.querySelector('#tableView tbody');
+                let noResultsRow = tbody.querySelector('.no-results-row');
 
-                cards.forEach(card => {
-                    const text = card.textContent.toLowerCase();
-                    card.style.display = text.includes(searchTerm) ? '' : 'none';
-                });
+                if (visibleCount === 0 && !noResultsRow) {
+                    const noResultsHTML = `
+                    <tr class="no-results-row">
+                        <td colspan="8" class="py-12 text-center">
+                            <div class="flex flex-col items-center gap-3">
+                                <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+                                    <i class="fas fa-search text-4xl text-gray-400"></i>
+                                </div>
+                                <p class="text-gray-400 font-medium">No matching devices found</p>
+                                <p class="text-xs text-gray-400">Try different search terms</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                    tbody.insertAdjacentHTML('beforeend', noResultsHTML);
+                } else if (visibleCount > 0 && noResultsRow) {
+                    noResultsRow.remove();
+                }
             });
 
             function clearFilters() {
@@ -1467,64 +1545,64 @@ function displayRetiredDevicesPage()
 
                 // Build details HTML
                 const detailsHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <h3 class="font-semibold text-gray-800 mb-2">Device Information</h3>
-                            <div class="space-y-2">
-                                <p><span class="font-medium">Asset Tag:</span> <span class="font-mono bg-red-50 px-2 py-1 rounded">${escapeHtml(device.asset_tag)}</span></p>
-                                <p><span class="font-medium">Device Type:</span> ${escapeHtml(device.device_type || 'N/A')}</p>
-                                <p><span class="font-medium">Category:</span> ${escapeHtml(device.category_name || 'N/A')}</p>
-                                <p><span class="font-medium">Serial Number:</span> <span class="font-mono">${escapeHtml(device.serial_number || 'N/A')}</span></p>
-                                <p><span class="font-medium">Brand:</span> ${escapeHtml(device.brand_name || 'N/A')}</p>
-                                <p><span class="font-medium">Model:</span> ${escapeHtml(device.model || 'N/A')}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <h3 class="font-semibold text-gray-800 mb-2">Device Status</h3>
-                            <div class="space-y-2">
-                                <p><span class="font-medium">Condition:</span> ${escapeHtml(device.condition || 'N/A')}</p>
-                                <p><span class="font-medium">Status:</span> <span class="text-red-600 font-semibold">${escapeHtml(device.status || 'N/A')}</span></p>
-                                <p><span class="font-medium">Department:</span> ${escapeHtml(device.department_name || 'N/A')}</p>
-                                <p><span class="font-medium">Location:</span> ${escapeHtml(device.location_name || 'N/A')}</p>
-                                <p><span class="font-medium">Created:</span> ${escapeHtml(device.created_at ? new Date(device.created_at).toLocaleDateString() : 'N/A')}</p>
-                                <p><span class="font-medium">Last Updated:</span> ${escapeHtml(device.updated_at ? new Date(device.updated_at).toLocaleDateString() : 'N/A')}</p>
-                            </div>
-                        </div>
-                        
-                        ${device.assigned_firstname ? `
-                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                            <h3 class="font-semibold text-gray-800 mb-2">Assigned User</h3>
-                            <div class="space-y-2">
-                                <p><span class="font-medium">Name:</span> ${escapeHtml(device.assigned_firstname + ' ' + device.assigned_lastname)}</p>
-                                <p><span class="font-medium">Email:</span> ${escapeHtml(device.assigned_email || 'N/A')}</p>
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 ${device.assigned_firstname ? '' : 'md:col-span-2'}">
-                            <h3 class="font-semibold text-gray-800 mb-2">Specifications</h3>
-                            <div class="bg-white p-3 rounded-lg border border-gray-200">
-                                <p class="text-gray-700 whitespace-pre-line">${escapeHtml(device.specifications || 'No specifications provided.')}</p>
-                            </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <h3 class="font-semibold text-gray-800 mb-2">Device Information</h3>
+                        <div class="space-y-2">
+                            <p><span class="font-medium">Asset Tag:</span> <span class="font-mono bg-red-50 px-2 py-1 rounded">${escapeHtml(device.asset_tag)}</span></p>
+                            <p><span class="font-medium">Device Type:</span> ${escapeHtml(device.device_type || 'N/A')}</p>
+                            <p><span class="font-medium">Category:</span> ${escapeHtml(device.category_name || 'N/A')}</p>
+                            <p><span class="font-medium">Serial Number:</span> <span class="font-mono">${escapeHtml(device.serial_number || 'N/A')}</span></p>
+                            <p><span class="font-medium">Brand:</span> ${escapeHtml(device.brand_name || 'N/A')}</p>
+                            <p><span class="font-medium">Model:</span> ${escapeHtml(device.model || 'N/A')}</p>
                         </div>
                     </div>
                     
-                    <div class="mt-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <h3 class="font-semibold text-gray-800 mb-2">Remarks</h3>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <h3 class="font-semibold text-gray-800 mb-2">Device Status</h3>
+                        <div class="space-y-2">
+                            <p><span class="font-medium">Condition:</span> ${escapeHtml(device.condition || 'N/A')}</p>
+                            <p><span class="font-medium">Status:</span> <span class="text-red-600 font-semibold">${escapeHtml(device.status || 'N/A')}</span></p>
+                            <p><span class="font-medium">Department:</span> ${escapeHtml(device.department_name || 'N/A')}</p>
+                            <p><span class="font-medium">Location:</span> ${escapeHtml(device.location_name || 'N/A')}</p>
+                            <p><span class="font-medium">Created:</span> ${escapeHtml(device.created_at ? new Date(device.created_at).toLocaleDateString() : 'N/A')}</p>
+                            <p><span class="font-medium">Last Updated:</span> ${escapeHtml(device.updated_at ? new Date(device.updated_at).toLocaleDateString() : 'N/A')}</p>
+                        </div>
+                    </div>
+                    
+                    ${device.assigned_firstname ? `
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <h3 class="font-semibold text-gray-800 mb-2">Assigned User</h3>
+                        <div class="space-y-2">
+                            <p><span class="font-medium">Name:</span> ${escapeHtml(device.assigned_firstname + ' ' + device.assigned_lastname)}</p>
+                            <p><span class="font-medium">Email:</span> ${escapeHtml(device.assigned_email || 'N/A')}</p>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 ${device.assigned_firstname ? '' : 'md:col-span-2'}">
+                        <h3 class="font-semibold text-gray-800 mb-2">Specifications</h3>
                         <div class="bg-white p-3 rounded-lg border border-gray-200">
-                            <p class="text-gray-700 whitespace-pre-line">${escapeHtml(device.remarks || 'No remarks available.')}</p>
+                            <p class="text-gray-700 whitespace-pre-line">${escapeHtml(device.specifications || 'No specifications provided.')}</p>
                         </div>
                     </div>
-                    
-                    <div class="mt-6 bg-red-50 p-4 rounded-xl border border-red-200">
-                        <h3 class="font-semibold text-red-800 mb-2">Retirement Information</h3>
-                        <p class="text-red-700 text-sm">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            This device has been retired from service. It is no longer available for assignment.
-                        </p>
+                </div>
+                
+                <div class="mt-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 class="font-semibold text-gray-800 mb-2">Remarks</h3>
+                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                        <p class="text-gray-700 whitespace-pre-line">${escapeHtml(device.remarks || 'No remarks available.')}</p>
                     </div>
-                `;
+                </div>
+                
+                <div class="mt-6 bg-red-50 p-4 rounded-xl border border-red-200">
+                    <h3 class="font-semibold text-red-800 mb-2">Retirement Information</h3>
+                    <p class="text-red-700 text-sm">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        This device has been retired from service. It is no longer available for assignment.
+                    </p>
+                </div>
+            `;
 
                 document.getElementById('deviceDetails').innerHTML = detailsHTML;
                 document.getElementById('viewModal').classList.remove('hidden');
@@ -1547,19 +1625,19 @@ function displayRetiredDevicesPage()
                 document.getElementById('confirmTitle').textContent = 'Delete Device';
                 document.getElementById('confirmMessage').textContent = 'This action cannot be undone';
                 document.getElementById('confirmContent').innerHTML = `
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div class="flex items-start gap-3">
-                            <i class="fas fa-exclamation-circle text-red-500 text-xl mt-1"></i>
-                            <div>
-                                <p class="text-red-800 font-medium">Are you sure you want to delete this device permanently?</p>
-                                <p class="text-red-600 text-sm mt-2">
-                                    Device: <span class="font-mono font-bold">${escapeHtml(assetTag)}</span><br>
-                                    This will permanently remove the device from the database.
-                                </p>
-                            </div>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-exclamation-circle text-red-500 text-xl mt-1"></i>
+                        <div>
+                            <p class="text-red-800 font-medium">Are you sure you want to delete this device permanently?</p>
+                            <p class="text-red-600 text-sm mt-2">
+                                Device: <span class="font-mono font-bold">${escapeHtml(assetTag)}</span><br>
+                                This will permanently remove the device from the database.
+                            </p>
                         </div>
                     </div>
-                `;
+                </div>
+            `;
 
                 const confirmBtn = document.getElementById('confirmActionBtn');
                 confirmBtn.textContent = 'Delete Permanently';
@@ -1575,18 +1653,18 @@ function displayRetiredDevicesPage()
                 document.getElementById('confirmTitle').textContent = 'Restore Device';
                 document.getElementById('confirmMessage').textContent = 'Return device to active service';
                 document.getElementById('confirmContent').innerHTML = `
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div class="flex items-start gap-3">
-                            <i class="fas fa-question-circle text-green-500 text-xl mt-1"></i>
-                            <div>
-                                <p class="text-green-800 font-medium">Restore this device to active service?</p>
-                                <p class="text-green-600 text-sm mt-2">
-                                    The device will be set to "in_storage" status and will be available for assignment.
-                                </p>
-                            </div>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-question-circle text-green-500 text-xl mt-1"></i>
+                        <div>
+                            <p class="text-green-800 font-medium">Restore this device to active service?</p>
+                            <p class="text-green-600 text-sm mt-2">
+                                The device will be set to "in_storage" status and will be available for assignment.
+                            </p>
                         </div>
                     </div>
-                `;
+                </div>
+            `;
 
                 const confirmBtn = document.getElementById('confirmActionBtn');
                 confirmBtn.textContent = 'Restore Device';
@@ -1796,4 +1874,3 @@ function exportToCSV($whereClause, $params, $paramTypes)
     fclose($output);
     exit();
 }
-?>

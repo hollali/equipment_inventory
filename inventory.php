@@ -1,21 +1,78 @@
 <?php
 session_start();
-require_once "./config/database.php";
-require_once __DIR__ . '/vendor/autoload.php';
 
 /* ================== ERROR REPORTING ================== */
 ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-/* ================== DB ================== */
+/* ================== DB CONNECTION ================== */
+require_once "./config/database.php";
+
 $db = new Database();
 $conn = $db->getConnection();
-if (!$conn)
+
+if (!$conn) {
     die("Database connection failed");
+}
 
 /* ================== ADD INVENTORY ================== */
 if (isset($_POST['save'])) {
-    $stmt = $conn->prepare("
+    // Validate required fields
+    $requiredFields = ['device_type', 'brand_id', 'condition', 'status', 'category_id'];
+    $errors = [];
+
+    foreach ($requiredFields as $field) {
+        if (empty($_POST[$field])) {
+            $errors[] = ucfirst(str_replace('_', ' ', $field)) . ' is required';
+        }
+    }
+
+    if (!empty($errors)) {
+        $_SESSION['form_errors'] = $errors;
+        header("Location: inventory.php");
+        exit;
+    }
+
+    // Prepare and sanitize data
+    $asset_tag = $_POST['asset_tag'] ?? '';
+    $device_type = mysqli_real_escape_string($conn, trim($_POST['device_type']));
+    $brand_id = (int) $_POST['brand_id'];
+    $model = mysqli_real_escape_string($conn, trim($_POST['model'] ?? ''));
+    $serial_number = mysqli_real_escape_string($conn, trim($_POST['serial_number'] ?? ''));
+    $specifications = mysqli_real_escape_string($conn, trim($_POST['specifications'] ?? ''));
+
+    // Convert empty string to NULL for integer fields
+    $department_id = !empty($_POST['department_id']) ? (int) $_POST['department_id'] : null;
+    $location_id = !empty($_POST['location_id']) ? (int) $_POST['location_id'] : null;
+    $category_id = (int) $_POST['category_id'];
+
+    // String fields
+    $condition = mysqli_real_escape_string($conn, trim($_POST['condition']));
+    $status = mysqli_real_escape_string($conn, trim($_POST['status']));
+    $remarks = mysqli_real_escape_string($conn, trim($_POST['remarks'] ?? ''));
+    $assigned_user = !empty($_POST['assigned_user']) ? (int) $_POST['assigned_user'] : null;
+
+    // Generate asset tag if not provided
+    if (empty($asset_tag)) {
+        $year = date("Y");
+        $q = mysqli_query($conn, "
+            SELECT asset_tag 
+            FROM inventory_items 
+            WHERE asset_tag LIKE 'AST-$year-%' 
+            ORDER BY id DESC 
+            LIMIT 1
+        ");
+        $next = 1;
+        if ($q && mysqli_num_rows($q) > 0) {
+            $last = mysqli_fetch_assoc($q)['asset_tag'];
+            $next = (int) substr($last, -4) + 1;
+        }
+        $asset_tag = "AST-$year-" . str_pad($next, 4, "0", STR_PAD_LEFT);
+    }
+
+    // Prepare the SQL statement
+    $stmt = mysqli_prepare($conn, "
         INSERT INTO inventory_items (
             asset_tag,
             device_type,
@@ -33,31 +90,36 @@ if (isset($_POST['save'])) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
-    $stmt->bind_param(
-        "ssisssisssss",
-        $_POST['asset_tag'],
-        $_POST['device_type'],
-        $_POST['brand_id'],
-        $_POST['model'],
-        $_POST['serial_number'],
-        $_POST['specifications'],
-        $_POST['department_id'],
-        $_POST['location_id'],
-        $_POST['condition'],
-        $_POST['status'],
-        $_POST['category_id'],
-        $_POST['remarks']
+    if (!$stmt) {
+        $_SESSION['error_message'] = 'Prepare failed: ' . mysqli_error($conn);
+        header("Location: inventory.php?error=add_failed");
+        exit;
+    }
+
+    // Bind parameters
+    mysqli_stmt_bind_param(
+        $stmt,
+        "ssisssiissss",
+        $asset_tag,
+        $device_type,
+        $brand_id,
+        $model,
+        $serial_number,
+        $specifications,
+        $department_id,
+        $location_id,
+        $condition,
+        $status,
+        $category_id,
+        $remarks
     );
 
-    if ($stmt->execute()) {
-        $inventory_id = $stmt->insert_id;
+    if (mysqli_stmt_execute($stmt)) {
+        $inventory_id = mysqli_stmt_insert_id($stmt);
 
-        // If user is assigned during creation, create assignment record
-        if (!empty($_POST['assigned_user']) && $_POST['status'] == 'in_use') {
-            $userId = $_POST['assigned_user'];
-
-            // Create new assignment (no need to check for existing assignments since users can have multiple)
-            $assignStmt = $conn->prepare("
+        // If user is assigned during creation and status is 'in_use', create assignment record
+        if (!empty($assigned_user) && $status == 'in_use') {
+            $assignStmt = mysqli_prepare($conn, "
                 INSERT INTO device_user_assignments (
                     inventory_id,
                     user_id,
@@ -65,28 +127,36 @@ if (isset($_POST['save'])) {
                     status
                 ) VALUES (?, ?, NOW(), 'assigned')
             ");
-            $assignStmt->bind_param("ii", $inventory_id, $userId);
-            $assignStmt->execute();
-            $assignStmt->close();
+            mysqli_stmt_bind_param($assignStmt, "ii", $inventory_id, $assigned_user);
+            mysqli_stmt_execute($assignStmt);
+            mysqli_stmt_close($assignStmt);
         }
 
+        $_SESSION['success_message'] = 'Item added successfully!';
         header("Location: inventory.php?success=added");
         exit;
     } else {
-        die("Add failed: " . $stmt->error);
+        $_SESSION['error_message'] = 'Add failed: ' . mysqli_stmt_error($stmt);
+        header("Location: inventory.php?error=add_failed");
+        exit;
     }
+
+    mysqli_stmt_close($stmt);
 }
 
+// Fetch active users
 $users = [];
-$result = $conn->query("
+$result = mysqli_query($conn, "
     SELECT id, firstname, lastname, email, role, status
     FROM users
     WHERE status = 'active'
     ORDER BY firstname ASC
 ");
 
-while ($row = $result->fetch_assoc()) {
-    $users[] = $row;
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $users[] = $row;
+    }
 }
 
 /* ================== EDIT MODES ================== */
@@ -97,13 +167,16 @@ $item = null;
 $currentAssignment = null;
 
 if ($editMode) {
-    $stmt = $conn->prepare("SELECT * FROM inventory_items WHERE id = ?");
-    $stmt->bind_param("i", $_GET['edit']);
-    $stmt->execute();
-    $item = $stmt->get_result()->fetch_assoc();
+    $edit_id = (int) $_GET['edit'];
+    $stmt = mysqli_prepare($conn, "SELECT * FROM inventory_items WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $edit_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $item = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
 
     // Get current active assignment
-    $assignStmt = $conn->prepare("
+    $assignStmt = mysqli_prepare($conn, "
         SELECT dua.*, u.firstname, u.lastname 
         FROM device_user_assignments dua
         JOIN users u ON dua.user_id = u.id
@@ -111,19 +184,51 @@ if ($editMode) {
         ORDER BY dua.assigned_at DESC 
         LIMIT 1
     ");
-    $assignStmt->bind_param("i", $_GET['edit']);
-    $assignStmt->execute();
-    $currentAssignment = $assignStmt->get_result()->fetch_assoc();
-    $assignStmt->close();
+    mysqli_stmt_bind_param($assignStmt, "i", $edit_id);
+    mysqli_stmt_execute($assignStmt);
+    $assignResult = mysqli_stmt_get_result($assignStmt);
+    $currentAssignment = mysqli_fetch_assoc($assignResult);
+    mysqli_stmt_close($assignStmt);
 }
 
 /* ================== UPDATE INVENTORY ================== */
 if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
+    // Validate required fields
+    $requiredFields = ['device_type', 'brand_id', 'condition', 'status', 'category_id'];
+    $errors = [];
+
+    foreach ($requiredFields as $field) {
+        if (empty($_POST[$field])) {
+            $errors[] = ucfirst(str_replace('_', ' ', $field)) . ' is required';
+        }
+    }
+
+    if (!empty($errors)) {
+        $_SESSION['form_errors'] = $errors;
+        header("Location: inventory.php");
+        exit;
+    }
+
+    // Prepare and sanitize data
+    $id = (int) $_POST['id'];
+    $device_type = mysqli_real_escape_string($conn, trim($_POST['device_type']));
+    $brand_id = (int) $_POST['brand_id'];
+    $model = mysqli_real_escape_string($conn, trim($_POST['model'] ?? ''));
+    $serial_number = mysqli_real_escape_string($conn, trim($_POST['serial_number'] ?? ''));
+    $specifications = mysqli_real_escape_string($conn, trim($_POST['specifications'] ?? ''));
+    $department_id = !empty($_POST['department_id']) ? (int) $_POST['department_id'] : null;
+    $location_id = !empty($_POST['location_id']) ? (int) $_POST['location_id'] : null;
+    $condition = mysqli_real_escape_string($conn, trim($_POST['condition']));
+    $status = mysqli_real_escape_string($conn, trim($_POST['status']));
+    $category_id = (int) $_POST['category_id'];
+    $remarks = mysqli_real_escape_string($conn, trim($_POST['remarks'] ?? ''));
+    $assignedUserId = !empty($_POST['assigned_user']) ? (int) $_POST['assigned_user'] : null;
+
     // Start transaction
-    $conn->begin_transaction();
+    mysqli_begin_transaction($conn);
 
     try {
-        $stmt = $conn->prepare("
+        $stmt = mysqli_prepare($conn, "
             UPDATE inventory_items SET
                 device_type=?,
                 brand_id=?,
@@ -139,55 +244,57 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
             WHERE id=?
         ");
 
-        $stmt->bind_param(
-            "sisssisssssi",
-            $_POST['device_type'],
-            $_POST['brand_id'],
-            $_POST['model'],
-            $_POST['serial_number'],
-            $_POST['specifications'],
-            $_POST['department_id'],
-            $_POST['location_id'],
-            $_POST['condition'],
-            $_POST['status'],
-            $_POST['category_id'],
-            $_POST['remarks'],
-            $_POST['id']
+        if (!$stmt) {
+            throw new Exception("Prepare failed: " . mysqli_error($conn));
+        }
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sisssiissssi",
+            $device_type,
+            $brand_id,
+            $model,
+            $serial_number,
+            $specifications,
+            $department_id,
+            $location_id,
+            $condition,
+            $status,
+            $category_id,
+            $remarks,
+            $id
         );
 
-        if (!$stmt->execute()) {
-            throw new Exception("Update failed: " . $stmt->error);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Update failed: " . mysqli_stmt_error($stmt));
         }
 
         // Handle assignment changes
-        $assignedUserId = $_POST['assigned_user'] ?? null;
-        $status = $_POST['status'];
-
         if (!empty($assignedUserId) && $status == 'in_use') {
             // Check if there's already an active assignment for this device
-            $checkStmt = $conn->prepare("
+            $checkStmt = mysqli_prepare($conn, "
                 SELECT id FROM device_user_assignments 
                 WHERE inventory_id = ? AND status = 'assigned'
             ");
-            $checkStmt->bind_param("i", $_POST['id']);
-            $checkStmt->execute();
-            $checkResult = $checkStmt->get_result();
+            mysqli_stmt_bind_param($checkStmt, "i", $id);
+            mysqli_stmt_execute($checkStmt);
+            $checkResult = mysqli_stmt_get_result($checkStmt);
 
-            if ($checkResult->num_rows > 0) {
+            if (mysqli_num_rows($checkResult) > 0) {
                 // Update existing active assignment
-                $updateAssignStmt = $conn->prepare("
+                $updateAssignStmt = mysqli_prepare($conn, "
                     UPDATE device_user_assignments 
                     SET user_id = ?
                     WHERE inventory_id = ? AND status = 'assigned'
                 ");
-                $updateAssignStmt->bind_param("ii", $assignedUserId, $_POST['id']);
-                if (!$updateAssignStmt->execute()) {
-                    throw new Exception("Assignment update failed: " . $updateAssignStmt->error);
+                mysqli_stmt_bind_param($updateAssignStmt, "ii", $assignedUserId, $id);
+                if (!mysqli_stmt_execute($updateAssignStmt)) {
+                    throw new Exception("Assignment update failed: " . mysqli_stmt_error($updateAssignStmt));
                 }
-                $updateAssignStmt->close();
+                mysqli_stmt_close($updateAssignStmt);
             } else {
                 // Create new assignment
-                $assignStmt = $conn->prepare("
+                $assignStmt = mysqli_prepare($conn, "
                     INSERT INTO device_user_assignments (
                         inventory_id,
                         user_id,
@@ -195,64 +302,74 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
                         status
                     ) VALUES (?, ?, NOW(), 'assigned')
                 ");
-                $assignStmt->bind_param("ii", $_POST['id'], $assignedUserId);
-                if (!$assignStmt->execute()) {
-                    throw new Exception("Assignment creation failed: " . $assignStmt->error);
+                mysqli_stmt_bind_param($assignStmt, "ii", $id, $assignedUserId);
+                if (!mysqli_stmt_execute($assignStmt)) {
+                    throw new Exception("Assignment creation failed: " . mysqli_stmt_error($assignStmt));
                 }
-                $assignStmt->close();
+                mysqli_stmt_close($assignStmt);
             }
-            $checkStmt->close();
+            mysqli_stmt_close($checkStmt);
         } elseif (empty($assignedUserId) || $status != 'in_use') {
             // If no user assigned or status not 'in_use', end any active assignments
-            $endAssignStmt = $conn->prepare("
+            $endAssignStmt = mysqli_prepare($conn, "
                 UPDATE device_user_assignments 
                 SET status = 'retrieved', returned_at = NOW()
                 WHERE inventory_id = ? AND status = 'assigned'
             ");
-            $endAssignStmt->bind_param("i", $_POST['id']);
-            if (!$endAssignStmt->execute()) {
-                throw new Exception("Assignment ending failed: " . $endAssignStmt->error);
+            mysqli_stmt_bind_param($endAssignStmt, "i", $id);
+            if (!mysqli_stmt_execute($endAssignStmt)) {
+                throw new Exception("Assignment ending failed: " . mysqli_stmt_error($endAssignStmt));
             }
-            $endAssignStmt->close();
+            mysqli_stmt_close($endAssignStmt);
         }
 
         // Commit transaction
-        $conn->commit();
+        mysqli_commit($conn);
+        $_SESSION['success_message'] = 'Item updated successfully!';
         header("Location: inventory.php?success=updated");
         exit;
 
     } catch (Exception $e) {
         // Rollback transaction on error
-        $conn->rollback();
-        die("Error: " . $e->getMessage());
+        mysqli_rollback($conn);
+        $_SESSION['error_message'] = 'Error: ' . $e->getMessage();
+        header("Location: inventory.php?error=update_failed");
+        exit;
+    } finally {
+        if (isset($stmt)) {
+            mysqli_stmt_close($stmt);
+        }
     }
 }
 
 /* ================== RESIGN DEVICE ================== */
 if (isset($_POST['resign_device']) && is_numeric($_POST['resign_id'])) {
     $id = (int) $_POST['resign_id'];
-    $reason = $_POST['resign_reason'] ?? '';
+    $reason = mysqli_real_escape_string($conn, $_POST['resign_reason'] ?? '');
 
     // End the active assignment
-    $stmt = $conn->prepare("
+    $stmt = mysqli_prepare($conn, "
         UPDATE device_user_assignments 
         SET status = 'retrieved', 
             returned_at = NOW()
         WHERE inventory_id = ? AND status = 'assigned'
     ");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
 
     // Update inventory status
-    $updateStmt = $conn->prepare("
+    $updateStmt = mysqli_prepare($conn, "
         UPDATE inventory_items 
         SET status = 'in_storage',
             remarks = CONCAT(IFNULL(remarks, ''), '\nResigned on ', NOW(), ': ', ?)
         WHERE id = ?
     ");
-    $updateStmt->bind_param("si", $reason, $id);
-    $updateStmt->execute();
+    mysqli_stmt_bind_param($updateStmt, "si", $reason, $id);
+    mysqli_stmt_execute($updateStmt);
+    mysqli_stmt_close($updateStmt);
 
+    $_SESSION['success_message'] = 'Device resigned/retrieved successfully!';
     header("Location: inventory.php?msg=resigned");
     exit;
 }
@@ -260,25 +377,31 @@ if (isset($_POST['resign_device']) && is_numeric($_POST['resign_id'])) {
 /* ================== ASSIGN DEVICE ================== */
 if (isset($_POST['assign_device']) && is_numeric($_POST['assign_id'])) {
     $id = (int) $_POST['assign_id'];
-    $userId = $_POST['assign_user'] ?? '';
-    $assign_notes = $_POST['assign_notes'] ?? '';
+    $userId = !empty($_POST['assign_user']) ? (int) $_POST['assign_user'] : null;
+    $assign_notes = mysqli_real_escape_string($conn, $_POST['assign_notes'] ?? '');
+
+    if (empty($userId)) {
+        $_SESSION['error_message'] = 'Please select a user to assign the device to.';
+        header("Location: inventory.php");
+        exit;
+    }
 
     // Start transaction
-    $conn->begin_transaction();
+    mysqli_begin_transaction($conn);
 
     try {
         // First, end any existing active assignment for this device
-        $endStmt = $conn->prepare("
+        $endStmt = mysqli_prepare($conn, "
             UPDATE device_user_assignments 
             SET status = 'retrieved', returned_at = NOW()
             WHERE inventory_id = ? AND status = 'assigned'
         ");
-        $endStmt->bind_param("i", $id);
-        $endStmt->execute();
-        $endStmt->close();
+        mysqli_stmt_bind_param($endStmt, "i", $id);
+        mysqli_stmt_execute($endStmt);
+        mysqli_stmt_close($endStmt);
 
         // Create new assignment (users can have multiple devices)
-        $assignStmt = $conn->prepare("
+        $assignStmt = mysqli_prepare($conn, "
             INSERT INTO device_user_assignments (
                 inventory_id,
                 user_id,
@@ -286,56 +409,62 @@ if (isset($_POST['assign_device']) && is_numeric($_POST['assign_id'])) {
                 status
             ) VALUES (?, ?, NOW(), 'assigned')
         ");
-        $assignStmt->bind_param("ii", $id, $userId);
-        $assignStmt->execute();
-        $assignStmt->close();
+        mysqli_stmt_bind_param($assignStmt, "ii", $id, $userId);
+        mysqli_stmt_execute($assignStmt);
+        mysqli_stmt_close($assignStmt);
 
         // Update inventory status
-        $updateStmt = $conn->prepare("
+        $updateStmt = mysqli_prepare($conn, "
             UPDATE inventory_items 
             SET status = 'in_use',
                 remarks = CONCAT(IFNULL(remarks, ''), '\nAssigned on ', NOW(), ': ', ?)
             WHERE id = ?
         ");
-        $updateStmt->bind_param("si", $assign_notes, $id);
-        $updateStmt->execute();
-        $updateStmt->close();
+        mysqli_stmt_bind_param($updateStmt, "si", $assign_notes, $id);
+        mysqli_stmt_execute($updateStmt);
+        mysqli_stmt_close($updateStmt);
 
-        $conn->commit();
+        mysqli_commit($conn);
+        $_SESSION['success_message'] = 'Device assigned successfully!';
         header("Location: inventory.php?msg=assigned");
         exit;
 
     } catch (Exception $e) {
-        $conn->rollback();
-        die("Error: " . $e->getMessage());
+        mysqli_rollback($conn);
+        $_SESSION['error_message'] = 'Error: ' . $e->getMessage();
+        header("Location: inventory.php?error=assign_failed");
+        exit;
     }
 }
 
 /* ================== RETRIEVE DEVICE ================== */
 if (isset($_POST['retrieve_device']) && is_numeric($_POST['retrieve_id'])) {
     $id = (int) $_POST['retrieve_id'];
-    $retrieve_notes = $_POST['retrieve_notes'] ?? '';
+    $retrieve_notes = mysqli_real_escape_string($conn, $_POST['retrieve_notes'] ?? '');
 
     // End the active assignment
-    $stmt = $conn->prepare("
+    $stmt = mysqli_prepare($conn, "
         UPDATE device_user_assignments 
         SET status = 'retrieved', 
             returned_at = NOW()
         WHERE inventory_id = ? AND status = 'assigned'
     ");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
 
     // Update inventory status
-    $updateStmt = $conn->prepare("
+    $updateStmt = mysqli_prepare($conn, "
         UPDATE inventory_items 
         SET status = 'in_storage',
             remarks = CONCAT(IFNULL(remarks, ''), '\nRetrieved on ', NOW(), ': ', ?)
         WHERE id = ?
     ");
-    $updateStmt->bind_param("si", $retrieve_notes, $id);
-    $updateStmt->execute();
+    mysqli_stmt_bind_param($updateStmt, "si", $retrieve_notes, $id);
+    mysqli_stmt_execute($updateStmt);
+    mysqli_stmt_close($updateStmt);
 
+    $_SESSION['success_message'] = 'Device retrieved successfully!';
     header("Location: inventory.php?msg=retrieved");
     exit;
 }
@@ -345,24 +474,26 @@ if (isset($_POST['retire'], $_POST['retire_id'])) {
     $id = (int) $_POST['retire_id'];
 
     // First end any active assignment
-    $endStmt = $conn->prepare("
+    $endStmt = mysqli_prepare($conn, "
         UPDATE device_user_assignments 
         SET status = 'retrieved', returned_at = NOW()
         WHERE inventory_id = ? AND status = 'assigned'
     ");
-    $endStmt->bind_param("i", $id);
-    $endStmt->execute();
-    $endStmt->close();
+    mysqli_stmt_bind_param($endStmt, "i", $id);
+    mysqli_stmt_execute($endStmt);
+    mysqli_stmt_close($endStmt);
 
     // Then retire the device
-    $stmt = $conn->prepare("
+    $stmt = mysqli_prepare($conn, "
         UPDATE inventory_items 
         SET status = 'retired'
         WHERE id = ?
     ");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
 
+    $_SESSION['success_message'] = 'Device retired successfully!';
     header("Location: inventory.php?msg=retired");
     exit;
 }
@@ -372,34 +503,37 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $id = (int) $_GET['delete'];
 
     // Start transaction
-    $conn->begin_transaction();
+    mysqli_begin_transaction($conn);
 
     try {
         // First delete assignments
-        $deleteAssignStmt = $conn->prepare("DELETE FROM device_user_assignments WHERE inventory_id = ?");
-        $deleteAssignStmt->bind_param("i", $id);
-        $deleteAssignStmt->execute();
-        $deleteAssignStmt->close();
+        $deleteAssignStmt = mysqli_prepare($conn, "DELETE FROM device_user_assignments WHERE inventory_id = ?");
+        mysqli_stmt_bind_param($deleteAssignStmt, "i", $id);
+        mysqli_stmt_execute($deleteAssignStmt);
+        mysqli_stmt_close($deleteAssignStmt);
 
         // Then delete inventory item
-        $deleteStmt = $conn->prepare("DELETE FROM inventory_items WHERE id = ?");
-        $deleteStmt->bind_param("i", $id);
-        $deleteStmt->execute();
-        $deleteStmt->close();
+        $deleteStmt = mysqli_prepare($conn, "DELETE FROM inventory_items WHERE id = ?");
+        mysqli_stmt_bind_param($deleteStmt, "i", $id);
+        mysqli_stmt_execute($deleteStmt);
+        mysqli_stmt_close($deleteStmt);
 
-        $conn->commit();
+        mysqli_commit($conn);
+        $_SESSION['success_message'] = 'Device deleted successfully!';
         header("Location: inventory.php?msg=deleted");
         exit;
 
     } catch (Exception $e) {
-        $conn->rollback();
-        die("Error: " . $e->getMessage());
+        mysqli_rollback($conn);
+        $_SESSION['error_message'] = 'Error: ' . $e->getMessage();
+        header("Location: inventory.php?error=delete_failed");
+        exit;
     }
 }
 
 /* ================== AUTO ASSET TAG ================== */
 $year = date("Y");
-$q = $conn->query("
+$q = mysqli_query($conn, "
     SELECT asset_tag 
     FROM inventory_items 
     WHERE asset_tag LIKE 'AST-$year-%' 
@@ -407,8 +541,8 @@ $q = $conn->query("
     LIMIT 1
 ");
 $next = 1;
-if ($q && $q->num_rows) {
-    $last = $q->fetch_assoc()['asset_tag'];
+if ($q && mysqli_num_rows($q) > 0) {
+    $last = mysqli_fetch_assoc($q)['asset_tag'];
     $next = (int) substr($last, -4) + 1;
 }
 $asset_tag_preview = "AST-$year-" . str_pad($next, 4, "0", STR_PAD_LEFT);
@@ -425,24 +559,44 @@ $statusLabels = [
 ];
 
 /* ================== DROPDOWNS ================== */
-$categoriesArr = $conn->query("SELECT id, category_name FROM categories ORDER BY category_name")->fetch_all(MYSQLI_ASSOC);
-$brandsArr = $conn->query("SELECT id, brand_name FROM brands ORDER BY brand_name")->fetch_all(MYSQLI_ASSOC);
-$departmentsArr = $conn->query("SELECT id, department_name FROM departments ORDER BY department_name")->fetch_all(MYSQLI_ASSOC);
-$locationsArr = $conn->query("SELECT id, location_name FROM locations ORDER BY location_name")->fetch_all(MYSQLI_ASSOC);
+$categoriesArr = [];
+$categoriesResult = mysqli_query($conn, "SELECT id, category_name FROM categories ORDER BY category_name");
+if ($categoriesResult) {
+    $categoriesArr = mysqli_fetch_all($categoriesResult, MYSQLI_ASSOC);
+}
+
+$brandsArr = [];
+$brandsResult = mysqli_query($conn, "SELECT id, brand_name FROM brands ORDER BY brand_name");
+if ($brandsResult) {
+    $brandsArr = mysqli_fetch_all($brandsResult, MYSQLI_ASSOC);
+}
+
+$departmentsArr = [];
+$departmentsResult = mysqli_query($conn, "SELECT id, department_name FROM departments ORDER BY department_name");
+if ($departmentsResult) {
+    $departmentsArr = mysqli_fetch_all($departmentsResult, MYSQLI_ASSOC);
+}
+
+$locationsArr = [];
+$locationsResult = mysqli_query($conn, "SELECT id, location_name FROM locations ORDER BY location_name");
+if ($locationsResult) {
+    $locationsArr = mysqli_fetch_all($locationsResult, MYSQLI_ASSOC);
+}
 
 /* ================== FETCH DISTINCT STATUSES ================== */
 $statuses = [];
-$statusQuery = $conn->query("SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
-if ($statusQuery && $statusQuery->num_rows > 0) {
-    while ($row = $statusQuery->fetch_assoc()) {
+$statusQuery = mysqli_query($conn, "SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
+if ($statusQuery && mysqli_num_rows($statusQuery) > 0) {
+    while ($row = mysqli_fetch_assoc($statusQuery)) {
         if (in_array($row['status'], $allowedStatuses)) {
             $statuses[] = $row['status'];
         }
     }
 }
 // If table empty, fallback to allowed statuses
-if (empty($statuses))
+if (empty($statuses)) {
     $statuses = $allowedStatuses;
+}
 
 /* ================== LIST INVENTORY WITH JOIN FOR ASSIGNMENTS ================== */
 $where = [];
@@ -492,6 +646,12 @@ if (!empty($_GET['category'])) {
     $paramTypes .= 'i';
 }
 
+if (!empty($_GET['location'])) {
+    $where[] = "i.location_id = ?";
+    $params[] = (int) $_GET['location'];
+    $paramTypes .= 'i';
+}
+
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 $orderBy = 'i.id';
 $orderDir = (($_GET['sort'] ?? '') === 'asc') ? 'ASC' : 'DESC';
@@ -506,7 +666,7 @@ $page = max($page, 1);
 $offset = ($page - 1) * $limit;
 
 /* ================== COUNT TOTAL RECORDS ================== */
-$countQuery = $conn->prepare("
+$countQuery = mysqli_prepare($conn, "
     SELECT COUNT(*) as total
     FROM inventory_items i
     LEFT JOIN categories c ON i.category_id = c.id
@@ -517,11 +677,12 @@ $countQuery = $conn->prepare("
 ");
 
 if ($params) {
-    $countQuery->bind_param($paramTypes, ...$params);
+    mysqli_stmt_bind_param($countQuery, $paramTypes, ...$params);
 }
-$countQuery->execute();
-$countResult = $countQuery->get_result();
-$totalRecords = $countResult->fetch_assoc()['total'] ?? 0;
+mysqli_stmt_execute($countQuery);
+$countResult = mysqli_stmt_get_result($countQuery);
+$totalRecords = $countResult ? mysqli_fetch_assoc($countResult)['total'] ?? 0 : 0;
+mysqli_stmt_close($countQuery);
 $totalPages = ceil($totalRecords / $limit);
 
 /* ================== FETCH PAGINATED INVENTORY WITH ASSIGNMENTS ================== */
@@ -558,12 +719,12 @@ $params[] = $limit;
 $params[] = $offset;
 $paramTypes .= "ii";
 
-$listQuery = $conn->prepare($sql);
+$listQuery = mysqli_prepare($conn, $sql);
 if ($params) {
-    $listQuery->bind_param($paramTypes, ...$params);
+    mysqli_stmt_bind_param($listQuery, $paramTypes, ...$params);
 }
-$listQuery->execute();
-$list = $listQuery->get_result();
+mysqli_stmt_execute($listQuery);
+$list = mysqli_stmt_get_result($listQuery);
 
 /* ================== ACTIVE FILTER TAGS ================== */
 $activeFilters = [];
@@ -643,6 +804,146 @@ if (!empty($_GET['location'])) {
             animation: slideDown 0.3s ease-out;
         }
 
+        /* Improved Table Styling */
+        .table-container {
+            width: 100%;
+            overflow: visible;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .data-table thead th {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+            padding: 1rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #4b5563;
+            text-align: left;
+            border-bottom: 2px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        .data-table tbody tr {
+            transition: all 0.15s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        .data-table tbody td {
+            padding: 1rem 1rem;
+            font-size: 0.875rem;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .compact-column {
+            max-width: 120px;
+            min-width: 120px;
+        }
+
+        .compact-column-sm {
+            max-width: 100px;
+            min-width: 100px;
+        }
+
+        .compact-column-xs {
+            max-width: 90px;
+            min-width: 90px;
+        }
+
+        .actions-column {
+            max-width: 140px;
+            min-width: 140px;
+            white-space: nowrap;
+        }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
+        }
+
+        .text-ellipsis {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+            border: 1px solid;
+            white-space: nowrap;
+        }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .asset-tag-badge {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
+        }
+
+        .search-glow:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
         .filter-tag {
             transition: all 0.2s ease;
         }
@@ -652,10 +953,6 @@ if (!empty($_GET['location'])) {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .table-row:hover {
-            background: linear-gradient(to right, #f8fafc, #f1f5f9);
-        }
-
         .stat-card {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
@@ -663,10 +960,6 @@ if (!empty($_GET['location'])) {
         .stat-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-        }
-
-        .search-glow:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
     </style>
 </head>
@@ -686,6 +979,51 @@ if (!empty($_GET['location'])) {
                     <i class="fa fa-plus text-xs mr-1"></i> Add Item
                 </button>
             </div>
+
+            <!-- Display Success/Error Messages -->
+            <?php if (isset($_SESSION['success_message'])): ?>
+                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg animate-slide-down">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-check-circle text-green-500"></i>
+                        <span><?= htmlspecialchars($_SESSION['success_message']) ?></span>
+                    </div>
+                    <button onclick="this.parentElement.remove()" class="float-right text-green-700 hover:text-green-900">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <?php unset($_SESSION['success_message']); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['error_message'])): ?>
+                <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg animate-slide-down">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-exclamation-circle text-red-500"></i>
+                        <span><?= htmlspecialchars($_SESSION['error_message']) ?></span>
+                    </div>
+                    <button onclick="this.parentElement.remove()" class="float-right text-red-700 hover:text-red-900">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <?php unset($_SESSION['error_message']); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['form_errors']) && !empty($_SESSION['form_errors'])): ?>
+                <div class="mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg animate-slide-down">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                        <span class="font-medium">Please fix the following errors:</span>
+                    </div>
+                    <ul class="list-disc list-inside ml-4">
+                        <?php foreach ($_SESSION['form_errors'] as $error): ?>
+                            <li><?= htmlspecialchars($error) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <button onclick="this.parentElement.remove()" class="float-right text-yellow-700 hover:text-yellow-900">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <?php unset($_SESSION['form_errors']); ?>
+                </div>
+            <?php endif; ?>
 
             <!-- Filters and Search -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -769,20 +1107,20 @@ if (!empty($_GET['location'])) {
 
             <!-- ================= TABLE ================= -->
             <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table id="inventoryTable" class="w-full">
+                <div class="table-container">
+                    <table class="data-table">
                         <!-- Table Header -->
-                        <thead class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
-                            <tr class="text-gray-700">
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Asset</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Type</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Brand</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Model</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">User</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Device Location</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Status</th>
-                                <th class="p-4 text-left text-sm font-semibold uppercase">Category</th>
-                                <th class="p-4 text-center text-sm font-semibold uppercase">Actions</th>
+                        <thead>
+                            <tr>
+                                <th class="compact-column-xs">Asset</th>
+                                <th class="compact-column-sm">Type</th>
+                                <th class="compact-column-sm">Brand</th>
+                                <th class="compact-column-sm">Model</th>
+                                <th class="compact-column">User</th>
+                                <th class="compact-column-sm">Location</th>
+                                <th class="compact-column-xs">Status</th>
+                                <th class="compact-column-sm">Category</th>
+                                <th class="actions-column">Actions</th>
                             </tr>
                         </thead>
 
@@ -808,136 +1146,170 @@ if (!empty($_GET['location'])) {
                             ];
                             ?>
 
-                            <?php while ($row = $list->fetch_assoc()): ?>
-                                <?php
-                                $fullName = '';
-                                if (!empty($row['firstname']) && !empty($row['lastname'])) {
-                                    $fullName = $row['firstname'] . ' ' . $row['lastname'];
-                                }
-                                ?>
-                                <tr class="hover:bg-gray-50 transition">
-                                    <!-- ASSET TAG -->
-                                    <td class="p-4" data-key="">
-                                        <span class="font-bold text-blue-600 text-sm">
-                                            <?= htmlspecialchars($row['asset_tag']) ?>
-                                        </span>
-                                    </td>
-
-                                    <!-- TYPE -->
-                                    <td class="p-4 text-gray-700 text-sm" data-key="device_type">
-                                        <?= htmlspecialchars($row['device_type']) ?>
-                                    </td>
-
-                                    <!-- BRAND -->
-                                    <td class="p-4 text-gray-700 text-sm" data-key="brand_name">
-                                        <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
-                                    </td>
-
-                                    <!-- MODEL -->
-                                    <td class="p-4 text-gray-700 text-sm" data-key="model">
-                                        <?= htmlspecialchars($row['model']) ?>
-                                    </td>
-
-                                    <!-- USER -->
-                                    <td class="p-4" data-key="assigned_user">
-                                        <div class="flex items-center gap-2">
-                                            <?php if (!empty($fullName)): ?>
-                                                <div
-                                                    class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold">
-                                                    <?= strtoupper(substr($fullName, 0, 1)) ?>
-                                                </div>
-                                                <div>
-                                                    <span class="text-gray-700 text-sm font-medium">
-                                                        <?= htmlspecialchars($fullName) ?>
-                                                    </span>
-                                                    <?php if (!empty($row['assigned_at'])): ?>
-                                                        <p class="text-xs text-gray-500">
-                                                            Since <?= date('M d, Y', strtotime($row['assigned_at'])) ?>
-                                                        </p>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php else: ?>
-                                                <div
-                                                    class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs">
-                                                    <i class="fas fa-user-slash"></i>
-                                                </div>
-                                                <span class="text-gray-500 text-sm">Unassigned</span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-
-                                    <!-- LOCATION -->
-                                    <td class="p-4 text-gray-600 text-sm" data-key="location_name">
-                                        <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
-                                        <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
-                                    </td>
-
-                                    <!-- STATUS -->
-                                    <td class="p-4">
-                                        <?php
-                                        $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
-                                        ?>
-                                        <span
-                                            class="px-3 py-1 text-xs font-semibold rounded-full border <?= $statusClass ?>">
-                                            <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
-                                        </span>
-                                    </td>
-
-                                    <!-- CATEGORY -->
-                                    <td class="p-4 text-gray-600 text-sm" data-key="category_name">
-                                        <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
-                                    </td>
-
-                                    <!-- ACTIONS -->
-                                    <td class="p-4">
-                                        <div class="flex justify-center gap-2">
-                                            <!-- VIEW -->
-                                            <button
-                                                onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
-                                                class="w-9 h-9 flex items-center justify-center text-green-600 hover:bg-green-50 rounded-lg"
-                                                title="View">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <!-- EDIT -->
-                                            <button onclick="openModal('editModal<?= $row['id'] ?>')"
-                                                class="w-9 h-9 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-lg"
-                                                title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <!-- ASSIGN (only if not assigned and not retired) -->
-                                            <?php if (empty($fullName) && $row['status'] !== 'retired'): ?>
-                                                <button
-                                                    onclick="openAssignModal(<?= (int) $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>')"
-                                                    class="w-9 h-9 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-lg"
-                                                    title="Assign Device">
-                                                    <i class="fas fa-user-plus"></i>
-                                                </button>
-                                            <?php endif; ?>
-                                            <!-- RESIGN/RETRIEVE (only if assigned and not retired) -->
-                                            <?php if (!empty($fullName) && $row['status'] !== 'retired'): ?>
-                                                <button
-                                                    onclick="openResignModal(<?= (int) $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')"
-                                                    class="w-9 h-9 flex items-center justify-center text-amber-600 hover:bg-amber-50 rounded-lg"
-                                                    title="Resign/Retrieve Device">
-                                                    <i class="fas fa-user-minus"></i>
-                                                </button>
-                                            <?php endif; ?>
-                                            <!-- RETIRE -->
-                                            <button onclick="openRetireModal(<?= (int) $row['id'] ?>)"
-                                                class="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 rounded-lg"
-                                                title="Retire">
-                                                <i class="fas fa-archive"></i>
-                                            </button>
-                                            <!-- DELETE -->
-                                            <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
-                                                class="w-9 h-9 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg"
-                                                title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                            <?php if (!$list || mysqli_num_rows($list) === 0): ?>
+                                <tr>
+                                    <td colspan="9" class="py-12 text-center">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div
+                                                class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+                                                <i class="fas fa-search text-4xl text-gray-400"></i>
+                                            </div>
+                                            <p class="text-gray-400 font-medium">No inventory items found</p>
+                                            <p class="text-xs text-gray-400">Try different search criteria or add new items
+                                            </p>
                                         </div>
                                     </td>
                                 </tr>
-                            <?php endwhile; ?>
+                            <?php else: ?>
+                                <?php while ($row = mysqli_fetch_assoc($list)): ?>
+                                    <?php
+                                    $fullName = '';
+                                    if (!empty($row['firstname']) && !empty($row['lastname'])) {
+                                        $fullName = $row['firstname'] . ' ' . $row['lastname'];
+                                    }
+                                    ?>
+                                    <tr>
+                                        <!-- ASSET TAG -->
+                                        <td>
+                                            <span class="asset-tag-badge"
+                                                title="Asset Tag: <?= htmlspecialchars($row['asset_tag']) ?>">
+                                                <?= htmlspecialchars($row['asset_tag']) ?>
+                                            </span>
+                                        </td>
+
+                                        <!-- TYPE -->
+                                        <td>
+                                            <div class="text-gray-700 text-sm text-ellipsis"
+                                                title="<?= htmlspecialchars($row['device_type']) ?>">
+                                                <?= htmlspecialchars($row['device_type']) ?>
+                                            </div>
+                                        </td>
+
+                                        <!-- BRAND -->
+                                        <td>
+                                            <div class="text-gray-700 text-sm text-ellipsis"
+                                                title="<?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>">
+                                                <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
+                                            </div>
+                                        </td>
+
+                                        <!-- MODEL -->
+                                        <td>
+                                            <div class="text-gray-700 text-sm text-ellipsis"
+                                                title="<?= htmlspecialchars($row['model']) ?>">
+                                                <?= htmlspecialchars($row['model']) ?>
+                                            </div>
+                                        </td>
+
+                                        <!-- USER -->
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                <?php if (!empty($fullName)): ?>
+                                                    <div class="user-avatar" title="<?= htmlspecialchars($fullName) ?>">
+                                                        <?= strtoupper(substr($fullName, 0, 1)) ?>
+                                                    </div>
+                                                    <div class="min-w-0">
+                                                        <p class="text-gray-700 text-sm font-medium text-ellipsis"
+                                                            title="<?= htmlspecialchars($fullName) ?>">
+                                                            <?= htmlspecialchars($fullName) ?>
+                                                        </p>
+                                                        <?php if (!empty($row['assigned_at'])): ?>
+                                                            <p class="text-xs text-gray-500">
+                                                                <?= date('M d', strtotime($row['assigned_at'])) ?>
+                                                            </p>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="user-avatar bg-blue-400 text-gray-500">
+                                                        <i class="fas fa-user-slash text-white text-xs"></i>
+                                                    </div>
+                                                    <span class="text-gray-500 text-sm">Unassigned</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+
+                                        <!-- LOCATION -->
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                <i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>
+                                                <span class="text-gray-600 text-sm text-ellipsis"
+                                                    title="<?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>">
+                                                    <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <!-- STATUS -->
+                                        <td>
+                                            <?php
+                                            $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+                                            ?>
+                                            <span class="status-badge <?= $statusClass ?>"
+                                                title="Status: <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>">
+                                                <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
+                                            </span>
+                                        </td>
+
+                                        <!-- CATEGORY -->
+                                        <td>
+                                            <div class="text-gray-600 text-sm text-ellipsis"
+                                                title="<?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>">
+                                                <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
+                                            </div>
+                                        </td>
+
+                                        <!-- ACTIONS -->
+                                        <td>
+                                            <div class="flex gap-1">
+                                                <!-- VIEW -->
+                                                <button
+                                                    onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
+                                                    class="action-btn bg-blue-500 text-white hover:bg-blue-600"
+                                                    title="View Details">
+                                                    <i class="fas fa-eye text-xs"></i>
+                                                </button>
+                                                <!-- EDIT -->
+                                                <button onclick="openModal('editModal<?= $row['id'] ?>')"
+                                                    class="action-btn bg-green-500 text-white hover:bg-green-600"
+                                                    title="Edit Device">
+                                                    <i class="fas fa-edit text-xs"></i>
+                                                </button>
+                                                <!-- ASSIGN (only if not assigned and not retired) -->
+                                                <?php if (empty($fullName) && $row['status'] !== 'retired'): ?>
+                                                    <button
+                                                        onclick="openAssignModal(<?= (int) $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>')"
+                                                        class="action-btn bg-indigo-500 text-white hover:bg-indigo-600"
+                                                        title="Assign Device">
+                                                        <i class="fas fa-user-plus text-xs"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                                <!-- RESIGN/RETRIEVE (only if assigned and not retired) -->
+                                                <?php if (!empty($fullName) && $row['status'] !== 'retired'): ?>
+                                                    <button
+                                                        onclick="openResignModal(<?= (int) $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')"
+                                                        class="action-btn bg-amber-500 text-white hover:bg-amber-600"
+                                                        title="Resign/Retrieve Device">
+                                                        <i class="fas fa-user-minus text-xs"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                                <!-- RETIRE -->
+                                                <button onclick="openRetireModal(<?= (int) $row['id'] ?>)"
+                                                    class="action-btn bg-gray-500 text-white hover:bg-gray-600"
+                                                    title="Retire Device">
+                                                    <i class="fas fa-archive text-xs"></i>
+                                                </button>
+                                                <!-- DELETE -->
+                                                <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
+                                                    class="action-btn bg-red-500 text-white hover:bg-red-600"
+                                                    title="Delete Device">
+                                                    <i class="fas fa-trash text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endwhile; ?>
+                                <?php mysqli_stmt_close($listQuery); ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
@@ -1052,234 +1424,264 @@ if (!empty($_GET['location'])) {
 
             <!-- ================= EDIT MODALS ================= -->
             <?php
-            // Reset pointer to beginning of results
-            $list->data_seek(0);
-            while ($row = $list->fetch_assoc()):
-                // Get current assignment for this item
-                $assignStmt = $conn->prepare("
-                    SELECT dua.*, u.firstname, u.lastname 
-                    FROM device_user_assignments dua
-                    JOIN users u ON dua.user_id = u.id
-                    WHERE dua.inventory_id = ? AND dua.status = 'assigned'
-                    ORDER BY dua.assigned_at DESC 
-                    LIMIT 1
-                ");
-                $assignStmt->bind_param("i", $row['id']);
-                $assignStmt->execute();
-                $itemAssignment = $assignStmt->get_result()->fetch_assoc();
-                $assignStmt->close();
+            if ($list && mysqli_num_rows($list) > 0) {
 
-                $currentUserId = $itemAssignment['user_id'] ?? '';
-                ?>
-                <div id="editModal<?= $row['id'] ?>"
-                    class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
-                    onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
+                mysqli_data_seek($list, 0); // Reset pointer
+            
+                while ($row = mysqli_fetch_assoc($list)) {
 
-                    <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
-                        onclick="event.stopPropagation()">
+                    // Fetch assignment for this device
+                    $assignStmt = $conn->prepare("
+            SELECT dua.*, u.firstname, u.lastname
+            FROM device_user_assignments dua
+            JOIN users u ON dua.user_id = u.id
+            WHERE dua.inventory_id = ? AND dua.status = 'assigned'
+            ORDER BY dua.assigned_at DESC
+            LIMIT 1
+        ");
+                    $assignStmt->bind_param("i", $row['id']);
+                    $assignStmt->execute();
+                    $assignment = $assignStmt->get_result()->fetch_assoc();
+                    $assignStmt->close();
 
-                        <!-- Modal Header -->
-                        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-edit text-white"></i>
+                    $currentUserId = $assignment['user_id'] ?? '';
+                    ?>
+                    <div id="editModal<?= $row['id'] ?>"
+                        class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
+                        onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
+
+                        <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden"
+                            onclick="event.stopPropagation()">
+
+                            <!-- Modal Header -->
+                            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-edit text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
+                                        <p class="text-blue-100 text-sm">
+                                            <?= htmlspecialchars($row['asset_tag']) ?>
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
-                                    <p class="text-blue-100 text-sm">
-                                        <?= htmlspecialchars($row['asset_tag'] ?? '') ?>
-                                    </p>
-                                </div>
+                                <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
+                                    class="text-white/80 hover:text-white transition">
+                                    <i class="fas fa-times text-xl"></i>
+                                </button>
                             </div>
-                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                class="text-white/80 hover:text-white transition">
-                                <i class="fas fa-times text-xl"></i>
-                            </button>
-                        </div>
 
-                        <!-- Modal Body -->
-                        <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
-                            <form method="POST" action="inventory.php" id="editForm<?= $row['id'] ?>">
-                                <input type="hidden" name="id" value="<?= $row['id'] ?>">
+                            <!-- Modal Body -->
+                            <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                                <form method="POST" action="inventory.php" id="editForm<?= $row['id'] ?>">
+                                    <input type="hidden" name="id" value="<?= $row['id'] ?>">
 
-                                <!-- Basic Information -->
-                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <i class="fas fa-info-circle text-blue-600"></i>
-                                        Basic Information
-                                    </h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="md:col-span-2">
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
-                                            <input readonly name="asset_tag"
-                                                value="<?= htmlspecialchars($row['asset_tag']) ?>"
-                                                class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Device Name
-                                                *</label>
-                                            <input name="device_type" required
-                                                value="<?= htmlspecialchars($row['device_type']) ?>"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
-                                            <select name="brand_id" required
-                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php foreach ($brandsArr as $b): ?>
-                                                    <option value="<?= $b['id'] ?>" <?= $row['brand_id'] == $b['id'] ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($b['brand_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                                            <input name="model" value="<?= htmlspecialchars($row['model']) ?>"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Serial
-                                                Number</label>
-                                            <input name="serial_number"
-                                                value="<?= htmlspecialchars($row['serial_number']) ?>"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label
-                                                class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
-                                            <input name="specifications"
-                                                value="<?= htmlspecialchars($row['specifications']) ?>"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <!-- BASIC INFO -->
+                                    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                        <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                            <i class="fas fa-info-circle text-blue-600"></i>
+                                            Basic Information
+                                        </h3>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div class="md:col-span-2">
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
+                                                <input readonly name="asset_tag"
+                                                    value="<?= htmlspecialchars($row['asset_tag']) ?>"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Device Name
+                                                    *</label>
+                                                <input name="device_type" required
+                                                    value="<?= htmlspecialchars($row['device_type']) ?>"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Brand *</label>
+                                                <select name="brand_id" required
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    <option value="">Select Brand</option>
+                                                    <?php foreach ($brandsArr as $b): ?>
+                                                        <option value="<?= $b['id'] ?>" <?= $row['brand_id'] == $b['id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($b['brand_name']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                                                <input name="model" value="<?= htmlspecialchars($row['model']) ?>"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Serial
+                                                    Number</label>
+                                                <input name="serial_number"
+                                                    value="<?= htmlspecialchars($row['serial_number']) ?>"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                                <input name="specifications"
+                                                    value="<?= htmlspecialchars($row['specifications']) ?>"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Assignment Details -->
-                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <i class="fas fa-user-tag text-blue-600"></i>
-                                        Assignment Details
-                                    </h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                            <select name="department_id"
-                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php foreach ($departmentsArr as $d): ?>
-                                                    <option value="<?= $d['id'] ?>" <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($d['department_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
+                                    <!-- ASSIGNMENT -->
+                                    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                        <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                            <i class="fas fa-user-tag text-blue-600"></i>
+                                            Assignment Details
+                                        </h3>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                                                <select name="department_id"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    <option value="">Select Department</option>
+                                                    <?php foreach ($departmentsArr as $d): ?>
+                                                        <option value="<?= $d['id'] ?>" <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($d['department_name']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
+                                                    User</label>
+                                                <select name="assigned_user"
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    <option value="">— Not Assigned —</option>
+                                                    <?php foreach ($users as $user): ?>
+                                                        <?php
+                                                        $fullName = $user['firstname'] . ' ' . $user['lastname'];
+                                                        $selected = ($currentUserId == $user['id']) ? 'selected' : '';
+                                                        ?>
+                                                        <option value="<?= $user['id'] ?>" <?= $selected ?>>
+                                                            <?= htmlspecialchars($fullName) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Device
+                                                    Location</label>
+                                                <select name="location_id" class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    <option value="">Select Location</option>
+                                                    <?php foreach ($locationsArr as $l): ?>
+                                                        <option value="<?= $l['id'] ?>" <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($l['location_name']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Assigned
-                                                User</label>
-                                            <select name="assigned_user"
-                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <option value="">— Not Assigned —</option>
-                                                <?php foreach ($users as $user): ?>
+                                    </div>
+
+                                    <!-- CONDITION & STATUS -->
+                                    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                        <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                            <i class="fas fa-cog text-blue-600"></i>
+                                            Status & Category
+                                        </h3>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Condition *</label>
+                                                <select name="condition" required
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
+                                                        <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>>
+                                                            <?= $c ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                                                <select name="status" required
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
                                                     <?php
-                                                    $fullName = $user['firstname'] . ' ' . $user['lastname'];
-                                                    $selected = $currentUserId == $user['id'] ? 'selected' : '';
-                                                    ?>
-                                                    <option value="<?= $user['id'] ?>" <?= $selected ?>>
-                                                        <?= htmlspecialchars($fullName) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div class="md:col-span-2">
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Device
-                                                Location</label>
-                                            <select name="location_id" class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php foreach ($locationsArr as $l): ?>
-                                                    <option value="<?= $l['id'] ?>" <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($l['location_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
+                                                    $allowedStatuses = [
+                                                        'active' => 'Active',
+                                                        'in_storage' => 'In Storage',
+                                                        'in_use' => 'In Use',
+                                                        'repairing' => 'Repairing',
+                                                        'faulty' => 'Faulty',
+                                                        'retired' => 'Retired'
+                                                    ];
+                                                    foreach ($allowedStatuses as $value => $label):
+                                                        ?>
+                                                        <option value="<?= $value ?>" <?= $row['status'] === $value ? 'selected' : '' ?>>
+                                                            <?= $label ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                                                <select name="category_id" required
+                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    <option value="">Select Category</option>
+                                                    <?php foreach ($categoriesArr as $c): ?>
+                                                        <option value="<?= $c['id'] ?>" <?= $row['category_id'] == $c['id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($c['category_name']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Status & Category -->
-                                <div class="bg-gray-50 rounded-xl p-4 mb-6">
-                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <i class="fas fa-cog text-blue-600"></i>
-                                        Status & Category
-                                    </h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
-                                            <select name="condition" class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
-                                                    <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>>
-                                                        <?= $c ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                                            <select name="status" class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php
-                                                $allowedStatuses = [
-                                                    'active' => 'Active',
-                                                    'in_storage' => 'In Storage',
-                                                    'in_use' => 'In Use',
-                                                    'repairing' => 'Repairing',
-                                                    'faulty' => 'Faulty',
-                                                    'retired' => 'Retired'
-                                                ];
-                                                foreach ($allowedStatuses as $value => $label): ?>
-                                                    <option value="<?= $value ?>" <?= $row['status'] === $value ? 'selected' : '' ?>>
-                                                        <?= $label ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-                                            <select name="category_id" required
-                                                class="w-full border border-gray-300 p-3 rounded-lg">
-                                                <?php foreach ($categoriesArr as $c): ?>
-                                                    <option value="<?= $c['id'] ?>" <?= $row['category_id'] == $c['id'] ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($c['category_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
+                                    <!-- REMARKS -->
+                                    <div class="bg-gray-50 rounded-xl p-4">
+                                        <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                            <i class="fas fa-sticky-note text-blue-600"></i>
+                                            Additional Notes
+                                        </h3>
+                                        <textarea name="remarks" rows="4"
+                                            class="w-full border border-gray-300 p-3 rounded-lg"><?= htmlspecialchars($row['remarks']) ?></textarea>
                                     </div>
-                                </div>
 
-                                <!-- Additional Notes -->
-                                <div class="bg-gray-50 rounded-xl p-4">
-                                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                        <i class="fas fa-sticky-note text-blue-600"></i>
-                                        Additional Notes
-                                    </h3>
-                                    <textarea name="remarks" rows="4"
-                                        class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500"><?= htmlspecialchars($row['remarks']) ?></textarea>
-                                </div>
-                            </form>
-                        </div>
+                                </form>
+                            </div>
 
-                        <!-- Modal Footer -->
-                        <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                            <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium">
-                                Cancel
-                            </button>
-                            <button type="submit" form="editForm<?= $row['id'] ?>" name="update_inventory"
-                                class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                                Save Changes
-                            </button>
+                            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                                <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
+                                    class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100">
+                                    Cancel
+                                </button>
+                                <button type="submit" form="editForm<?= $row['id'] ?>" name="update_inventory"
+                                    class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    Save Changes
+                                </button>
+                            </div>
+
                         </div>
                     </div>
-                </div>
-            <?php endwhile; ?>
+
+                    <?php
+                } // END WHILE LOOP
+            } // END IF CHECK
+            ?>
+
 
             <!-- ================= ADD MODAL ================= -->
             <div id="addModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4"
@@ -1427,6 +1829,7 @@ if (!empty($_GET['location'])) {
                                                 class="text-red-500">*</span></label>
                                         <select name="condition" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Condition</option>
                                             <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
                                                 <option value="<?= $c ?>" <?= (isset($item['condition']) && $item['condition'] == $c) ? 'selected' : '' ?>><?= $c ?></option>
                                             <?php endforeach; ?>
@@ -1437,6 +1840,7 @@ if (!empty($_GET['location'])) {
                                                 class="text-red-500">*</span></label>
                                         <select name="status" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Status</option>
                                             <option value="active" <?= (isset($item['status']) && $item['status'] == 'active') ? 'selected' : '' ?>>Active</option>
                                             <option value="in_storage" <?= (isset($item['status']) && $item['status'] == 'in_storage') ? 'selected' : '' ?>>In Storage</option>
                                             <option value="in_use" <?= (isset($item['status']) && $item['status'] == 'in_use') ? 'selected' : '' ?>>In Use</option>
@@ -1896,14 +2300,14 @@ if (!empty($_GET['location'])) {
         // ==================== SEARCH FUNCTION ====================
         function searchTable() {
             const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
-            const rows = document.querySelectorAll("#inventoryTable tbody tr");
+            const rows = document.querySelectorAll("#inventoryTableBody tr");
 
             rows.forEach(row => {
-                const assetTag = row.querySelector('[data-key="asset_tag"]')?.textContent.toLowerCase() || '';
-                const deviceType = row.querySelector('[data-key="device_type"]')?.textContent.toLowerCase() || '';
-                const brandName = row.querySelector('[data-key="brand_name"]')?.textContent.toLowerCase() || '';
-                const model = row.querySelector('[data-key="model"]')?.textContent.toLowerCase() || '';
-                const assignedUser = row.querySelector('[data-key="assigned_user"]')?.textContent.toLowerCase() || '';
+                const assetTag = row.querySelector('.asset-tag-badge')?.textContent.toLowerCase() || '';
+                const deviceType = row.querySelector('td:nth-child(2)')?.textContent.toLowerCase() || '';
+                const brandName = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
+                const model = row.querySelector('td:nth-child(4)')?.textContent.toLowerCase() || '';
+                const assignedUser = row.querySelector('td:nth-child(5)')?.textContent.toLowerCase() || '';
 
                 const searchableText = `${assetTag} ${deviceType} ${brandName} ${model} ${assignedUser}`;
                 row.style.display = searchableText.includes(searchTerm) ? "" : "none";
@@ -1917,6 +2321,26 @@ if (!empty($_GET['location'])) {
             url.searchParams.set('page', 1);
             window.location.href = url.toString();
         }
+
+        // ==================== RESPONSIVE TABLE ====================
+        function adjustTableLayout() {
+            const container = document.querySelector('.table-container');
+            const screenWidth = window.innerWidth;
+
+            if (screenWidth < 768) {
+                container.style.overflowX = 'auto';
+                container.classList.remove('no-scrollbar');
+            } else {
+                container.style.overflowX = 'visible';
+                container.classList.add('no-scrollbar');
+            }
+        }
+
+        // Initial adjustment
+        adjustTableLayout();
+
+        // Adjust on resize
+        window.addEventListener('resize', adjustTableLayout);
     </script>
 </body>
 

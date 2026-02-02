@@ -435,16 +435,16 @@ $stmt->close();
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-8 py-6">
                                         <div class="flex items-center gap-4">
-                                            <!--<div
+                                            <div
                                                 class="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-lg">
-                                                <?/*= strtoupper(substr($user['firstname'], 0, 2)) */ ?>
-                                            </div>-->
+                                                <?= strtoupper(substr($user['firstname'], 0, 2)) ?>
+                                            </div>
                                             <div>
                                                 <p class="text-gray-900 text-base">
-                                                    <?= htmlspecialchars($user['firstname']) ?>
+                                                    <?= htmlspecialchars($user['lastname']) ?>
                                                 </p>
                                                 <p class="text-base text-gray-500">
-                                                    <?= htmlspecialchars($user['lastname']) ?>
+                                                    <?= htmlspecialchars($user['firstname']) ?>
                                                 </p>
                                             </div>
                                         </div>

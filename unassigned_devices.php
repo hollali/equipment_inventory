@@ -283,12 +283,13 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
         }
 
         .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
             font-weight: 600;
             display: inline-block;
             border: 1px solid;
+            white-space: nowrap;
         }
 
         .condition-badge {
@@ -298,6 +299,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             font-weight: 500;
             display: inline-block;
             border: 1px solid;
+            white-space: nowrap;
         }
 
         .select2-container--default .select2-selection--single {
@@ -324,52 +326,88 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
         }
 
-        /* Table styling */
-        .table-header {
-            background-color: #f8fafc;
-            border-bottom: 2px solid #e2e8f0;
+        /* Improved Table Styling */
+        .table-container {
+            width: 100%;
+            overflow: visible;
         }
 
-        .table-row-hover:hover {
-            background-color: #f8fafc;
-            transform: scale(1.002);
-            transition: all 0.2s ease;
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
         }
 
-        .table-cell {
-            padding: 1rem;
-            vertical-align: middle;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .action-btn {
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 40px;
-        }
-
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .asset-tag {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        .data-table thead th {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+            padding: 1rem 1rem;
+            font-size: 0.75rem;
             font-weight: 600;
-            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #4b5563;
+            text-align: left;
+            border-bottom: 2px solid #e5e7eb;
+            white-space: nowrap;
         }
 
-        .serial-number {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 11px;
-            color: #64748b;
+        .data-table tbody tr {
+            transition: all 0.15s ease;
         }
 
-        /* Modal centering */
+        .data-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        .data-table tbody td {
+            padding: 1rem 1rem;
+            font-size: 0.875rem;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .compact-column {
+            max-width: 120px;
+            min-width: 120px;
+        }
+
+        .compact-column-sm {
+            max-width: 100px;
+            min-width: 100px;
+        }
+
+        .actions-column {
+            max-width: 140px;
+            min-width: 140px;
+            white-space: nowrap;
+        }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
+        }
+
+        .text-ellipsis {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .modal-container {
             position: fixed;
             inset: 0;
@@ -396,6 +434,42 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             max-height: 90vh;
             overflow: hidden;
             animation: fadeInUp 0.3s ease-out;
+        }
+
+        .device-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .asset-tag-badge {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
         }
     </style>
 </head>
@@ -516,8 +590,9 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <i class="fas fa-filter text-blue-500"></i>
                         Filter Devices
                     </h3>
-                    <button type="button" onclick="clearFilters()" class="text-sm text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times-circle mr-1"></i>Clear Filters
+                    <button type="button" onclick="clearFilters()"
+                        class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                        <i class="fas fa-times-circle"></i> Clear Filters
                     </button>
                 </div>
 
@@ -610,14 +685,14 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <i class="fas fa-filter"></i> Apply Filters
                     </button>
                     <button type="button" onclick="exportUnassigned()"
-                        class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
+                        class="px-6 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium">
                         <i class="fas fa-download"></i> Export
                     </button>
                 </div>
             </div>
         </form>
 
-        <!-- View Toggle Buttons -->
+        <!-- View Toggle and Info -->
         <div class="flex justify-between items-center mb-4">
             <div>
                 <h2 class="text-lg font-semibold text-gray-800">Available Devices List</h2>
@@ -628,10 +703,10 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                 </p>
             </div>
             <div class="flex gap-2">
-                <button id="tableViewBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                <button id="tableViewBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2">
                     <i class="fas fa-table"></i> Table View
                 </button>
-                <button id="cardViewBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">
+                <button id="cardViewBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2">
                     <i class="fas fa-th-large"></i> Card View
                 </button>
             </div>
@@ -652,65 +727,29 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <div class="table-container">
+                <table class="data-table">
                     <thead>
-                        <tr class="table-header">
-                            <th
-                                class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-laptop text-gray-500"></i>
-                                    Device Info
-                                </div>
-                            </th>
-                            <th
-                                class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-tag text-gray-500"></i>
-                                    Asset Tag
-                                </div>
-                            </th>
-                            <th
-                                class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-building text-gray-500"></i>
-                                    Location
-                                </div>
-                            </th>
-                            <th
-                                class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-battery-half text-gray-500"></i>
-                                    Status
-                                </div>
-                            </th>
-                            <th
-                                class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-calendar-alt text-gray-500"></i>
-                                    Last Updated
-                                </div>
-                            </th>
-                            <th
-                                class="py-4 px-6 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-cogs text-gray-500"></i>
-                                    Actions
-                                </div>
-                            </th>
+                        <tr>
+                            <th class="compact-column-sm">Device</th>
+                            <th class="compact-column">Asset Tag</th>
+                            <th class="compact-column">Location</th>
+                            <th class="compact-column-sm">Condition</th>
+                            <th class="compact-column-sm">Status</th>
+                            <th class="compact-column-sm">Last Updated</th>
+                            <th class="actions-column">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
+                    <tbody>
                         <?php if (empty($unassignedDevices)): ?>
                             <tr>
-                                <td colspan="6" class="py-12 text-center">
+                                <td colspan="7" class="py-12 text-center">
                                     <div class="flex flex-col items-center gap-3">
                                         <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
                                             <i class="fas fa-check-circle text-4xl text-green-400"></i>
                                         </div>
                                         <p class="text-gray-400 font-medium">All devices are assigned!</p>
-                                        <p class="text-xs text-gray-400">No available devices found with current filters
-                                        </p>
+                                        <p class="text-xs text-gray-400">No available devices found with current filters</p>
                                     </div>
                                 </td>
                             </tr>
@@ -721,12 +760,11 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                 $statusDisplay = getStatusDisplay($device['status'] ?? '', $statusColors, $statusLabels);
                                 $conditionDisplay = getConditionDisplay($device['condition'] ?? '', $conditionColors, $conditionLabels);
                                 ?>
-                                <tr class="table-row-hover transition-all duration-200">
+                                <tr>
                                     <!-- Device Info -->
-                                    <td class="table-cell">
+                                    <td>
                                         <div class="flex items-center gap-3">
-                                            <div
-                                                class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                                            <div class="device-icon bg-gradient-to-br from-blue-100 to-blue-200">
                                                 <?php
                                                 $deviceType = strtolower($device['device_type'] ?? 'laptop');
                                                 if (strpos($deviceType, 'phone') !== false || strpos($deviceType, 'mobile') !== false): ?>
@@ -743,67 +781,73 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                                     <i class="fas fa-laptop text-blue-600"></i>
                                                 <?php endif; ?>
                                             </div>
-                                            <div>
-                                                <p class="font-semibold text-gray-900">
+                                            <div class="min-w-0">
+                                                <p class="font-semibold text-gray-900 text-sm text-ellipsis"
+                                                    title="<?= htmlspecialchars($device['brand_name'] ?? 'Unknown') . ' ' . htmlspecialchars($device['model'] ?? '') ?>">
                                                     <?= htmlspecialchars($device['brand_name'] ?? 'Unknown') ?>
-                                                    <?= !empty($device['model']) ? ' ' . htmlspecialchars($device['model']) : '' ?>
+                                                    <?php if (!empty($device['model'])): ?>
+                                                        <span class="text-gray-600"><?= htmlspecialchars($device['model']) ?></span>
+                                                    <?php endif; ?>
                                                 </p>
-                                                <p class="text-xs text-gray-500 mt-1">
+                                                <p class="text-xs text-gray-500 mt-1 text-ellipsis"
+                                                    title="<?= htmlspecialchars($device['device_type'] ?? 'Device') . (!empty($device['category_name']) ? ' • ' . htmlspecialchars($device['category_name']) : '') ?>">
                                                     <?= htmlspecialchars($device['device_type'] ?? 'Device') ?>
                                                     <?php if (!empty($device['category_name'])): ?>
                                                         • <?= htmlspecialchars($device['category_name']) ?>
                                                     <?php endif; ?>
                                                 </p>
-                                                <?php if (!empty($device['serial_number'])): ?>
-                                                    <p class="serial-number mt-1">SN:
-                                                        <?= htmlspecialchars($device['serial_number']) ?>
-                                                    </p>
-                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </td>
 
                                     <!-- Asset Tag -->
-                                    <td class="table-cell">
-                                        <span
-                                            class="asset-tag text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                                    <td>
+                                        <span class="asset-tag-badge"
+                                            title="Asset Tag: <?= htmlspecialchars($device['asset_tag'] ?? 'N/A') ?>">
                                             <?= htmlspecialchars($device['asset_tag'] ?? 'N/A') ?>
                                         </span>
                                     </td>
 
                                     <!-- Location -->
-                                    <td class="table-cell">
+                                    <td>
                                         <div class="space-y-1">
                                             <div class="flex items-center gap-2">
-                                                <i class="fas fa-building text-gray-400 text-sm"></i>
-                                                <span
-                                                    class="text-gray-700 font-medium"><?= htmlspecialchars($device['department_name'] ?? 'N/A') ?></span>
+                                                <i class="fas fa-building text-gray-400 text-xs"></i>
+                                                <span class="text-gray-700 text-sm text-ellipsis"
+                                                    title="<?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>">
+                                                    <?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>
+                                                </span>
                                             </div>
                                             <div class="flex items-center gap-2">
-                                                <i class="fas fa-location-dot text-gray-400 text-sm"></i>
-                                                <span
-                                                    class="text-gray-600 text-sm"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
+                                                <i class="fas fa-location-dot text-gray-400 text-xs"></i>
+                                                <span class="text-gray-600 text-xs text-ellipsis"
+                                                    title="<?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>">
+                                                    <?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>
+                                                </span>
                                             </div>
                                         </div>
+                                    </td>
+
+                                    <!-- Condition -->
+                                    <td>
+                                        <span class="condition-badge <?= $conditionDisplay['color'] ?>"
+                                            title="Condition: <?= htmlspecialchars($conditionDisplay['label']) ?>">
+                                            <?= htmlspecialchars($conditionDisplay['label']) ?>
+                                        </span>
                                     </td>
 
                                     <!-- Status -->
-                                    <td class="table-cell">
-                                        <div class="space-y-2">
-                                            <span class="condition-badge <?= $conditionDisplay['color'] ?>">
-                                                <?= htmlspecialchars($conditionDisplay['label']) ?>
-                                            </span>
-                                            <br>
-                                            <span class="status-badge <?= $statusDisplay['color'] ?>">
-                                                <?= htmlspecialchars($statusDisplay['label']) ?>
-                                            </span>
-                                        </div>
+                                    <td>
+                                        <span class="status-badge <?= $statusDisplay['color'] ?>"
+                                            title="Status: <?= htmlspecialchars($statusDisplay['label']) ?>">
+                                            <?= htmlspecialchars($statusDisplay['label']) ?>
+                                        </span>
                                     </td>
 
                                     <!-- Last Updated -->
-                                    <td class="table-cell">
+                                    <td>
                                         <div class="flex flex-col">
-                                            <span class="text-sm font-medium text-gray-700">
+                                            <span class="text-xs font-medium text-gray-700">
                                                 <?= date('M j, Y', strtotime($device['updated_at'] ?? 'now')) ?>
                                             </span>
                                             <span class="text-xs text-gray-500">
@@ -813,7 +857,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                     </td>
 
                                     <!-- Actions -->
-                                    <td class="table-cell">
+                                    <td>
                                         <div class="flex gap-2">
                                             <button
                                                 onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>, <?= htmlspecialchars(json_encode($usersArr)) ?>)"
@@ -894,7 +938,6 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             <?php else: ?>
                 <?php foreach ($unassignedDevices as $device): ?>
                     <?php
-                    // Get status and condition display
                     $statusDisplay = getStatusDisplay($device['status'] ?? '', $statusColors, $statusLabels);
                     $conditionDisplay = getConditionDisplay($device['condition'] ?? '', $conditionColors, $conditionLabels);
                     ?>
@@ -938,8 +981,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <div class="p-6">
                             <!-- Asset Tag -->
                             <div class="mb-4">
-                                <span
-                                    class="font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                                <span class="asset-tag-badge">
                                     <?= htmlspecialchars($device['asset_tag'] ?? 'N/A') ?>
                                 </span>
                             </div>
@@ -954,16 +996,6 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                 </span>
                             </div>
 
-                            <!-- Serial Number -->
-                            <?php if (!empty($device['serial_number'])): ?>
-                                <div class="mb-4">
-                                    <p class="text-xs text-gray-500">
-                                        <span class="font-medium">Serial Number:</span>
-                                        <?= htmlspecialchars($device['serial_number']) ?>
-                                    </p>
-                                </div>
-                            <?php endif; ?>
-
                             <!-- Location Info -->
                             <div class="space-y-2 mb-6">
                                 <div class="flex items-center gap-2 text-sm">
@@ -975,11 +1007,6 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                     <i class="fas fa-location-dot text-gray-400"></i>
                                     <span
                                         class="text-gray-700"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm">
-                                    <i class="fas fa-tag text-gray-400"></i>
-                                    <span
-                                        class="text-gray-700"><?= htmlspecialchars($device['category_name'] ?? 'N/A') ?></span>
                                 </div>
                             </div>
 
@@ -1158,28 +1185,67 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                 $(this).removeClass('bg-gray-200 text-gray-700').addClass('bg-blue-600 text-white');
                 $('#tableViewBtn').removeClass('bg-blue-600 text-white').addClass('bg-gray-200 text-gray-700');
             });
+
+            // Make table responsive on mobile
+            function adjustTableLayout() {
+                const table = document.querySelector('.data-table');
+                const container = document.querySelector('.table-container');
+                const screenWidth = window.innerWidth;
+
+                if (screenWidth < 768) {
+                    container.style.overflowX = 'auto';
+                    container.classList.remove('no-scrollbar');
+                } else {
+                    container.style.overflowX = 'visible';
+                    container.classList.add('no-scrollbar');
+                }
+            }
+
+            // Initial adjustment
+            adjustTableLayout();
+
+            // Adjust on resize
+            window.addEventListener('resize', adjustTableLayout);
         });
 
         // Table search functionality
         document.getElementById('searchTable').addEventListener('input', function (e) {
             const searchTerm = e.target.value.toLowerCase();
             const rows = document.querySelectorAll('#tableView tbody tr');
+            let visibleCount = 0;
 
             rows.forEach(row => {
                 const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
             });
-        });
 
-        // Card view search functionality
-        document.getElementById('searchTable').addEventListener('input', function (e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const cards = document.querySelectorAll('#cardView .device-card');
+            // Show/hide no results message
+            const tbody = document.querySelector('#tableView tbody');
+            let noResultsRow = tbody.querySelector('.no-results-row');
 
-            cards.forEach(card => {
-                const text = card.textContent.toLowerCase();
-                card.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
+            if (visibleCount === 0 && !noResultsRow) {
+                const noResultsHTML = `
+                    <tr class="no-results-row">
+                        <td colspan="7" class="py-12 text-center">
+                            <div class="flex flex-col items-center gap-3">
+                                <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+                                    <i class="fas fa-search text-4xl text-gray-400"></i>
+                                </div>
+                                <p class="text-gray-400 font-medium">No matching devices found</p>
+                                <p class="text-xs text-gray-400">Try different search terms</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.insertAdjacentHTML('beforeend', noResultsHTML);
+            } else if (visibleCount > 0 && noResultsRow) {
+                noResultsRow.remove();
+            }
         });
 
         function clearFilters() {

@@ -154,7 +154,35 @@ function active($page, $current)
                 if ($unassignedResult) {
                     $unassignedCount = $unassignedResult->fetch_assoc()['count'];
                     if ($unassignedCount > 0) {
-                        echo '<span class="badge bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
+                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
+                    }
+                }
+            }
+            ?>
+        </a>
+
+        <!-- ADDED: Device History Link -->
+        <a href="device_history.php"
+            class="nav-link with-badge flex items-center gap-3 px-4 py-3 rounded-lg <?= active('device_history.php', $current) ?>">
+            <i class="fas fa-history w-5 text-center"></i>
+            <span class="nav-text">Device History</span>
+            <?php
+            // Get devices with assignments count for badge (optional)
+            if (file_exists(__DIR__ . "/config/database.php")) {
+                require_once __DIR__ . "/config/database.php";
+                $db = new Database();
+                $conn = $db->getConnection();
+
+                // Count devices that have been assigned at least once
+                $historyQuery = "SELECT COUNT(DISTINCT dua.inventory_id) as count 
+                                 FROM device_user_assignments dua
+                                 JOIN inventory_items i ON dua.inventory_id = i.id
+                                 WHERE i.status != 'retired'";
+                $historyResult = $conn->query($historyQuery);
+                if ($historyResult) {
+                    $historyCount = $historyResult->fetch_assoc()['count'];
+                    if ($historyCount > 0) {
+                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $historyCount . '</span>';
                     }
                 }
             }
@@ -177,7 +205,7 @@ function active($page, $current)
                 if ($retiredResult) {
                     $retiredCount = $retiredResult->fetch_assoc()['count'];
                     if ($retiredCount > 0) {
-                        echo '<span class="badge bg-orange-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $retiredCount . '</span>';
+                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $retiredCount . '</span>';
                     }
                 }
             }
