@@ -51,9 +51,11 @@ if ($userResult) {
 }
 
 /* Get unassigned and stored devices count */
-$unassignedCountQuery = "SELECT COUNT(*) as count FROM inventory_items 
-                         WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
-                         AND status != 'retired'";
+// Updated query to match your database schema
+$unassignedCountQuery = "SELECT COUNT(*) as count FROM inventory_items i
+                         LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
+                         WHERE (dua.id IS NULL OR i.status = 'in_storage') 
+                         AND i.status != 'retired'";
 $unassignedCountResult = $conn->query($unassignedCountQuery);
 $unassignedCount = $unassignedCountResult->fetch_assoc()['count'];
 
@@ -62,8 +64,11 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $perPage = 15;
 $offset = ($page - 1) * $perPage;
 
-// Build WHERE clause for filters
-$whereConditions = ["(i.assigned_user IS NULL OR i.assigned_user = '' OR i.status = 'in_storage')", "i.status != 'retired'"];
+// Build WHERE clause for filters - Updated for your schema
+$whereConditions = [
+    "(dua.id IS NULL OR i.status = 'in_storage')",
+    "i.status != 'retired'"
+];
 $params = [];
 $paramTypes = "";
 
@@ -74,15 +79,15 @@ if (!empty($_GET['status'])) {
 }
 
 if (!empty($_GET['department'])) {
-    $whereConditions[] = "d.department_name = ?";
-    $params[] = $_GET['department'];
-    $paramTypes .= "s";
+    $whereConditions[] = "i.department_id = ?";
+    $params[] = intval($_GET['department']);
+    $paramTypes .= "i";
 }
 
 if (!empty($_GET['location'])) {
-    $whereConditions[] = "l.location_name = ?";
-    $params[] = $_GET['location'];
-    $paramTypes .= "s";
+    $whereConditions[] = "i.location_id = ?";
+    $params[] = intval($_GET['location']);
+    $paramTypes .= "i";
 }
 
 if (!empty($_GET['brand'])) {
@@ -105,11 +110,12 @@ if (!empty($_GET['condition'])) {
 
 $whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
 
-/* Get total count with filters */
-$countQuery = "SELECT COUNT(*) as total FROM inventory_items i 
-               LEFT JOIN departments d ON i.department_id = d.id
-               LEFT JOIN locations l ON i.location_id = l.id
+/* Get total count with filters - Updated query */
+$countQuery = "SELECT COUNT(DISTINCT i.id) as total 
+               FROM inventory_items i
+               LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
                $whereClause";
+
 $countStmt = $conn->prepare($countQuery);
 if (!empty($params)) {
     $countStmt->bind_param($paramTypes, ...$params);
@@ -119,20 +125,23 @@ $countResult = $countStmt->get_result();
 $totalUnassigned = $countResult->fetch_assoc()['total'];
 $totalPages = ceil($totalUnassigned / $perPage);
 
-/* Get unassigned and stored devices */
+/* Get unassigned and stored devices - Updated query */
 $unassignedDevices = [];
 $query = " 
-    SELECT 
+    SELECT DISTINCT
         i.*,
         b.brand_name AS brand_name,
         d.department_name AS department_name,
         l.location_name AS location_name,
-        c.category_name AS category_name
+        c.category_name AS category_name,
+        dua.user_id as assigned_user_id,
+        dua.assigned_at
     FROM inventory_items i
     LEFT JOIN brands b ON i.brand_id = b.id
     LEFT JOIN departments d ON i.department_id = d.id
     LEFT JOIN locations l ON i.location_id = l.id
     LEFT JOIN categories c ON i.category_id = c.id
+    LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
     $whereClause
     ORDER BY i.updated_at DESC
     LIMIT ? OFFSET ?
@@ -183,7 +192,7 @@ $statusColors = [
 $statusLabels = [
     'active' => 'Active',
     'in_use' => 'In Use',
-    'in_storage' => 'Store',
+    'in_storage' => 'In Storage',
     'repairing' => 'Repairing',
     'faulty' => 'Faulty',
     'retired' => 'Retired'
@@ -205,19 +214,20 @@ $conditionLabels = [
     'faulty' => 'Faulty'
 ];
 
-// Filter options for dropdowns
+// Filter options for dropdowns - Updated to match your statuses
 $statusOptions = [
-    'in_use' => 'In Use',
-    'in_storage' => 'Store',
-    'faulty' => 'Faulty'
+    'in_storage' => 'In Storage',
+    'active' => 'Active',
+    'faulty' => 'Faulty',
+    'repairing' => 'Repairing'
 ];
 
 $conditionOptions = [
-    'new' => 'New',
-    'good' => 'Good',
-    'fair' => 'Fair',
-    'poor' => 'Poor',
-    'faulty' => 'Faulty'
+    'New' => 'New',
+    'Good' => 'Good',
+    'Fair' => 'Fair',
+    'Poor' => 'Poor',
+    'Faulty' => 'Faulty'
 ];
 
 // Function to get status display
@@ -241,6 +251,91 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     $label = $conditionLabels[$condition] ?? ucwords($condition);
 
     return ['color' => $colorClass, 'label' => $label];
+}
+
+/* ================== PROCESS ASSIGNMENT ================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
+    $device_id = intval($_POST['device_id']);
+    $user_id = intval($_POST['user_id']);
+    $new_status = $_POST['new_status'] ?? 'in_use';
+    $new_condition = $_POST['new_condition'] ?? '';
+    $remarks = $_POST['assign_remarks'] ?? '';
+
+    // Start transaction
+    $conn->begin_transaction();
+
+    try {
+        // Get current assignment if any
+        $checkStmt = $conn->prepare("
+            SELECT id FROM device_user_assignments 
+            WHERE inventory_id = ? AND status = 'assigned'
+        ");
+        $checkStmt->bind_param("i", $device_id);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
+        $checkStmt->close();
+
+        if ($checkResult->num_rows > 0) {
+            // End existing assignment
+            $endStmt = $conn->prepare("
+                UPDATE device_user_assignments 
+                SET status = 'reassigned', returned_at = NOW()
+                WHERE inventory_id = ? AND status = 'assigned'
+            ");
+            $endStmt->bind_param("i", $device_id);
+            $endStmt->execute();
+            $endStmt->close();
+        }
+
+        // Create new assignment
+        $assignStmt = $conn->prepare("
+            INSERT INTO device_user_assignments (
+                inventory_id,
+                user_id,
+                assigned_at,
+                status
+            ) VALUES (?, ?, NOW(), 'assigned')
+        ");
+        $assignStmt->bind_param("ii", $device_id, $user_id);
+        $assignStmt->execute();
+        $assignStmt->close();
+
+        // Update inventory item
+        $updateStmt = $conn->prepare("
+            UPDATE inventory_items 
+            SET status = ?,
+                condition = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $updateStmt->bind_param("ssi", $new_status, $new_condition, $device_id);
+        $updateStmt->execute();
+        $updateStmt->close();
+
+        // Update remarks if provided
+        if (!empty($remarks)) {
+            $remarksStmt = $conn->prepare("
+                UPDATE inventory_items 
+                SET remarks = CONCAT(IFNULL(remarks, ''), '\nAssigned on ', NOW(), ' to user ID ', ?, ': ', ?)
+                WHERE id = ?
+            ");
+            $remarksStmt->bind_param("isi", $user_id, $remarks, $device_id);
+            $remarksStmt->execute();
+            $remarksStmt->close();
+        }
+
+        $conn->commit();
+
+        $_SESSION['success_message'] = 'Device assigned successfully!';
+        header("Location: unassigned.php?success=assigned");
+        exit;
+
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['error_message'] = 'Error assigning device: ' . $e->getMessage();
+        header("Location: unassigned.php?error=assign_failed");
+        exit;
+    }
 }
 ?>
 
@@ -389,6 +484,127 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             white-space: nowrap;
         }
 
+        /* Toast Notification Styles */
+        #toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .toast {
+            position: relative;
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateX(100%);
+            opacity: 0;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.hide {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        .toast-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border-left: 4px solid #065f46;
+        }
+
+        .toast-error {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border-left: 4px solid #7f1d1d;
+        }
+
+        .toast-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border-left: 4px solid #92400e;
+        }
+
+        .toast-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-left: 4px solid #1e40af;
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+            font-size: 0.875rem;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .toast-message {
+            opacity: 0.9;
+        }
+
+        .toast-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .toast-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.5);
+            width: 100%;
+            transform-origin: left;
+            animation: progress 5s linear forwards;
+        }
+
+        @keyframes progress {
+            from {
+                transform: scaleX(1);
+            }
+
+            to {
+                transform: scaleX(0);
+            }
+        }
+
         /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -397,9 +613,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
         /* Hide scrollbar for IE, Edge and Firefox */
         .no-scrollbar {
             -ms-overflow-style: none;
-            /* IE and Edge */
             scrollbar-width: none;
-            /* Firefox */
         }
 
         .text-ellipsis {
@@ -476,11 +690,29 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
 
 <body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
 
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
     <!-- Sidebar -->
     <?php include 'sidebar.php'; ?>
 
     <!-- Main Content -->
     <main id="mainContent" class="flex-1 p-4 md:p-8 ml-0 md:ml-64">
+
+        <!-- Display Success/Error Messages -->
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div id="success-toast" class="hidden">
+                <?= htmlspecialchars($_SESSION['success_message']) ?>
+            </div>
+            <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div id="error-toast" class="hidden">
+                <?= htmlspecialchars($_SESSION['error_message']) ?>
+            </div>
+            <?php unset($_SESSION['error_message']); ?>
+        <?php endif; ?>
 
         <!-- Header -->
         <div class="mb-8 animate-fade-in-up">
@@ -527,7 +759,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <i class="fas fa-check-circle text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-sm text-gray-500">In Store</p>
+                        <p class="text-sm text-gray-500">In Storage</p>
                         <p class="text-2xl font-bold text-gray-800">
                             <?php
                             $storeQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'in_storage' AND status != 'retired'";
@@ -546,14 +778,13 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <i class="fas fa-star text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-sm text-gray-500">New Condition</p>
+                        <p class="text-sm text-gray-500">Active Devices</p>
                         <p class="text-2xl font-bold text-gray-800">
                             <?php
-                            $newQuery = "SELECT COUNT(*) as count FROM inventory_items 
-                                         WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
-                                         AND `condition` = 'new' AND status != 'retired'";
-                            $newResult = $conn->query($newQuery);
-                            echo number_format($newResult->fetch_assoc()['count']);
+                            $activeQuery = "SELECT COUNT(*) as count FROM inventory_items 
+                                         WHERE status = 'active' AND status != 'retired'";
+                            $activeResult = $conn->query($activeQuery);
+                            echo number_format($activeResult->fetch_assoc()['count']);
                             ?>
                         </p>
                     </div>
@@ -571,8 +802,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <p class="text-2xl font-bold text-gray-800">
                             <?php
                             $faultyQuery = "SELECT COUNT(*) as count FROM inventory_items 
-                                            WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
-                                            AND status = 'faulty' AND status != 'retired'";
+                                            WHERE status = 'faulty' AND status != 'retired'";
                             $faultyResult = $conn->query($faultyQuery);
                             echo number_format($faultyResult->fetch_assoc()['count']);
                             ?>
@@ -616,8 +846,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <select id="filterDepartment" name="department" class="filter-select w-full">
                             <option value="">All Departments</option>
                             <?php foreach ($departmentsArr as $d): ?>
-                                <option value="<?= htmlspecialchars($d['department_name']) ?>"
-                                    <?= ($filterDepartment === $d['department_name']) ? 'selected' : '' ?>>
+                                <option value="<?= $d['id'] ?>" <?= ($filterDepartment == $d['id']) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($d['department_name']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -630,8 +859,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                         <select id="filterLocation" name="location" class="filter-select w-full">
                             <option value="">All Locations</option>
                             <?php foreach ($locationsArr as $l): ?>
-                                <option value="<?= htmlspecialchars($l['location_name']) ?>"
-                                    <?= ($filterLocation === $l['location_name']) ? 'selected' : '' ?>>
+                                <option value="<?= $l['id'] ?>" <?= ($filterLocation == $l['id']) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($l['location_name']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -759,8 +987,12 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                 // Get status and condition display
                                 $statusDisplay = getStatusDisplay($device['status'] ?? '', $statusColors, $statusLabels);
                                 $conditionDisplay = getConditionDisplay($device['condition'] ?? '', $conditionColors, $conditionLabels);
+
+                                // Check if device is actually assigned
+                                $isAssigned = !empty($device['assigned_user_id']);
+                                $statusClass = $isAssigned ? 'bg-gray-100' : '';
                                 ?>
-                                <tr>
+                                <tr class="<?= $statusClass ?>">
                                     <!-- Device Info -->
                                     <td>
                                         <div class="flex items-center gap-3">
@@ -796,6 +1028,13 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                                         • <?= htmlspecialchars($device['category_name']) ?>
                                                     <?php endif; ?>
                                                 </p>
+                                                <?php if ($isAssigned): ?>
+                                                    <div class="mt-1">
+                                                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                                            <i class="fas fa-user mr-1"></i>Assigned (needs update)
+                                                        </span>
+                                                    </div>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </td>
@@ -853,23 +1092,45 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                             <span class="text-xs text-gray-500">
                                                 <?= date('g:i A', strtotime($device['updated_at'] ?? 'now')) ?>
                                             </span>
+                                            <?php if (!empty($device['assigned_at'])): ?>
+                                                <span class="text-xs text-orange-600 mt-1">
+                                                    <i class="fas fa-clock"></i> Assigned:
+                                                    <?= date('M j', strtotime($device['assigned_at'])) ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
 
                                     <!-- Actions -->
                                     <td>
                                         <div class="flex gap-2">
-                                            <button
-                                                onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>, <?= htmlspecialchars(json_encode($usersArr)) ?>)"
-                                                class="action-btn bg-blue-500 text-white hover:bg-blue-600"
-                                                title="Assign Device">
-                                                <i class="fas fa-user-plus"></i>
-                                            </button>
+                                            <?php if (!$isAssigned || $device['status'] === 'in_storage'): ?>
+                                                <button onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>)"
+                                                    class="action-btn bg-blue-500 text-white hover:bg-blue-600"
+                                                    title="Assign Device">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <button
+                                                    onclick="Toast.showInfo('This device is already assigned. Use Reassign in main inventory.', 'Device Assigned')"
+                                                    class="action-btn bg-gray-300 text-gray-600 cursor-not-allowed"
+                                                    title="Already Assigned" disabled>
+                                                    <i class="fas fa-user-check"></i>
+                                                </button>
+                                            <?php endif; ?>
                                             <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
                                                 class="action-btn bg-purple-500 text-white hover:bg-purple-600"
                                                 title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </button>
+                                            <?php if ($isAssigned && $device['status'] !== 'in_storage'): ?>
+                                                <button
+                                                    onclick="Toast.showWarning('Device is assigned. Go to main inventory to reassign.', 'Device in Use')"
+                                                    class="action-btn bg-yellow-500 text-white hover:bg-yellow-600"
+                                                    title="Device is in use">
+                                                    <i class="fas fa-exclamation-triangle"></i>
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -940,6 +1201,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                     <?php
                     $statusDisplay = getStatusDisplay($device['status'] ?? '', $statusColors, $statusLabels);
                     $conditionDisplay = getConditionDisplay($device['condition'] ?? '', $conditionColors, $conditionLabels);
+                    $isAssigned = !empty($device['assigned_user_id']);
                     ?>
                     <div class="device-card glass-effect rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                         <!-- Card Header -->
@@ -972,6 +1234,13 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                         <p class="text-xs text-gray-400">
                                             <?= htmlspecialchars($device['device_type'] ?? 'N/A') ?>
                                         </p>
+                                        <?php if ($isAssigned): ?>
+                                            <div class="mt-1">
+                                                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                                    <i class="fas fa-user mr-1"></i>Assigned
+                                                </span>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -1014,16 +1283,29 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                             <div class="text-xs text-gray-500 mb-6">
                                 <i class="fas fa-clock mr-1"></i>
                                 Last updated: <?= date('M j, Y', strtotime($device['updated_at'] ?? 'now')) ?>
+                                <?php if (!empty($device['assigned_at'])): ?>
+                                    <br>
+                                    <i class="fas fa-user-clock mr-1 text-orange-500"></i>
+                                    Assigned: <?= date('M j, Y', strtotime($device['assigned_at'])) ?>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Action Buttons -->
                             <div class="flex gap-2">
-                                <button
-                                    onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>, <?= htmlspecialchars(json_encode($usersArr)) ?>)"
-                                    class="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
-                                    title="Assign Device">
-                                    <i class="fas fa-user-plus"></i> Assign
-                                </button>
+                                <?php if (!$isAssigned || $device['status'] === 'in_storage'): ?>
+                                    <button onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>)"
+                                        class="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+                                        title="Assign Device">
+                                        <i class="fas fa-user-plus"></i> Assign
+                                    </button>
+                                <?php else: ?>
+                                    <button
+                                        onclick="Toast.showInfo('This device is already assigned. Use Reassign in main inventory.', 'Device Assigned')"
+                                        class="flex-1 px-4 py-2.5 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium cursor-not-allowed flex items-center justify-center gap-2"
+                                        title="Already Assigned" disabled>
+                                        <i class="fas fa-user-check"></i> Assigned
+                                    </button>
+                                <?php endif; ?>
                                 <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
                                     class="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-all flex items-center justify-center gap-2"
                                     title="View Details">
@@ -1053,14 +1335,15 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                     </div>
                     <div>
                         <h2 class="text-xl font-bold text-gray-900">Assign Device</h2>
-                        <p class="text-gray-500 text-sm mt-1">Assign device to a user</p>
+                        <p class="text-gray-500 text-sm mt-1" id="assignModalTitle">Assign device to a user</p>
                     </div>
                 </div>
             </div>
 
-            <form id="assignForm" method="POST" action="process_assign.php" class="p-6">
+            <form id="assignForm" method="POST" action="" class="p-6">
                 <input type="hidden" id="deviceId" name="device_id">
                 <input type="hidden" id="assetTag" name="asset_tag">
+                <input type="hidden" name="assign_device" value="1">
 
                 <!-- Device Info -->
                 <div class="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
@@ -1087,11 +1370,10 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                     <label class="block text-sm font-medium text-gray-700 mb-2">Update Device Status *</label>
                     <select id="newStatus" name="new_status" required
                         class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <?php foreach ($statusLabels as $value => $label): ?>
-                            <?php if ($value != 'retired' && $value != 'active'): ?>
-                                <option value="<?= $value ?>"><?= $label ?></option>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
+                        <option value="in_use">In Use</option>
+                        <option value="active">Active</option>
+                        <option value="repairing">Repairing</option>
+                        <option value="faulty">Faulty</option>
                     </select>
                 </div>
 
@@ -1100,9 +1382,11 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                     <label class="block text-sm font-medium text-gray-700 mb-2">Update Device Condition</label>
                     <select id="newCondition" name="new_condition"
                         class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <?php foreach ($conditionLabels as $value => $label): ?>
-                            <option value="<?= $value ?>"><?= $label ?></option>
-                        <?php endforeach; ?>
+                        <option value="New">New</option>
+                        <option value="Good">Good</option>
+                        <option value="Fair">Fair</option>
+                        <option value="Poor">Poor</option>
+                        <option value="Faulty">Faulty</option>
                     </select>
                 </div>
 
@@ -1159,8 +1443,140 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script>
-        // Initialize Select2
+        // ==================== TOAST NOTIFICATION FUNCTIONS ====================
+        class Toast {
+            constructor(type, title, message, duration = 5000) {
+                this.type = type;
+                this.title = title;
+                this.message = message;
+                this.duration = duration;
+                this.id = 'toast-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                this.timeout = null;
+            }
+
+            show() {
+                const container = document.getElementById('toast-container');
+                if (!container) {
+                    console.error('Toast container not found!');
+                    return;
+                }
+
+                // Create toast element
+                const toast = document.createElement('div');
+                toast.id = this.id;
+                toast.className = `toast toast-${this.type}`;
+                toast.innerHTML = `
+                    <div class="toast-icon">
+                        ${this.getIcon()}
+                    </div>
+                    <div class="toast-content">
+                        <div class="toast-title">${this.title}</div>
+                        <div class="toast-message">${this.message}</div>
+                    </div>
+                    <button class="toast-close" onclick="Toast.hide('${this.id}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="toast-progress" style="animation-duration: ${this.duration}ms"></div>
+                `;
+
+                // Add to container
+                container.appendChild(toast);
+
+                // Trigger animation
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 10);
+
+                // Auto dismiss
+                this.timeout = setTimeout(() => {
+                    this.hide();
+                }, this.duration);
+            }
+
+            getIcon() {
+                const icons = {
+                    'success': '<i class="fas fa-check-circle"></i>',
+                    'error': '<i class="fas fa-exclamation-circle"></i>',
+                    'warning': '<i class="fas fa-exclamation-triangle"></i>',
+                    'info': '<i class="fas fa-info-circle"></i>'
+                };
+                return icons[this.type] || icons['info'];
+            }
+
+            static showSuccess(message, title = 'Success', duration = 5000) {
+                new Toast('success', title, message, duration).show();
+            }
+
+            static showError(message, title = 'Error', duration = 5000) {
+                new Toast('error', title, message, duration).show();
+            }
+
+            static showWarning(message, title = 'Warning', duration = 5000) {
+                new Toast('warning', title, message, duration).show();
+            }
+
+            static showInfo(message, title = 'Info', duration = 3000) {
+                new Toast('info', title, message, duration).show();
+            }
+
+            hide() {
+                const toast = document.getElementById(this.id);
+                if (!toast) return;
+
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+
+                clearTimeout(this.timeout);
+
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+
+            static hide(id) {
+                const toast = document.getElementById(id);
+                if (!toast) return;
+
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+
+            static clearAll() {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+                container.innerHTML = '';
+            }
+        }
+
+        // Function to show PHP session messages as toasts
+        function showPHPToasts() {
+            // Success toast
+            const successToast = document.getElementById('success-toast');
+            if (successToast) {
+                Toast.showSuccess(successToast.textContent.trim(), 'Success');
+            }
+
+            // Error toast
+            const errorToast = document.getElementById('error-toast');
+            if (errorToast) {
+                Toast.showError(errorToast.textContent.trim(), 'Error');
+            }
+        }
+
+        // Initialize on DOM ready
         $(document).ready(function () {
+            // Show any PHP toasts
+            showPHPToasts();
+
+            // Initialize Select2
             $('.filter-select').select2({
                 placeholder: "Select option...",
                 allowClear: true
@@ -1188,7 +1604,6 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
 
             // Make table responsive on mobile
             function adjustTableLayout() {
-                const table = document.querySelector('.data-table');
                 const container = document.querySelector('.table-container');
                 const screenWidth = window.innerWidth;
 
@@ -1286,13 +1701,15 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
         }
 
         // Assign Modal Functions
-        function openAssignModal(device, users) {
+        function openAssignModal(device) {
             // Populate device info
             document.getElementById('deviceId').value = device.id;
             document.getElementById('assetTag').value = device.asset_tag;
+            document.getElementById('assignForm').action = 'unassigned.php';
 
             const deviceInfo = `${device.brand_name} ${device.model || ''} | ${device.asset_tag}`;
             document.getElementById('deviceInfo').textContent = deviceInfo;
+            document.getElementById('assignModalTitle').textContent = `Assign: ${device.brand_name} ${device.model || ''}`;
 
             // Set current condition as default
             if (device.condition) {
@@ -1301,7 +1718,12 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
 
             // Set current status as default
             if (device.status) {
-                document.getElementById('newStatus').value = device.status;
+                document.getElementById('newStatus').value = device.status === 'in_storage' ? 'in_use' : device.status;
+            }
+
+            // Check if device is already assigned
+            if (device.assigned_user_id) {
+                Toast.showWarning('This device appears to be already assigned. Use Reassign in main inventory if needed.', 'Device Status');
             }
 
             // Open modal
@@ -1312,6 +1734,11 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                 placeholder: "Select a user...",
                 dropdownParent: $('#assignModal')
             });
+
+            // Focus on user select
+            setTimeout(() => {
+                $('#userId').select2('open');
+            }, 300);
         }
 
         function closeAssignModal() {
@@ -1323,13 +1750,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
         // View Modal Functions
         function viewDeviceDetails(device) {
             // Set title
-            document.getElementById('deviceTitle').textContent = `${device.brand_name} ${device.model || ''}`;
-
-            // Get status and condition display
-            const statusDisplay = <?php echo json_encode($statusColors); ?>;
-            const statusLabels = <?php echo json_encode($statusLabels); ?>;
-            const conditionDisplay = <?php echo json_encode($conditionColors); ?>;
-            const conditionLabels = <?php echo json_encode($conditionLabels); ?>;
+            document.getElementById('deviceTitle').textContent = `${device.brand_name} ${device.model || ''} - ${device.asset_tag}`;
 
             // Build details HTML
             const detailsHTML = `
@@ -1355,6 +1776,10 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
                                 <span class="font-medium">Status:</span>
                                 <span class="status-badge">${escapeHtml(device.status || 'N/A')}</span>
                             </div>
+                            ${device.assigned_user_id ?
+                    `<p><span class="font-medium">Assigned to User ID:</span> ${device.assigned_user_id}</p>
+                                 <p><span class="font-medium">Assigned Since:</span> ${escapeHtml(device.assigned_at ? new Date(device.assigned_at).toLocaleDateString() : 'N/A')}</p>`
+                    : ''}
                             <p><span class="font-medium">Created:</span> ${escapeHtml(device.created_at ? new Date(device.created_at).toLocaleDateString() : 'N/A')}</p>
                             <p><span class="font-medium">Last Updated:</span> ${escapeHtml(device.updated_at ? new Date(device.updated_at).toLocaleDateString() : 'N/A')}</p>
                         </div>
@@ -1396,36 +1821,37 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
 
         // Utility function for escaping HTML
         function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
             const div = document.createElement('div');
-            div.textContent = text || '';
+            div.textContent = text;
             return div.innerHTML;
         }
 
-        // Handle form submission with AJAX
+        // Handle form submission
         document.getElementById('assignForm').addEventListener('submit', function (e) {
             e.preventDefault();
 
-            const formData = new FormData(this);
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Assigning...';
+            submitBtn.disabled = true;
 
-            fetch('process_assign.php', {
-                method: 'POST',
-                body: formData
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Device assigned successfully!');
-                        closeAssignModal();
-                        // Reload page to reflect changes
-                        setTimeout(() => window.location.reload(), 500);
-                    } else {
-                        alert('Error: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred. Please try again.');
-                });
+            // Submit the form
+            this.submit();
+        });
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function (e) {
+            // Escape key closes modals
+            if (e.key === 'Escape') {
+                if (!document.getElementById('assignModal').classList.contains('hidden')) {
+                    closeAssignModal();
+                }
+                if (!document.getElementById('viewModal').classList.contains('hidden')) {
+                    closeViewModal();
+                }
+            }
         });
     </script>
 

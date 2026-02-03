@@ -352,137 +352,11 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
 
     try {
         if ($action === 'assign') {
-            // ASSIGN DEVICE (New Assignment)
-            $userId = !empty($_POST['assign_user']) ? (int) $_POST['assign_user'] : null;
-            $department_id = !empty($_POST['assign_department']) ? (int) $_POST['assign_department'] : null;
-            $location_id = !empty($_POST['assign_location']) ? (int) $_POST['assign_location'] : null;
-            $assign_notes = mysqli_real_escape_string($conn, $_POST['assign_notes'] ?? '');
-
-            if (empty($userId)) {
-                throw new Exception('Please select a user to assign the device to.');
-            }
-
-            // First, end any existing active assignment for this device
-            $endStmt = mysqli_prepare($conn, "
-                UPDATE device_user_assignments 
-                SET status = 'retrieved', returned_at = NOW()
-                WHERE inventory_id = ? AND status = 'assigned'
-            ");
-            mysqli_stmt_bind_param($endStmt, "i", $device_id);
-            mysqli_stmt_execute($endStmt);
-            mysqli_stmt_close($endStmt);
-
-            // Create new assignment (users can have multiple devices)
-            $assignStmt = mysqli_prepare($conn, "
-                INSERT INTO device_user_assignments (
-                    inventory_id,
-                    user_id,
-                    assigned_at,
-                    status
-                ) VALUES (?, ?, NOW(), 'assigned')
-            ");
-            mysqli_stmt_bind_param($assignStmt, "ii", $device_id, $userId);
-            mysqli_stmt_execute($assignStmt);
-            mysqli_stmt_close($assignStmt);
-
-            // Update inventory status and location/department
-            $updateStmt = mysqli_prepare($conn, "
-                UPDATE inventory_items 
-                SET status = 'in_use',
-                    department_id = ?,
-                    location_id = ?
-                WHERE id = ?
-            ");
-            mysqli_stmt_bind_param($updateStmt, "iii", $department_id, $location_id, $device_id);
-            mysqli_stmt_execute($updateStmt);
-            mysqli_stmt_close($updateStmt);
-
-            // Update remarks if notes provided
-            if (!empty($assign_notes)) {
-                $notesStmt = mysqli_prepare($conn, "
-                    UPDATE inventory_items 
-                    SET remarks = CONCAT(IFNULL(remarks, ''), '\nAssigned on ', NOW(), ' to user ID ', ?, ': ', ?)
-                    WHERE id = ?
-                ");
-                mysqli_stmt_bind_param($notesStmt, "isi", $userId, $assign_notes, $device_id);
-                mysqli_stmt_execute($notesStmt);
-                mysqli_stmt_close($notesStmt);
-            }
-
+            // ... existing assign code ...
             $_SESSION['success_message'] = 'Device assigned successfully!';
 
         } elseif ($action === 'reassign') {
-            // REASSIGN DEVICE (Change current assignment)
-            $userId = !empty($_POST['reassign_user']) ? (int) $_POST['reassign_user'] : null;
-            $department_id = !empty($_POST['reassign_department']) ? (int) $_POST['reassign_department'] : null;
-            $location_id = !empty($_POST['reassign_location']) ? (int) $_POST['reassign_location'] : null;
-            $reassign_notes = mysqli_real_escape_string($conn, $_POST['reassign_notes'] ?? '');
-
-            if (empty($userId)) {
-                throw new Exception('Please select a user to reassign the device to.');
-            }
-
-            // Get current assignment details before changing
-            $currentStmt = mysqli_prepare($conn, "
-                SELECT dua.user_id, u.firstname, u.lastname 
-                FROM device_user_assignments dua
-                JOIN users u ON dua.user_id = u.id
-                WHERE dua.inventory_id = ? AND dua.status = 'assigned'
-            ");
-            mysqli_stmt_bind_param($currentStmt, "i", $device_id);
-            mysqli_stmt_execute($currentStmt);
-            $currentResult = mysqli_stmt_get_result($currentStmt);
-            $currentAssignment = mysqli_fetch_assoc($currentResult);
-            mysqli_stmt_close($currentStmt);
-
-            $previousUserId = $currentAssignment['user_id'] ?? null;
-            $previousUserName = ($currentAssignment['firstname'] ?? '') . ' ' . ($currentAssignment['lastname'] ?? 'Unknown');
-
-            // End the current active assignment
-            $endStmt = mysqli_prepare($conn, "
-                UPDATE device_user_assignments 
-                SET status = 'reassigned', returned_at = NOW()
-                WHERE inventory_id = ? AND status = 'assigned'
-            ");
-            mysqli_stmt_bind_param($endStmt, "i", $device_id);
-            mysqli_stmt_execute($endStmt);
-            mysqli_stmt_close($endStmt);
-
-            // Create new assignment
-            $assignStmt = mysqli_prepare($conn, "
-                INSERT INTO device_user_assignments (
-                    inventory_id,
-                    user_id,
-                    assigned_at,
-                    status
-                ) VALUES (?, ?, NOW(), 'assigned')
-            ");
-            mysqli_stmt_bind_param($assignStmt, "ii", $device_id, $userId);
-            mysqli_stmt_execute($assignStmt);
-            mysqli_stmt_close($assignStmt);
-
-            // Update inventory status and location/department
-            $updateStmt = mysqli_prepare($conn, "
-                UPDATE inventory_items 
-                SET status = 'in_use',
-                    department_id = ?,
-                    location_id = ?
-                WHERE id = ?
-            ");
-            mysqli_stmt_bind_param($updateStmt, "iii", $department_id, $location_id, $device_id);
-            mysqli_stmt_execute($updateStmt);
-            mysqli_stmt_close($updateStmt);
-
-            // Update remarks
-            $notesStmt = mysqli_prepare($conn, "
-                UPDATE inventory_items 
-                SET remarks = CONCAT(IFNULL(remarks, ''), '\nReassigned on ', NOW(), ' from user ID ', ?, ' to user ID ', ?, ': ', ?)
-                WHERE id = ?
-            ");
-            mysqli_stmt_bind_param($notesStmt, "iisi", $previousUserId, $userId, $reassign_notes, $device_id);
-            mysqli_stmt_execute($notesStmt);
-            mysqli_stmt_close($notesStmt);
-
+            // ... existing reassign code ...
             $_SESSION['success_message'] = 'Device reassigned successfully!';
 
         } elseif ($action === 'retrieve') {
@@ -515,10 +389,11 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
 
-            // Update inventory status to in_storage
+            // UPDATE: Set status to 'in_storage' instead of 'active'
             $updateStmt = mysqli_prepare($conn, "
                 UPDATE inventory_items 
-                SET status = 'in_storage'
+                SET status = 'in_storage',
+                    assigned_user = NULL
                 WHERE id = ?
             ");
             mysqli_stmt_bind_param($updateStmt, "i", $device_id);
@@ -526,39 +401,21 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_close($updateStmt);
 
             // Update remarks
-            $notesStmt = mysqli_prepare($conn, "
-                UPDATE inventory_items 
-                SET remarks = CONCAT(IFNULL(remarks, ''), '\nRetrieved to store on ', NOW(), ' from user ID ', ?, ': ', ?)
-                WHERE id = ?
-            ");
-            mysqli_stmt_bind_param($notesStmt, "isi", $previousUserId, $reason, $device_id);
-            mysqli_stmt_execute($notesStmt);
-            mysqli_stmt_close($notesStmt);
+            if (!empty($reason)) {
+                $notesStmt = mysqli_prepare($conn, "
+                    UPDATE inventory_items 
+                    SET remarks = CONCAT(IFNULL(remarks, ''), '\nRetrieved to store on ', NOW(), ' from user ID ', ?, ': ', ?)
+                    WHERE id = ?
+                ");
+                mysqli_stmt_bind_param($notesStmt, "isi", $previousUserId, $reason, $device_id);
+                mysqli_stmt_execute($notesStmt);
+                mysqli_stmt_close($notesStmt);
+            }
 
             $_SESSION['success_message'] = 'Device retrieved to store successfully!';
 
         } elseif ($action === 'retire') {
-            // RETIRE DEVICE
-            // First end any active assignment
-            $endStmt = mysqli_prepare($conn, "
-                UPDATE device_user_assignments 
-                SET status = 'retrieved', returned_at = NOW()
-                WHERE inventory_id = ? AND status = 'assigned'
-            ");
-            mysqli_stmt_bind_param($endStmt, "i", $device_id);
-            mysqli_stmt_execute($endStmt);
-            mysqli_stmt_close($endStmt);
-
-            // Then retire the device
-            $stmt = mysqli_prepare($conn, "
-                UPDATE inventory_items 
-                SET status = 'retired'
-                WHERE id = ?
-            ");
-            mysqli_stmt_bind_param($stmt, "i", $device_id);
-            mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-
+            // ... existing retire code ...
             $_SESSION['success_message'] = 'Device retired successfully!';
         } else {
             throw new Exception('Invalid action selected.');
@@ -2624,7 +2481,7 @@ if (!empty($_GET['location'])) {
                                                 <i class="fas fa-exclamation-triangle text-amber-500 text-xl"></i>
                                             </div>
                                             <div>
-                                                <h4 class="font-medium text-gray-800 mb-1">Important Notice</h4>
+                                                <h4 class="font-medium text-gray-800 mb-1">Important Note</h4>
                                                 <p class="text-sm text-gray-600 mb-2">
                                                     The device will be marked as <span
                                                         class="font-semibold">retired</span> and will no longer be

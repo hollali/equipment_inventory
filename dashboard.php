@@ -7,297 +7,31 @@ session_start();
 require_once __DIR__ . "/config/database.php";
 require_once __DIR__ . '/vendor/autoload.php';
 
-$db = new Database();
-$conn = $db->getConnection();
-
-/* Fetch Departments and Locations for Filters */
-$departmentsArr = [];
-$deptResult = $conn->query("SELECT id, department_name FROM departments ORDER BY department_name");
-if ($deptResult) {
-    while ($row = $deptResult->fetch_assoc()) {
-        $departmentsArr[] = $row;
-    }
+// Initialize database connection
+try {
+    $db = new Database();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    die("Database connection failed: " . $e->getMessage());
 }
 
-$locationsArr = [];
-$locResult = $conn->query("SELECT id, location_name FROM locations ORDER BY location_name");
-if ($locResult) {
-    while ($row = $locResult->fetch_assoc()) {
-        $locationsArr[] = $row;
-    }
+// Generate CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-/* Fetch Users for table */
-$usersArr = [];
-$userResult = $conn->query("SELECT id, firstname, lastname, email, role, status FROM users ORDER BY firstname, lastname");
-if ($userResult) {
-    while ($row = $userResult->fetch_assoc()) {
-        $usersArr[$row['id']] = $row;
-    }
-}
-
-/* Stats - Optimized Single Query */
-$statsQuery = "
-    SELECT 
-        (SELECT COUNT(*) FROM inventory_items) as total_items,
-        (SELECT COUNT(*) FROM users) as total_users,
-        (SELECT COUNT(*) FROM inventory_items WHERE status='in_storage') as in_storage,
-        (SELECT COUNT(*) FROM inventory_items WHERE status='retired') as retired_devices,
-        (SELECT COUNT(*) FROM users WHERE status='active') as active_users,
-        (SELECT COUNT(*) FROM users WHERE role='admin') as admin_users,
-        (SELECT COUNT(*) FROM inventory_items WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as recent_changes_count
-";
-$statsResult = $conn->query($statsQuery);
-$stats = $statsResult ? $statsResult->fetch_assoc() : [
-    'total_items' => 0,
-    'total_users' => 0,
-    'in_storage' => 0,
-    'retired_devices' => 0,
-    'active_users' => 0,
-    'admin_users' => 0,
-    'recent_changes_count' => 0
-];
-
-$totalItems = $stats['total_items'];
-$totalUsers = $stats['total_users'];
-$inStorage = $stats['in_storage'];
-$retiredDevices = $stats['retired_devices'];
-$activeUsers = $stats['active_users'];
-$adminUsers = $stats['admin_users'];
-$recentChangesCount = $stats['recent_changes_count'];
-
-/* Recent Activities (Changes in Inventory) with Pagination */
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$perPage = 10;
-$offset = ($page - 1) * $perPage;
-
-const STATUS_LABELS = [
-    'active' => 'Active',
-    'retired' => 'Retired',
-    'in_storage' => 'Store',
-    'repairing' => 'Repairing',
-    'in_use' => 'In Use',
-    'faulty' => 'Faulty'
-];
-
-// Build WHERE clause for filters
-$whereConditions = ["1=1"];
-$params = [];
-$paramTypes = "";
-
-if (!empty($_GET['status'])) {
-    $whereConditions[] = "i.status = ?";
-    $params[] = $_GET['status'];
-    $paramTypes .= "s";
-}
-
-if (!empty($_GET['department'])) {
-    $whereConditions[] = "i.department_id = ?";
-    $params[] = intval($_GET['department']);
-    $paramTypes .= "i";
-}
-
-if (!empty($_GET['location'])) {
-    $whereConditions[] = "i.location_id = ?";
-    $params[] = intval($_GET['location']);
-    $paramTypes .= "i";
-}
-
-$whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
-
-/* Get total count with filters */
-$countQuery = "SELECT COUNT(*) as total FROM inventory_items i $whereClause";
-$countStmt = $conn->prepare($countQuery);
-if (!empty($params)) {
-    $countStmt->bind_param($paramTypes, ...$params);
-}
-$countStmt->execute();
-$countResult = $countStmt->get_result();
-$totalChanges = $countResult->fetch_assoc()['total'];
-$totalPages = ceil($totalChanges / $perPage);
-
-/* Get recent changes in inventory */
-$recentChangesData = [];
-$query = " 
-    SELECT 
-        i.*,
-        i.updated_at as change_date,
-        b.brand_name AS brand_name,
-        d.department_name AS department_name,
-        l.location_name AS location_name,
-        u.id as assigned_user_id,
-        u.firstname as assigned_firstname,
-        u.lastname as assigned_lastname,
-        u.email as assigned_email,
-        u.role as assigned_role,
-        u.status as assigned_user_status
-    FROM inventory_items i
-    LEFT JOIN brands b ON i.brand_id = b.id
-    LEFT JOIN departments d ON i.department_id = d.id
-    LEFT JOIN locations l ON i.location_id = l.id
-    LEFT JOIN users u ON i.assigned_user = u.id
-    $whereClause
-    ORDER BY i.updated_at DESC
-    LIMIT ? OFFSET ?
-";
-
-$params[] = $perPage;
-$params[] = $offset;
-$paramTypes .= "ii";
-
-$stmt = $conn->prepare($query);
-if (!empty($params)) {
-    $stmt->bind_param($paramTypes, ...$params);
-}
-$stmt->execute();
-$result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $recentChangesData[] = $row;
-}
-
-/* ================== FILTER INPUTS ================== */
-$filterStatus = $_GET['status'] ?? '';
-$filterDepartment = $_GET['department'] ?? '';
-$filterLocation = $_GET['location'] ?? '';
-
-// Store previous assignments in session to track changes
-if (!isset($_SESSION['previous_assignments'])) {
-    $_SESSION['previous_assignments'] = [];
-}
-
-// Function to determine change type based on current and previous state
-function getChangeType($item)
+// Output encoding helper
+function e($string)
 {
-    static $previousAssignments = [];
-    $deviceId = $item['id'];
-
-    // Track assignment changes
-    $currentAssignment = $item['assigned_user'] ?? null;
-    $previousAssignment = $previousAssignments[$deviceId] ?? null;
-
-    // Store current assignment for next comparison
-    $previousAssignments[$deviceId] = $currentAssignment;
-
-    // Determine if this is an assignment change
-    if ($currentAssignment !== $previousAssignment) {
-        if ($currentAssignment && !$previousAssignment) {
-            return 'assigned';
-        } elseif (!$currentAssignment && $previousAssignment) {
-            return 'unassigned';
-        } elseif ($currentAssignment && $previousAssignment && $currentAssignment != $previousAssignment) {
-            return 'reassigned';
-        }
-    }
-
-    // Determine change type based on how recently it was updated and current state
-    $updateTime = strtotime($item['updated_at']);
-    $now = time();
-    $hoursSinceUpdate = ($now - $updateTime) / 3600;
-
-    // If updated very recently (last 24 hours)
-    if ($hoursSinceUpdate < 24) {
-        // Check current state to guess what might have changed
-        if ($item['status'] === 'retired') {
-            return 'retired';
-        } elseif ($item['status'] === 'repairing') {
-            return 'repair';
-        } elseif ($item['status'] === 'in_storage' && empty($currentAssignment)) {
-            return 'stored';
-        }
-    }
-
-    // Default to updated if we can't determine
-    return 'updated';
+    return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-// Function to get change icon
-function getChangeIcon($changeType)
-{
-    $icons = [
-        'assigned' => 'fa-user-check',
-        'unassigned' => 'fa-user-times',
-        'reassigned' => 'fa-user-exchange',
-        'stored' => 'fa-warehouse',
-        'status_changed' => 'fa-sync',
-        'department_changed' => 'fa-building',
-        'location_changed' => 'fa-location-dot',
-        'checkout' => 'fa-sign-out-alt',
-        'return' => 'fa-sign-in-alt',
-        'created' => 'fa-plus-circle',
-        'updated' => 'fa-edit',
-        'repair' => 'fa-tools',
-        'retired' => 'fa-archive',
-        'transfer' => 'fa-exchange-alt'
-    ];
-
-    return $icons[$changeType] ?? 'fa-history';
-}
-
-// Function to get change color
-function getChangeColor($changeType)
-{
-    $colors = [
-        'assigned' => 'from-blue-500 to-blue-600',
-        'unassigned' => 'from-gray-500 to-gray-600',
-        'reassigned' => 'from-purple-500 to-purple-600',
-        'stored' => 'from-yellow-500 to-yellow-600',
-        'status_changed' => 'from-purple-500 to-purple-600',
-        'department_changed' => 'from-indigo-500 to-indigo-600',
-        'location_changed' => 'from-teal-500 to-teal-600',
-        'checkout' => 'from-green-500 to-green-600',
-        'return' => 'from-yellow-500 to-yellow-600',
-        'created' => 'from-emerald-500 to-emerald-600',
-        'updated' => 'from-amber-500 to-amber-600',
-        'repair' => 'from-orange-500 to-orange-600',
-        'retired' => 'from-red-500 to-red-600',
-        'transfer' => 'from-pink-500 to-pink-600'
-    ];
-
-    return $colors[$changeType] ?? 'from-gray-500 to-gray-600';
-}
-
-// Function to get change description with proper grammar
-function getChangeDescription($item, $changeType)
-{
-    $assignedUserName = '';
-    if (!empty($item['assigned_firstname'])) {
-        $assignedUserName = $item['assigned_firstname'] . ' ' . $item['assigned_lastname'];
-    }
-
-    switch ($changeType) {
-        case 'assigned':
-            return !empty($assignedUserName)
-                ? "Device was assigned to " . $assignedUserName
-                : "Device was assigned to a user";
-
-        case 'unassigned':
-            return "Device was unassigned";
-
-        case 'reassigned':
-            return !empty($assignedUserName)
-                ? "Device was reassigned to " . $assignedUserName
-                : "Device was reassigned to a different user";
-
-        case 'retired':
-            return "Device was retired from inventory";
-
-        case 'repair':
-            return "Device was sent for repair";
-
-        case 'stored':
-            return "Device was stored in inventory";
-
-        case 'updated':
-            return "Device information was updated";
-
-        default:
-            return "Device was updated";
-    }
-}
-
-// Function to format time ago
+// Time ago function
 function timeAgo($datetime)
 {
+    if (empty($datetime))
+        return 'Just now';
+
     $time = strtotime($datetime);
     $now = time();
     $diff = $now - $time;
@@ -317,13 +51,368 @@ function timeAgo($datetime)
         return date('M j, Y g:i A', $time);
     }
 }
+
+// Status labels based on your enum
+const STATUS_LABELS = [
+    'In Use' => 'In Use',
+    'Store' => 'In Storage',
+    'Faulty' => 'Faulty'
+];
+
+// Condition labels based on your enum
+const CONDITION_LABELS = [
+    'New' => 'New',
+    'Good' => 'Good',
+    'Fair' => 'Fair',
+    'Faulty' => 'Faulty'
+];
+
+/* ================== FETCH RECENT ACTIVITIES ================== */
+
+class RecentActivities
+{
+    private $conn;
+
+    public function __construct($connection)
+    {
+        $this->conn = $connection;
+    }
+
+    public function getRecentActivities($limit = 100)
+    {
+        // First, check what timestamp columns exist
+        $timestampColumn = $this->getTimestampColumn();
+
+        $query = "
+            SELECT 
+                i.id,
+                i.asset_tag,
+                i.device_type,
+                i.model,
+                i.specifications,
+                i.condition,
+                i.status,
+                i.remarks,
+                i.assigned_user,
+                i.created_at,
+                i.{$timestampColumn} as updated_at,
+                b.brand_name,
+                d.department_name,
+                l.location_name,
+                c.category_name,
+                u.id as user_id,
+                u.firstname as user_firstname,
+                u.lastname as user_lastname,
+                u.email as user_email,
+                u.role as user_role,
+                u.status as user_status,
+                
+                -- Determine activity type based on timestamps and status
+                CASE 
+                    WHEN i.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'new_device'
+                    WHEN i.{$timestampColumn} >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 
+                        CASE i.status
+                            WHEN 'Store' THEN 'stored'
+                            WHEN 'Faulty' THEN 'faulty'
+                            ELSE 'updated'
+                        END
+                    ELSE 'updated'
+                END as activity_type
+                
+            FROM inventory_items i
+            LEFT JOIN brands b ON i.brand_id = b.id
+            LEFT JOIN departments d ON i.department_id = d.id
+            LEFT JOIN locations l ON i.location_id = l.id
+            LEFT JOIN categories c ON i.category_id = c.id
+            LEFT JOIN users u ON i.assigned_user = u.id
+            WHERE i.{$timestampColumn} >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+               OR i.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ORDER BY GREATEST(i.{$timestampColumn}, i.created_at) DESC
+            LIMIT ?
+        ";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bind_param("i", $limit);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $activities = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $activity = $this->formatActivity($row);
+                if ($activity) {
+                    $activities[] = $activity;
+                }
+            }
+        }
+
+        return $activities;
+    }
+
+    private function getTimestampColumn()
+    {
+        // Check for common timestamp column names
+        $columns = ['updated_at', 'modified_at', 'last_updated', 'update_at'];
+
+        foreach ($columns as $column) {
+            $check = $this->conn->query("SHOW COLUMNS FROM inventory_items LIKE '{$column}'");
+            if ($check && $check->num_rows > 0) {
+                return $column;
+            }
+        }
+
+        // Fallback to created_at if no update column found
+        return 'created_at';
+    }
+
+    private function formatActivity($row)
+    {
+        $activityType = $row['activity_type'] ?? 'updated';
+        $assignedUserName = '';
+
+        if (!empty($row['user_firstname'])) {
+            $assignedUserName = trim($row['user_firstname'] . ' ' . $row['user_lastname']);
+        }
+
+        // Determine activity details based on type
+        switch ($activityType) {
+            case 'new_device':
+                $title = 'New Device Added';
+                $icon = 'fa-plus-circle';
+                $color = 'from-emerald-500 to-emerald-600';
+                $description = 'New device has been added to inventory';
+                break;
+
+            case 'assigned':
+                $title = 'Device Assigned';
+                $icon = 'fa-user-check';
+                $color = 'from-green-500 to-green-600';
+                $description = !empty($assignedUserName)
+                    ? "Device assigned to " . e($assignedUserName)
+                    : "Device assigned to a user";
+                break;
+
+            case 'reassigned':
+                $title = 'Device Reassigned';
+                $icon = 'fa-user-exchange';
+                $color = 'from-purple-500 to-purple-600';
+                $description = !empty($assignedUserName)
+                    ? "Device reassigned to " . e($assignedUserName)
+                    : "Device reassigned";
+                break;
+
+            case 'unassigned':
+                $title = 'Device Unassigned';
+                $icon = 'fa-user-times';
+                $color = 'from-gray-500 to-gray-600';
+                $description = 'Device was unassigned';
+                break;
+
+            case 'stored':
+                $title = 'Device Stored';
+                $icon = 'fa-warehouse';
+                $color = 'from-yellow-500 to-yellow-600';
+                $description = 'Device placed in storage';
+                break;
+
+            case 'faulty':
+                $title = 'Device Marked as Faulty';
+                $icon = 'fa-exclamation-triangle';
+                $color = 'from-red-400 to-red-500';
+                $description = 'Device marked as faulty';
+                break;
+
+            case 'updated':
+            default:
+                $title = 'Device Updated';
+                $icon = 'fa-edit';
+                $color = 'from-blue-500 to-blue-600';
+                $description = 'Device information was updated';
+                break;
+        }
+
+        // Use the most recent timestamp
+        $activityTime = !empty($row['updated_at']) && strtotime($row['updated_at']) > strtotime($row['created_at'])
+            ? $row['updated_at']
+            : $row['created_at'];
+
+        return [
+            'id' => $row['id'] ?? null,
+            'type' => $activityType,
+            'title' => $title,
+            'icon' => $icon,
+            'color' => $color,
+            'description' => $description,
+            'device_name' => ($row['brand_name'] ?? '') . ' ' . ($row['model'] ?? ''),
+            'asset_tag' => $row['asset_tag'] ?? 'N/A',
+            'device_type' => $row['device_type'] ?? '',
+            'model' => $row['model'] ?? '',
+            'specifications' => $row['specifications'] ?? '',
+            'condition' => $row['condition'] ?? '',
+            'status' => $row['status'] ?? '',
+            'remarks' => $row['remarks'] ?? '',
+            'category_name' => $row['category_name'] ?? '',
+            'department_name' => $row['department_name'] ?? '',
+            'location_name' => $row['location_name'] ?? '',
+            'assigned_user' => [
+                'id' => $row['user_id'] ?? null,
+                'name' => $assignedUserName,
+                'email' => $row['user_email'] ?? '',
+                'role' => $row['user_role'] ?? '',
+                'status' => $row['user_status'] ?? ''
+            ],
+            'updated_at' => $activityTime,
+            'is_new' => (time() - strtotime($activityTime)) < 300 // New if less than 5 minutes
+        ];
+    }
+}
+
+// Initialize activity tracker
+try {
+    $activityTracker = new RecentActivities($conn);
+    $recentActivities = $activityTracker->getRecentActivities(100);
+} catch (Exception $e) {
+    $recentActivities = [];
+    error_log("Error fetching recent activities: " . $e->getMessage());
+}
+
+/* ================== STATISTICS ================== */
+
+// Initialize statistics with defaults
+$stats = [
+    'total_items' => 0,
+    'total_users' => 0,
+    'in_storage' => 0,
+    'faulty_devices' => 0,
+    'active_users' => 0,
+    'admin_users' => 0,
+    'today_changes' => 0
+];
+
+// Fetch Departments and Locations
+$departmentsArr = [];
+$locationsArr = [];
+
+try {
+    // Get device statistics
+    $statsQuery = "
+        SELECT 
+            (SELECT COUNT(*) FROM inventory_items) as total_items,
+            (SELECT COUNT(*) FROM users) as total_users,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='Store') as in_storage,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='Faulty') as faulty_devices,
+            (SELECT COUNT(*) FROM users WHERE status='active') as active_users,
+            (SELECT COUNT(*) FROM users WHERE role='admin') as admin_users,
+            (SELECT COUNT(*) FROM inventory_items WHERE created_at >= CURDATE()) as today_changes
+    ";
+
+    $statsResult = $conn->query($statsQuery);
+    if ($statsResult) {
+        $stats = $statsResult->fetch_assoc();
+    }
+
+    // Fetch Departments
+    $deptStmt = $conn->prepare("SELECT id, department_name FROM departments ORDER BY department_name");
+    $deptStmt->execute();
+    $deptResult = $deptStmt->get_result();
+    if ($deptResult) {
+        while ($row = $deptResult->fetch_assoc()) {
+            $departmentsArr[] = $row;
+        }
+    }
+
+    // Fetch Locations
+    $locStmt = $conn->prepare("SELECT id, location_name FROM locations ORDER BY location_name");
+    $locStmt->execute();
+    $locResult = $locStmt->get_result();
+    if ($locResult) {
+        while ($row = $locResult->fetch_assoc()) {
+            $locationsArr[] = $row;
+        }
+    }
+
+    // Additional statistics
+    $assignedDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE assigned_user IS NOT NULL AND assigned_user != 0")->fetch_assoc()['count'] ?? 0;
+    $inUseDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE status='In Use'")->fetch_assoc()['count'] ?? 0;
+    $newConditionDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE condition='New'")->fetch_assoc()['count'] ?? 0;
+    $goodConditionDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE condition='Good'")->fetch_assoc()['count'] ?? 0;
+    $fairConditionDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE condition='Fair'")->fetch_assoc()['count'] ?? 0;
+
+} catch (Exception $e) {
+    error_log("Error fetching statistics: " . $e->getMessage());
+    // Use default values already set
+    $assignedDevices = $inUseDevices = $newConditionDevices = $goodConditionDevices = $fairConditionDevices = 0;
+}
+
+// Store stats in variables
+$totalItems = $stats['total_items'] ?? 0;
+$totalUsers = $stats['total_users'] ?? 0;
+$inStorage = $stats['in_storage'] ?? 0;
+$faultyDevices = $stats['faulty_devices'] ?? 0;
+$activeUsers = $stats['active_users'] ?? 0;
+$adminUsers = $stats['admin_users'] ?? 0;
+$todayChanges = $stats['today_changes'] ?? 0;
+
+/* ================== PAGINATION ================== */
+
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$perPage = 10;
+$totalActivities = count($recentActivities);
+$totalPages = ceil($totalActivities / $perPage);
+$offset = ($page - 1) * $perPage;
+
+// Get current page activities
+$currentPageActivities = array_slice($recentActivities, $offset, $perPage);
+
+/* ================== ACTIVITY SUMMARY ================== */
+
+// Calculate activity summary
+$activitySummary = [
+    'new_device' => ['icon' => 'fa-plus-circle', 'color' => 'bg-emerald-100 text-emerald-700', 'label' => 'New Devices', 'count' => 0],
+    'assigned' => ['icon' => 'fa-user-check', 'color' => 'bg-green-100 text-green-700', 'label' => 'Assignments', 'count' => 0],
+    'reassigned' => ['icon' => 'fa-user-exchange', 'color' => 'bg-purple-100 text-purple-700', 'label' => 'Reassignments', 'count' => 0],
+    'unassigned' => ['icon' => 'fa-user-times', 'color' => 'bg-gray-100 text-gray-700', 'label' => 'Unassignments', 'count' => 0],
+    'stored' => ['icon' => 'fa-warehouse', 'color' => 'bg-yellow-100 text-yellow-700', 'label' => 'Devices Stored', 'count' => 0],
+    'faulty' => ['icon' => 'fa-exclamation-triangle', 'color' => 'bg-red-100 text-red-700', 'label' => 'Faulty Devices', 'count' => 0],
+    'updated' => ['icon' => 'fa-edit', 'color' => 'bg-gray-100 text-gray-600', 'label' => 'Device Updates', 'count' => 0],
+];
+
+// Count each activity type
+foreach ($recentActivities as $activity) {
+    $type = $activity['type'] ?? 'updated';
+    if (isset($activitySummary[$type])) {
+        $activitySummary[$type]['count']++;
+    } else {
+        $activitySummary['updated']['count']++;
+    }
+}
+
+// Filter out zero counts for chart
+$chartData = [];
+$chartLabels = [];
+$chartColors = [
+    'rgba(16, 185, 129, 0.8)',    // Emerald - New Devices
+    'rgba(34, 197, 94, 0.8)',     // Green - Assignments
+    'rgba(168, 85, 247, 0.8)',    // Purple - Reassignments
+    'rgba(107, 114, 128, 0.8)',   // Gray - Unassignments
+    'rgba(245, 158, 11, 0.8)',    // Yellow - Stored
+    'rgba(239, 68, 68, 0.8)',     // Red - Faulty
+    'rgba(156, 163, 175, 0.8)'    // Gray - Updates
+];
+
+foreach ($activitySummary as $type => $summary) {
+    if ($summary['count'] > 0) {
+        $chartData[] = $summary['count'];
+        $chartLabels[] = $summary['label'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard</title>
+    <title>Admin Dashboard - Real-time Activity</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="./images/logo.png">
 
@@ -331,6 +420,8 @@ function timeAgo($datetime)
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         @keyframes fadeInUp {
@@ -345,8 +436,40 @@ function timeAgo($datetime)
             }
         }
 
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+            }
+        }
+
+        @keyframes highlightNew {
+            0% {
+                background-color: rgba(59, 130, 246, 0.2);
+                border-left-color: #3b82f6;
+            }
+
+            100% {
+                background-color: transparent;
+                border-left-color: transparent;
+            }
+        }
+
         .animate-fade-in-up {
             animation: fadeInUp 0.6s ease-out;
+        }
+
+        .animate-pulse-glow {
+            animation: pulseGlow 2s infinite;
+        }
+
+        .animate-highlight-new {
+            animation: highlightNew 3s ease-out;
         }
 
         .stat-card {
@@ -355,10 +478,6 @@ function timeAgo($datetime)
 
         .stat-card:hover {
             transform: translateY(-5px);
-        }
-
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .glass-effect {
@@ -374,14 +493,6 @@ function timeAgo($datetime)
             background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
         }
 
-        .role-admin {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        }
-
-        .role-user {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        }
-
         .activity-item {
             position: relative;
         }
@@ -394,6 +505,78 @@ function timeAgo($datetime)
             bottom: -20px;
             width: 2px;
             background: linear-gradient(to bottom, #e5e7eb, transparent);
+        }
+
+        .realtime-indicator {
+            position: relative;
+        }
+
+        .realtime-indicator:after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .live-pulse:after {
+            animation: pulseGlow 1.5s infinite;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-In_Use {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-Store {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-Faulty {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .condition-New {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .condition-Good {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .condition-Fair {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .condition-Faulty {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .device-specs {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
     </style>
 </head>
@@ -416,7 +599,11 @@ function timeAgo($datetime)
                     </h1>
                     <p class="text-gray-600 text-sm mt-2 flex items-center gap-2">
                         <i class="fas fa-calendar-day text-blue-500"></i>
-                        <?= date('l, F j, Y') ?> • Welcome back!
+                        <?= date('l, F j, Y') ?> •
+                        <span class="realtime-indicator live-pulse flex items-center gap-1">
+                            <i class="fas fa-circle text-emerald-500 text-xs"></i>
+                            <span>Live Activity Tracking</span>
+                        </span>
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
@@ -425,6 +612,11 @@ function timeAgo($datetime)
                         <i class="fas fa-shield-alt"></i>
                         <span class="font-semibold text-sm">ADMIN</span>
                     </div>
+                    <button onclick="refreshData()"
+                        class="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md flex items-center justify-center hover:shadow-lg transition-all animate-pulse-glow"
+                        title="Refresh real-time data">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                     <button
                         class="w-10 h-10 rounded-xl bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow">
                         <i class="fas fa-bell text-gray-600"></i>
@@ -442,50 +634,47 @@ function timeAgo($datetime)
                     'value' => $totalItems,
                     'icon' => 'fa-boxes-stacked',
                     'gradient' => 'from-blue-500 to-blue-600',
-                    'change' => 12,
+                    'change' => '+12',
+                    'id' => 'totalDevices'
                 ],
                 [
                     'title' => 'Total Users',
                     'value' => $totalUsers,
                     'icon' => 'fa-users',
                     'gradient' => 'from-green-500 to-green-600',
-                    'change' => 8,
+                    'change' => '+8',
+                    'id' => 'totalUsers'
                 ],
                 [
                     'title' => 'Active Users',
                     'value' => $activeUsers,
                     'icon' => 'fa-user-check',
                     'gradient' => 'from-emerald-500 to-emerald-600',
-                    'change' => 5,
+                    'change' => '+5',
+                    'id' => 'activeUsers'
                 ],
                 [
-                    'title' => 'Recent Changes',
-                    'value' => $recentChangesCount,
+                    'title' => 'Today\'s Activities',
+                    'value' => $todayChanges,
                     'icon' => 'fa-history',
                     'gradient' => 'from-purple-500 to-purple-600',
-                    'change' => 15,
+                    'change' => $todayChanges > 0 ? '+' . $todayChanges : '0',
+                    'id' => 'todayChanges'
                 ],
             ];
             ?>
 
             <?php foreach ($statsData as $index => $stat):
-                $isPositive = $stat['change'] > 0;
-                $isNegative = $stat['change'] < 0;
-
-                $trendColor = $isPositive
-                    ? 'text-green-600'
-                    : ($isNegative ? 'text-red-600' : 'text-gray-400');
-
-                $trendIcon = $isPositive
-                    ? 'fa-arrow-up'
-                    : ($isNegative ? 'fa-arrow-down' : 'fa-minus');
+                $isPositive = strpos($stat['change'], '+') === 0;
+                $trendColor = $isPositive ? 'text-green-600' : 'text-gray-400';
+                $trendIcon = $isPositive ? 'fa-arrow-up' : 'fa-minus';
                 ?>
-                <div class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up"
+                <div id="<?= $stat['id'] ?>"
+                    class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up"
                     style="animation-delay: <?= $index * 0.1 ?>s;">
 
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
-
                             <div class="flex items-center gap-2 mb-3">
                                 <div
                                     class="w-12 h-12 rounded-xl bg-gradient-to-br <?= $stat['gradient'] ?> flex items-center justify-center shadow-lg">
@@ -494,19 +683,20 @@ function timeAgo($datetime)
                             </div>
 
                             <p class="text-sm text-gray-500 font-medium mb-1">
-                                <?= $stat['title'] ?>
+                                <?= e($stat['title']) ?>
                             </p>
 
                             <p class="text-3xl font-bold text-gray-800">
                                 <?= number_format($stat['value']) ?>
                             </p>
-                            <?php if ($stat['change'] !== 0): ?>
+
+                            <?php if ($stat['change'] !== '0'): ?>
                                 <div class="mt-3 flex items-center gap-1">
                                     <span class="text-xs font-semibold flex items-center gap-1 <?= $trendColor ?>">
                                         <i class="fas <?= $trendIcon ?>"></i>
-                                        <?= abs($stat['change']) ?>%
+                                        <?= $stat['change'] ?>
                                     </span>
-                                    <span class="text-xs text-gray-400">vs last month</span>
+                                    <span class="text-xs text-gray-400">today</span>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -515,8 +705,8 @@ function timeAgo($datetime)
             <?php endforeach; ?>
         </div>
 
-        <!-- Store and Retired Devices Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Device Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
@@ -525,13 +715,27 @@ function timeAgo($datetime)
                         <i class="fas fa-warehouse text-white text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Devices in Store</p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">In Storage</p>
                         <p class="text-3xl font-bold text-gray-800"><?= number_format($inStorage) ?></p>
                         <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs font-semibold text-green-600 flex items-center gap-1">
-                                <i class="fas fa-arrow-up"></i>3%
-                            </span>
-                            <span class="text-xs text-gray-400">vs last month</span>
+                            <span class="text-xs text-gray-400">Available devices</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-laptop text-white text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">In Use</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($inUseDevices) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400">Assigned devices</span>
                         </div>
                     </div>
                 </div>
@@ -542,96 +746,139 @@ function timeAgo($datetime)
                 <div class="flex items-center gap-3">
                     <div
                         class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-archive text-white text-xl"></i>
+                        <i class="fas fa-exclamation-triangle text-white text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Retired Devices</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($retiredDevices) ?></p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">Faulty Devices</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($faultyDevices) ?></p>
                         <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs font-semibold text-gray-400 flex items-center gap-1">
-                                <i class="fas fa-minus"></i>0%
-                            </span>
-                            <span class="text-xs text-gray-400">vs last month</span>
+                            <span class="text-xs text-gray-400">Require attention</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-users text-white text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Admin Users</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($adminUsers) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400">System administrators</span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <!-- Filter Panel (Hidden by default) -->
-        <form method="GET">
-            <div id="filterPanel" class="hidden glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
 
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                        <i class="fas fa-filter text-blue-500"></i>
-                        Advanced Filters
-                    </h3>
-
-                    <button type="button" onclick="clearFilters()" class="text-sm text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times-circle mr-1"></i>Clear All
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-                    <!-- Status -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-2">Status</label>
-                        <select id="filterStatus" name="status"
-                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-
-                            <option value="">All Status</option>
-
-                            <?php foreach (STATUS_LABELS as $value => $label): ?>
-                                <option value="<?= $value ?>" <?= ($filterStatus === $value) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($label) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+        <!-- Device Condition Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-star text-white text-xl"></i>
                     </div>
-                    <!-- Department -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-2">Department</label>
-                        <select id="filterDepartment" name="department"
-                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="">All Departments</option>
-                            <?php foreach ($departmentsArr as $d): ?>
-                                <option value="<?= $d['id'] ?>" <?= ($filterDepartment == $d['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($d['department_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">New Condition</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($newConditionDevices) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400">Brand new devices</span>
+                        </div>
                     </div>
-
-                    <!-- Location -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-2">Location</label>
-                        <select id="filterLocation" name="location"
-                            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="">All Locations</option>
-                            <?php foreach ($locationsArr as $l): ?>
-                                <option value="<?= $l['id'] ?>" <?= ($filterLocation == $l['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($l['location_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
                 </div>
-
-                <!-- Apply Button -->
-                <div class="mt-6 flex justify-end">
-                    <button type="submit"
-                        class="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition">
-                        Apply Filters
-                    </button>
-                </div>
-
             </div>
-        </form>
 
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-thumbs-up text-white text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Good Condition</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($goodConditionDevices) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400">Well maintained</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Search and Actions Card -->
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-balance-scale text-white text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Fair Condition</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($fairConditionDevices) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400">Functional but aged</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Summary -->
+        <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
+            <div class="flex flex-col lg:flex-row gap-6">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-pie text-blue-500"></i>
+                        Activity Distribution (Last 7 Days)
+                    </h3>
+                    <div class="h-64">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+                <div class="lg:w-1/3">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-bolt text-yellow-500"></i>
+                        Activity Summary
+                    </h3>
+                    <div class="space-y-3 max-h-64 overflow-y-auto pr-2">
+                        <?php if (empty($chartData)): ?>
+                            <div class="text-center py-4">
+                                <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                                <p class="text-gray-500">No recent activity</p>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($activitySummary as $type => $summary): ?>
+                                <?php if ($summary['count'] > 0): ?>
+                                    <div
+                                        class="activity-summary-item flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <div
+                                                class="w-10 h-10 rounded-lg <?= $summary['color'] ?> flex items-center justify-center">
+                                                <i class="fas <?= $summary['icon'] ?>"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-gray-800"><?= $summary['label'] ?></p>
+                                                <p class="text-xs text-gray-500">Devices affected</p>
+                                            </div>
+                                        </div>
+                                        <span class="summary-count text-xl font-bold text-gray-800"><?= $summary['count'] ?></span>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Stream Header -->
         <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div class="flex items-center gap-3">
@@ -640,141 +887,190 @@ function timeAgo($datetime)
                         <i class="fas fa-history text-white text-xl"></i>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-800">Recent Inventory Changes</h2>
+                        <h2 class="text-lg font-semibold text-gray-800">Recent Activity Stream</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            <span class="font-semibold text-blue-600"><?= number_format($totalChanges) ?></span>
-                            changes tracked • Showing latest updates
+                            <span class="font-semibold text-blue-600"><?= number_format($totalActivities) ?></span>
+                            activities in last 7 days • Showing latest updates
                         </p>
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <div class="relative flex-1 lg:flex-initial">
                         <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input id="searchInput" type="text" placeholder="Search changes, devices, users..."
+                        <input id="searchInput" type="text" placeholder="Search devices, users, activities..."
                             autocomplete="off"
                             class="w-full lg:w-80 pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
-                    <button onclick="toggleFilters()"
-                        class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2">
-                        <i class="fas fa-sliders"></i> Filter
-                    </button>
+                    <div class="flex gap-2">
+                        <button onclick="exportActivity()"
+                            class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn"
+                            class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2">
+                            <i class="fas fa-sync"></i> Auto-refresh
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Changes Timeline -->
+        <!-- Activity Timeline -->
         <div class="glass-effect rounded-2xl shadow-lg overflow-hidden border border-gray-100 mb-8">
             <div class="p-6">
-                <div class="space-y-6">
-                    <?php if (empty($recentChangesData)): ?>
+                <div class="space-y-6" id="activityTimeline">
+                    <?php if (empty($currentPageActivities)): ?>
                         <div class="py-16 text-center">
                             <div class="flex flex-col items-center gap-3">
                                 <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
                                     <i class="fas fa-inbox text-4xl text-gray-300"></i>
                                 </div>
-                                <p class="text-gray-400 font-medium">No recent changes found</p>
-                                <p class="text-xs text-gray-400">Changes will appear here when devices are updated</p>
+                                <p class="text-gray-400 font-medium">No recent activity</p>
+                                <p class="text-xs text-gray-400">Activity will appear here as devices are updated</p>
                             </div>
                         </div>
                     <?php else:
-                        foreach ($recentChangesData as $index => $change):
-                            $changeType = getChangeType($change);
-                            $changeIcon = getChangeIcon($changeType);
-                            $changeColor = getChangeColor($changeType);
-                            $changeDescription = getChangeDescription($change, $changeType);
-                            $timeAgo = timeAgo($change['updated_at']);
-
-                            // Get assigned user information
-                            $assignedUserName = '';
-                            $assignedUserInitials = '';
-                            if (!empty($change['assigned_firstname'])) {
-                                $assignedUserName = trim($change['assigned_firstname'] . ' ' . $change['assigned_lastname']);
-                                $assignedUserInitials = substr($change['assigned_firstname'], 0, 1) . substr($change['assigned_lastname'], 0, 1);
-                            } elseif (!empty($change['assigned_user'])) {
-                                $assignedUserName = $change['assigned_user'];
-                                $assignedUserInitials = substr($change['assigned_user'], 0, 2);
-                            }
+                        foreach ($currentPageActivities as $index => $activity):
+                            $timeAgo = timeAgo($activity['updated_at']);
+                            $assignedUser = $activity['assigned_user'];
+                            $isNew = $activity['is_new'];
+                            $newClass = $isNew ? 'animate-highlight-new border-l-4 border-l-blue-500 pl-3' : '';
                             ?>
-                            <div class="activity-item flex gap-4">
-                                <!-- Change Icon -->
+                            <div class="activity-item flex gap-4 <?= $newClass ?>"
+                                data-activity-type="<?= e($activity['type']) ?>">
+                                <!-- Activity Icon -->
                                 <div class="flex-shrink-0">
                                     <div
-                                        class="w-12 h-12 rounded-full bg-gradient-to-br <?= $changeColor ?> flex items-center justify-center shadow-lg">
-                                        <i class="fas <?= $changeIcon ?> text-white text-lg"></i>
+                                        class="w-12 h-12 rounded-full bg-gradient-to-br <?= $activity['color'] ?> flex items-center justify-center shadow-lg">
+                                        <i class="fas <?= $activity['icon'] ?> text-white text-lg"></i>
                                     </div>
                                 </div>
 
-                                <!-- Change Content -->
+                                <!-- Activity Content -->
                                 <div
                                     class="flex-1 bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-colors">
                                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                                         <div class="flex-1">
-                                            <!-- Device Info -->
-                                            <div class="flex items-center gap-2 mb-2">
+                                            <!-- Activity Header -->
+                                            <div class="flex flex-wrap items-center gap-2 mb-2">
                                                 <h3 class="font-bold text-lg text-gray-900">
-                                                    <?= htmlspecialchars($change['brand_name'] ?? 'Unknown Device') ?>
-                                                    <?= htmlspecialchars($change['model'] ?? '') ?>
+                                                    <?= e($activity['title']) ?>
                                                 </h3>
                                                 <span
                                                     class="text-sm px-3 py-1 rounded-lg bg-blue-100 text-blue-700 font-semibold">
-                                                    <?= htmlspecialchars($change['asset_tag'] ?? 'N/A') ?>
+                                                    <?= e($activity['asset_tag']) ?>
                                                 </span>
+                                                <?php if (!empty($activity['status'])): ?>
+                                                    <span
+                                                        class="status-badge status-<?= str_replace(' ', '_', e($activity['status'])) ?>">
+                                                        <i class="fas fa-circle text-[10px]"></i>
+                                                        <?= STATUS_LABELS[$activity['status']] ?? ucfirst($activity['status']) ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($activity['condition'])): ?>
+                                                    <span class="condition-badge condition-<?= e($activity['condition']) ?>">
+                                                        <i class="fas fa-certificate text-[10px]"></i>
+                                                        <?= CONDITION_LABELS[$activity['condition']] ?? ucfirst($activity['condition']) ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                <?php if ($isNew): ?>
+                                                    <span
+                                                        class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-semibold animate-pulse">
+                                                        <i class="fas fa-star mr-1"></i>NEW
+                                                    </span>
+                                                <?php endif; ?>
                                             </div>
 
-                                            <!-- Change Description -->
-                                            <p class="text-gray-700 mb-3">
-                                                <i class="fas <?= $changeIcon ?> text-gray-400 mr-2"></i>
-                                                <?= $changeDescription ?>
+                                            <!-- Activity Description -->
+                                            <p class="text-gray-700 mb-3 flex items-center gap-2">
+                                                <i class="fas <?= $activity['icon'] ?> text-gray-400"></i>
+                                                <?= e($activity['description']) ?>
                                             </p>
 
                                             <!-- Device Details -->
-                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                                                <?php if (!empty($change['department_name'])): ?>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                                                <?php if (!empty($activity['device_type'])): ?>
+                                                    <div class="flex items-center gap-2 text-sm">
+                                                        <i class="fas fa-tag text-gray-400"></i>
+                                                        <span class="font-medium">Type:</span>
+                                                        <span class="text-gray-700"><?= e($activity['device_type']) ?></span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($activity['model'])): ?>
+                                                    <div class="flex items-center gap-2 text-sm">
+                                                        <i class="fas fa-microchip text-gray-400"></i>
+                                                        <span class="font-medium">Model:</span>
+                                                        <span class="text-gray-700"><?= e($activity['model']) ?></span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($activity['category_name'])): ?>
+                                                    <div class="flex items-center gap-2 text-sm">
+                                                        <i class="fas fa-folder text-gray-400"></i>
+                                                        <span class="font-medium">Category:</span>
+                                                        <span class="text-gray-700"><?= e($activity['category_name']) ?></span>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($activity['department_name'])): ?>
                                                     <div class="flex items-center gap-2 text-sm">
                                                         <i class="fas fa-building text-gray-400"></i>
                                                         <span class="font-medium">Dept:</span>
-                                                        <span
-                                                            class="text-gray-700"><?= htmlspecialchars($change['department_name']) ?></span>
+                                                        <span class="text-gray-700"><?= e($activity['department_name']) ?></span>
                                                     </div>
                                                 <?php endif; ?>
 
-                                                <?php if (!empty($change['location_name'])): ?>
+                                                <?php if (!empty($activity['location_name'])): ?>
                                                     <div class="flex items-center gap-2 text-sm">
                                                         <i class="fas fa-location-dot text-gray-400"></i>
                                                         <span class="font-medium">Location:</span>
-                                                        <span
-                                                            class="text-gray-700"><?= htmlspecialchars($change['location_name']) ?></span>
-                                                    </div>
-                                                <?php endif; ?>
-
-                                                <?php if (!empty($change['status'])): ?>
-                                                    <div class="flex items-center gap-2 text-sm">
-                                                        <i class="fas fa-circle-info text-gray-400"></i>
-                                                        <span class="font-medium">Status:</span>
-                                                        <span class="px-2 py-1 rounded-full text-xs font-semibold <?=
-                                                            $change['status'] === 'active' ? 'bg-green-100 text-green-700' :
-                                                            ($change['status'] === 'in_storage' ? 'bg-yellow-100 text-yellow-700' :
-                                                                ($change['status'] === 'retired' ? 'bg-red-100 text-red-700' :
-                                                                    ($change['status'] === 'repairing' ? 'bg-orange-100 text-orange-700' :
-                                                                        'bg-gray-100 text-gray-700'))) ?>">
-                                                            <?= STATUS_LABELS[$change['status']] ?? ucfirst($change['status']) ?>
-                                                        </span>
-                                                    </div>
-                                                <?php endif; ?>
-
-                                                <?php if (!empty($change['serial_number'])): ?>
-                                                    <div class="flex items-center gap-2 text-sm">
-                                                        <i class="fas fa-hashtag text-gray-400"></i>
-                                                        <span class="font-medium">Serial:</span>
-                                                        <span
-                                                            class="text-gray-700"><?= htmlspecialchars($change['serial_number']) ?></span>
+                                                        <span class="text-gray-700"><?= e($activity['location_name']) ?></span>
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
 
+                                            <!-- Specifications -->
+                                            <?php if (!empty($activity['specifications'])): ?>
+                                                <div class="mb-3">
+                                                    <p class="text-xs text-gray-500 font-medium mb-1">Specifications:</p>
+                                                    <p class="text-sm text-gray-700 device-specs">
+                                                        <?= e($activity['specifications']) ?>
+                                                    </p>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <!-- Remarks -->
+                                            <?php if (!empty($activity['remarks'])): ?>
+                                                <div class="mb-3">
+                                                    <p class="text-xs text-gray-500 font-medium mb-1">Remarks:</p>
+                                                    <p class="text-sm text-gray-700"><?= e($activity['remarks']) ?></p>
+                                                </div>
+                                            <?php endif; ?>
+
                                             <!-- User Assignment Info -->
-                                            <?php if ($changeType === 'unassigned'): ?>
-                                                <!-- Show unassigned state -->
+                                            <?php if (!empty($assignedUser['name']) && in_array($activity['type'], ['assigned', 'reassigned'])): ?>
+                                                <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full <?= $assignedUser['status'] === 'active' ? 'user-status-active' : 'user-status-inactive' ?> flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                                                        <?= strtoupper(substr($assignedUser['name'], 0, 2)) ?>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-gray-800">Assigned to:
+                                                            <?= e($assignedUser['name']) ?>
+                                                        </p>
+                                                        <?php if (!empty($assignedUser['email'])): ?>
+                                                            <p class="text-xs text-gray-500"><?= e($assignedUser['email']) ?></p>
+                                                        <?php endif; ?>
+                                                        <?php if (!empty($assignedUser['role'])): ?>
+                                                            <span
+                                                                class="text-xs px-2 py-1 rounded-full <?= $assignedUser['role'] === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700' ?>">
+                                                                <?= e($assignedUser['role']) ?>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php elseif (in_array($activity['type'], ['unassigned'])): ?>
                                                 <div
                                                     class="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
                                                     <div
@@ -783,27 +1079,22 @@ function timeAgo($datetime)
                                                     </div>
                                                     <div>
                                                         <p class="font-medium text-gray-800">Device is now unassigned</p>
-                                                        <p class="text-xs text-gray-500">Was previously assigned to a user</p>
+                                                        <p class="text-xs text-gray-500">Available for new assignment</p>
                                                     </div>
                                                 </div>
-                                            <?php elseif ($changeType === 'assigned' && !empty($assignedUserName)): ?>
-                                                <!-- Show current user for assigned devices -->
-                                                <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                                            <?php elseif (in_array($activity['type'], ['new_device'])): ?>
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                                                     <div
-                                                        class="w-10 h-10 rounded-full <?= $change['assigned_user_status'] === 'active' ? 'user-status-active' : 'user-status-inactive' ?> flex items-center justify-center text-white text-sm font-bold shadow-sm">
-                                                        <?= strtoupper($assignedUserInitials) ?>
+                                                        class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-plus"></i>
                                                     </div>
                                                     <div>
-                                                        <p class="font-medium text-gray-800">Currently assigned to:
-                                                            <?= htmlspecialchars($assignedUserName) ?></p>
-                                                        <?php if (!empty($change['assigned_email'])): ?>
-                                                            <p class="text-xs text-gray-500">
-                                                                <?= htmlspecialchars($change['assigned_email']) ?></p>
-                                                        <?php endif; ?>
+                                                        <p class="font-medium text-emerald-800">New device added to inventory</p>
+                                                        <p class="text-xs text-emerald-600">Ready for assignment</p>
                                                     </div>
                                                 </div>
-                                            <?php elseif ($changeType === 'stored'): ?>
-                                                <!-- Show stored state -->
+                                            <?php elseif (in_array($activity['type'], ['stored'])): ?>
                                                 <div
                                                     class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                                                     <div
@@ -811,62 +1102,19 @@ function timeAgo($datetime)
                                                         <i class="fas fa-warehouse"></i>
                                                     </div>
                                                     <div>
-                                                        <p class="font-medium text-yellow-800">Device is in storage</p>
+                                                        <p class="font-medium text-yellow-800">Device placed in storage</p>
                                                         <p class="text-xs text-yellow-600">Available for assignment</p>
                                                     </div>
                                                 </div>
-                                            <?php elseif ($changeType === 'retired'): ?>
-                                                <!-- Show retired state -->
+                                            <?php elseif (in_array($activity['type'], ['faulty'])): ?>
                                                 <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
                                                     <div
                                                         class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 text-sm font-bold shadow-sm">
-                                                        <i class="fas fa-archive"></i>
+                                                        <i class="fas fa-exclamation-triangle"></i>
                                                     </div>
                                                     <div>
-                                                        <p class="font-medium text-red-800">Device has been retired</p>
-                                                        <p class="text-xs text-red-600">No longer in active inventory</p>
-                                                    </div>
-                                                </div>
-                                            <?php elseif ($changeType === 'repair'): ?>
-                                                <!-- Show repair state -->
-                                                <div
-                                                    class="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                                                    <div
-                                                        class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 text-sm font-bold shadow-sm">
-                                                        <i class="fas fa-tools"></i>
-                                                    </div>
-                                                    <div>
-                                                        <p class="font-medium text-orange-800">Device is under repair</p>
-                                                        <p class="text-xs text-orange-600">Currently being serviced</p>
-                                                    </div>
-                                                </div>
-                                            <?php elseif (!empty($assignedUserName)): ?>
-                                                <!-- Show general assignment info -->
-                                                <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
-                                                    <div
-                                                        class="w-10 h-10 rounded-full <?= $change['assigned_user_status'] === 'active' ? 'user-status-active' : 'user-status-inactive' ?> flex items-center justify-center text-white text-sm font-bold shadow-sm">
-                                                        <?= strtoupper($assignedUserInitials) ?>
-                                                    </div>
-                                                    <div>
-                                                        <p class="font-medium text-gray-800">Assigned to:
-                                                            <?= htmlspecialchars($assignedUserName) ?></p>
-                                                        <?php if (!empty($change['assigned_email'])): ?>
-                                                            <p class="text-xs text-gray-500">
-                                                                <?= htmlspecialchars($change['assigned_email']) ?></p>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
-                                            <?php else: ?>
-                                                <!-- Show unassigned state -->
-                                                <div
-                                                    class="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
-                                                    <div
-                                                        class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-bold shadow-sm">
-                                                        <i class="fas fa-user-slash"></i>
-                                                    </div>
-                                                    <div>
-                                                        <p class="font-medium text-gray-800">Device is not assigned</p>
-                                                        <p class="text-xs text-gray-500">Available for assignment</p>
+                                                        <p class="font-medium text-red-800">Device marked as faulty</p>
+                                                        <p class="text-xs text-red-600">Requires attention</p>
                                                     </div>
                                                 </div>
                                             <?php endif; ?>
@@ -875,18 +1123,12 @@ function timeAgo($datetime)
                                         <!-- Timestamp -->
                                         <div class="flex flex-col items-end gap-2">
                                             <span class="text-xs text-gray-500 whitespace-nowrap"
-                                                title="<?= htmlspecialchars($change['updated_at']) ?>">
+                                                title="<?= e($activity['updated_at']) ?>">
                                                 <i class="fas fa-clock mr-1"></i><?= $timeAgo ?>
                                             </span>
-                                            <?php if (in_array($changeType, ['unassigned', 'retired', 'repair', 'stored'])): ?>
-                                                <span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
-                                                    <?= ucfirst($changeType) ?>
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700">
-                                                    Updated
-                                                </span>
-                                            <?php endif; ?>
+                                            <span class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700 capitalize">
+                                                <?= str_replace('_', ' ', $activity['type']) ?>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -901,13 +1143,15 @@ function timeAgo($datetime)
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div class="text-sm text-gray-600">
                             Showing <span class="font-semibold text-blue-600"><?= $offset + 1 ?></span> to
-                            <span class="font-semibold text-blue-600"><?= min($offset + $perPage, $totalChanges) ?></span>
+                            <span
+                                class="font-semibold text-blue-600"><?= min($offset + $perPage, $totalActivities) ?></span>
                             of
-                            <span class="font-semibold text-blue-600"><?= number_format($totalChanges) ?></span> changes
+                            <span class="font-semibold text-blue-600"><?= number_format($totalActivities) ?></span>
+                            activities
                         </div>
                         <div class="flex gap-2">
                             <?php if ($page > 1): ?>
-                                <a href="?page=<?= $page - 1 ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>"
+                                <a href="?page=<?= $page - 1 ?>"
                                     class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all font-medium">
                                     <i class="fas fa-chevron-left mr-1"></i> Previous
                                 </a>
@@ -922,14 +1166,14 @@ function timeAgo($datetime)
                                     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
                                     : 'bg-white text-gray-700 hover:bg-gray-50 hover:shadow-md';
                                 ?>
-                                <a href="?page=<?= $i ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>"
+                                <a href="?page=<?= $i ?>"
                                     class="px-4 py-2 border border-gray-300 rounded-lg text-sm transition-all font-medium <?= $activeClass ?>">
                                     <?= $i ?>
                                 </a>
                             <?php endfor; ?>
 
                             <?php if ($page < $totalPages): ?>
-                                <a href="?page=<?= $page + 1 ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>"
+                                <a href="?page=<?= $page + 1 ?>"
                                     class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all font-medium">
                                     Next <i class="fas fa-chevron-right ml-1"></i>
                                 </a>
@@ -942,30 +1186,221 @@ function timeAgo($datetime)
 
     </main>
 
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center h-full">
+            <div class="bg-white rounded-2xl p-8 flex flex-col items-center gap-4">
+                <div class="w-16 h-16 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin"></div>
+                <p class="text-gray-700 font-medium">Refreshing data...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- JS -->
     <script>
-        // Live search
-        const searchInput = document.getElementById('searchInput');
+        // Initialize Activity Chart
+        const chartData = <?= json_encode($chartData) ?>;
+        const chartLabels = <?= json_encode($chartLabels) ?>;
+        const chartColors = <?= json_encode(array_slice($chartColors, 0, count($chartData))) ?>;
 
-        searchInput.addEventListener('input', () => {
-            const query = searchInput.value.toLowerCase();
-            const activities = document.querySelectorAll('.activity-item');
-
-            activities.forEach(activity => {
-                const text = activity.textContent.toLowerCase();
-                activity.style.display = text.includes(query) ? '' : 'none';
+        if (chartData.length > 0) {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            const activityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: chartColors,
+                        borderColor: chartColors.map(color => color.replace('0.8', '1')),
+                        borderWidth: 2,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
             });
-        });
-
-        function toggleFilters() {
-            const panel = document.getElementById('filterPanel');
-            panel.classList.toggle('hidden');
+        } else {
+            // Hide chart if no data
+            document.getElementById('activityChart').style.display = 'none';
+            document.querySelector('#activityChart').parentElement.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center">
+                    <i class="fas fa-chart-pie text-4xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-400">No activity data to display</p>
+                </div>
+            `;
         }
 
-        function clearFilters() {
-            document.getElementById('filterStatus').value = '';
-            document.getElementById('filterDepartment').value = '';
-            document.getElementById('filterLocation').value = '';
+        // Live search with debounce
+        const searchInput = document.getElementById('searchInput');
+        let searchTimer;
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                const query = searchInput.value.toLowerCase();
+                const activities = document.querySelectorAll('.activity-item');
+
+                activities.forEach(activity => {
+                    const text = activity.textContent.toLowerCase();
+                    activity.style.display = text.includes(query) ? '' : 'none';
+                });
+            }, 300);
+        });
+
+        // Auto-refresh functionality
+        let autoRefreshInterval = null;
+        let autoRefreshEnabled = false;
+
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+
+            if (autoRefreshEnabled) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshEnabled = false;
+                btn.innerHTML = '<i class="fas fa-sync"></i> Auto-refresh';
+                btn.classList.remove('animate-pulse-glow');
+                showToast('Auto-refresh disabled', 'info');
+            } else {
+                autoRefreshEnabled = true;
+                autoRefreshInterval = setInterval(refreshData, 30000); // Every 30 seconds
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Auto-refresh ON';
+                btn.classList.add('animate-pulse-glow');
+                showToast('Auto-refresh enabled (30s)', 'success');
+            }
+        }
+
+        // Refresh data function
+        function refreshData() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden');
+
+            // Reload the page
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        }
+
+        // Export functionality
+        function exportActivity() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                totalDevices: <?= $totalItems ?>,
+                totalUsers: <?= $totalUsers ?>,
+                todayActivities: <?= $todayChanges ?>,
+                recentActivities: <?= $totalActivities ?>,
+                summary: {}
+            };
+
+            // Add activity summary
+            document.querySelectorAll('.activity-summary-item').forEach(item => {
+                const label = item.querySelector('.font-medium').textContent;
+                const count = item.querySelector('.summary-count').textContent;
+                data.summary[label] = parseInt(count) || 0;
+            });
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dashboard-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Data exported successfully', 'success');
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 transform transition-all duration-300 translate-x-full ${type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} text-white`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(0)';
+            }, 10);
+
+            setTimeout(() => {
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            // Show welcome toast if there are activities
+            if (<?= $totalActivities ?> > 0) {
+                setTimeout(() => {
+                    showToast('Loaded <?= $totalActivities ?> recent activities', 'info');
+                }, 1000);
+            }
+
+            // Remove new activity highlights after 5 seconds
+            setTimeout(() => {
+                document.querySelectorAll('.animate-highlight-new').forEach(el => {
+                    el.classList.remove('animate-highlight-new', 'border-l-4', 'border-l-blue-500', 'pl-3');
+                });
+            }, 5000);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                refreshData();
+            }
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            if (e.ctrlKey && e.key === 'e') {
+                e.preventDefault();
+                exportActivity();
+            }
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                document.querySelectorAll('.activity-item').forEach(el => {
+                    el.style.display = '';
+                });
+            }
+        });
+
+        // Filter by activity type (optional feature)
+        function filterByType(type) {
+            document.querySelectorAll('.activity-item').forEach(el => {
+                const activityType = el.getAttribute('data-activity-type');
+                el.style.display = (!type || activityType === type) ? '' : 'none';
+            });
         }
     </script>
 

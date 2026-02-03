@@ -140,26 +140,33 @@ function active($page, $current)
             <i class="fas fa-box-open w-5 text-center"></i>
             <span class="nav-text">Unassigned</span>
             <?php
-            // Get unassigned AND stored devices count for badge - UPDATED LOGIC
+            // FIXED: Get unassigned AND stored devices count for badge - Updated with correct logic
             if (file_exists(__DIR__ . "/config/database.php")) {
                 require_once __DIR__ . "/config/database.php";
                 $db = new Database();
                 $conn = $db->getConnection();
 
-                // Updated query to match unassigned_devices.php logic
-                $unassignedQuery = "SELECT COUNT(*) as count FROM inventory_items 
-                                    WHERE ((assigned_user IS NULL OR assigned_user = '') OR status = 'in_storage') 
-                                    AND status != 'retired'";
+                // Updated query to match the logic from unassigned_devices.php
+                // This counts devices that are not retired and either:
+                // 1. Have no active assignment OR
+                // 2. Are in storage status
+                $unassignedQuery = "SELECT COUNT(DISTINCT i.id) as count 
+                                   FROM inventory_items i
+                                   LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
+                                   WHERE (dua.id IS NULL OR i.status = 'in_storage') 
+                                   AND i.status != 'retired'";
+
                 $unassignedResult = $conn->query($unassignedQuery);
                 if ($unassignedResult) {
                     $unassignedCount = $unassignedResult->fetch_assoc()['count'];
                     if ($unassignedCount > 0) {
-                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
+                        echo '<span class="badge bg-red-100 text-red-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
                     }
                 }
             }
             ?>
         </a>
+
 
         <!-- ADDED: Device History Link -->
         <a href="device_history.php"
