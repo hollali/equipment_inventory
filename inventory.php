@@ -347,9 +347,6 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
     $device_id = (int) $_POST['device_id'];
     $action = $_POST['action'] ?? '';
 
-    // Debug logging
-    error_log("Device action triggered - Device ID: $device_id, Action: $action");
-
     // Start transaction
     mysqli_begin_transaction($conn);
 
@@ -1215,76 +1212,6 @@ if (!empty($_GET['location'])) {
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
         }
 
-        /* Dropdown styling - DYNAMIC POSITIONING */
-        .dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            background-color: white;
-            min-width: 220px;
-            box-shadow: 0px 8px 25px 0px rgba(0, 0, 0, 0.15);
-            z-index: 9999;
-            border-radius: 10px;
-            padding: 8px 0;
-            right: 0;
-            margin-bottom: 5px;
-            border: 1px solid #e5e7eb;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .dropdown-content.show {
-            display: block;
-            animation: slideDown 0.2s ease-out;
-        }
-
-        /* Top positioning class */
-        .dropdown-content.top {
-            bottom: 100%;
-            top: auto;
-        }
-
-        /* Bottom positioning class */
-        .dropdown-content.bottom {
-            top: 100%;
-            bottom: auto;
-            margin-top: 5px;
-            margin-bottom: 0;
-        }
-
-        .dropdown-item {
-            color: #374151;
-            padding: 10px 16px;
-            text-decoration: none;
-            display: block;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-left: 3px solid transparent;
-        }
-
-        .dropdown-item:hover {
-            background-color: #f3f4f6;
-            border-left-color: #3b82f6;
-            padding-left: 20px;
-        }
-
-        .dropdown-item i {
-            width: 20px;
-            text-align: center;
-            margin-right: 10px;
-        }
-
-        .dropdown-divider {
-            height: 1px;
-            background-color: #e5e7eb;
-            margin: 6px 0;
-        }
-
         /* Horizontal Tab Styling */
         .tab-active {
             background-color: #f3f4f6;
@@ -1382,22 +1309,23 @@ if (!empty($_GET['location'])) {
             backdrop-filter: blur(8px);
         }
 
-        /* Custom scrollbar for dropdowns */
-        .dropdown-content::-webkit-scrollbar {
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
             width: 6px;
+            height: 6px;
         }
 
-        .dropdown-content::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 10px;
         }
 
-        .dropdown-content::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-thumb {
             background: #888;
             border-radius: 10px;
         }
 
-        .dropdown-content::-webkit-scrollbar-thumb:hover {
+        ::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
     </style>
@@ -1700,75 +1628,13 @@ if (!empty($_GET['location'])) {
                                                     <i class="fas fa-edit text-xs"></i>
                                                 </button>
 
-                                                <!-- ACTION DROPDOWN -->
-                                                <div class="dropdown">
-                                                    <button
-                                                        class="action-btn bg-purple-500 text-white hover:bg-purple-600 dropdown-toggle"
-                                                        title="Device Actions"
-                                                        onclick="toggleDropdown(event, 'dropdown-<?= $row['id'] ?>')"
-                                                        data-dropdown="dropdown-<?= $row['id'] ?>">
-                                                        <i class="fas fa-cog text-xs"></i>
-                                                    </button>
-                                                    <div class="dropdown-content" id="dropdown-<?= $row['id'] ?>">
-                                                        <!-- Assign Option (only for unassigned devices) -->
-                                                        <?php if (!$isAssigned && $row['status'] !== 'retired'): ?>
-                                                            <div class="dropdown-item"
-                                                                onclick="openActionModal(<?= $row['id'] ?>, 'assign', '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')">
-                                                                <i class="fas fa-user-plus text-green-600"></i>
-                                                                <span>Assign Device</span>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="dropdown-item action-option disabled">
-                                                                <i class="fas fa-user-plus text-gray-400"></i>
-                                                                <span>Assign Device</span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <!-- Reassign Option (only for assigned devices) -->
-                                                        <?php if ($isAssigned && $row['status'] !== 'retired'): ?>
-                                                            <div class="dropdown-item"
-                                                                onclick="openActionModal(<?= $row['id'] ?>, 'reassign', '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')">
-                                                                <i class="fas fa-user-exchange text-blue-600"></i>
-                                                                <span>Reassign Device</span>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="dropdown-item action-option disabled">
-                                                                <i class="fas fa-user-exchange text-gray-400"></i>
-                                                                <span>Reassign Device</span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <!-- Retrieve Option (only for assigned devices) -->
-                                                        <?php if ($isAssigned && $row['status'] !== 'retired'): ?>
-                                                            <div class="dropdown-item"
-                                                                onclick="openActionModal(<?= $row['id'] ?>, 'retrieve', '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')">
-                                                                <i class="fas fa-arrow-left text-amber-600"></i>
-                                                                <span>Retrieve to Store</span>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="dropdown-item action-option disabled">
-                                                                <i class="fas fa-arrow-left text-gray-400"></i>
-                                                                <span>Retrieve to Store</span>
-                                                            </div>
-                                                        <?php endif; ?>
-
-                                                        <div class="dropdown-divider"></div>
-
-                                                        <!-- Retire Option -->
-                                                        <?php if ($row['status'] !== 'retired'): ?>
-                                                            <div class="dropdown-item"
-                                                                onclick="openActionModal(<?= $row['id'] ?>, 'retire', '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>')">
-                                                                <i class="fas fa-archive text-gray-600"></i>
-                                                                <span>Retire Device</span>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="dropdown-item action-option disabled">
-                                                                <i class="fas fa-archive text-gray-400"></i>
-                                                                <span>Retire Device</span>
-                                                            </div>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
+                                                <!-- DEVICE ACTIONS BUTTON -->
+                                                <button
+                                                    onclick="openDeviceActionsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>', '<?= $row['status'] ?>')"
+                                                    class="action-btn bg-purple-500 text-white hover:bg-purple-600"
+                                                    title="Device Actions">
+                                                    <i class="fas fa-cog text-xs"></i>
+                                                </button>
 
                                                 <!-- DELETE -->
                                                 <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
@@ -2495,30 +2361,31 @@ if (!empty($_GET['location'])) {
                 </div>
             </div>
 
-            <!-- ================= ACTION MODAL (Horizontal Tabs) ================= -->
-            <div id="actionModal"
+            <!-- ================= DEVICE ACTIONS MODAL ================= -->
+            <div id="deviceActionsModal"
                 class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 modal-backdrop">
                 <div class="bg-white w-full max-w-2xl rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
                     <!-- Header -->
                     <div class="px-6 py-4 border-b flex items-center justify-between">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-800">Device Action</h3>
+                            <h3 class="text-lg font-semibold text-gray-800">Device Actions</h3>
                             <p class="text-sm text-gray-500 mt-1">
-                                Device: <span id="actionAssetTag" class="font-bold text-blue-600"></span>
+                                Device: <span id="deviceActionsAssetTag" class="font-bold text-blue-600"></span>
                             </p>
                         </div>
-                        <button type="button" onclick="closeActionModal()" class="text-gray-400 hover:text-gray-600">
+                        <button type="button" onclick="closeDeviceActionsModal()"
+                            class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
                     <!-- Current User Info -->
-                    <div id="currentUserInfo" class="px-6 py-3 bg-blue-50 border-b hidden">
+                    <div id="deviceCurrentUserInfo" class="px-6 py-3 bg-blue-50 border-b hidden">
                         <p class="text-sm text-gray-700">
                             <i class="fas fa-user mr-2 text-blue-500"></i>
                             <span class="font-medium">Current User:</span>
-                            <span id="currentUserName" class="font-semibold text-blue-700 ml-1"></span>
+                            <span id="deviceCurrentUserName" class="font-semibold text-blue-700 ml-1"></span>
                         </p>
                     </div>
 
@@ -2526,9 +2393,9 @@ if (!empty($_GET['location'])) {
                     <div class="border-b">
                         <div class="flex">
                             <!-- Assign Tab -->
-                            <button type="button" id="assignTab"
+                            <button type="button" id="deviceAssignTab"
                                 class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
-                                onclick="showActionTab('assign')">
+                                onclick="showDeviceActionTab('assign')">
                                 <div class="flex items-center justify-center gap-2">
                                     <i class="fas fa-user-plus text-green-600"></i>
                                     <span>Assign</span>
@@ -2536,9 +2403,9 @@ if (!empty($_GET['location'])) {
                             </button>
 
                             <!-- Reassign Tab -->
-                            <button type="button" id="reassignTab"
+                            <button type="button" id="deviceReassignTab"
                                 class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
-                                onclick="showActionTab('reassign')">
+                                onclick="showDeviceActionTab('reassign')">
                                 <div class="flex items-center justify-center gap-2">
                                     <i class="fas fa-user-exchange text-blue-600"></i>
                                     <span>Reassign</span>
@@ -2546,9 +2413,9 @@ if (!empty($_GET['location'])) {
                             </button>
 
                             <!-- Retrieve Tab -->
-                            <button type="button" id="retrieveTab"
+                            <button type="button" id="deviceRetrieveTab"
                                 class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
-                                onclick="showActionTab('retrieve')">
+                                onclick="showDeviceActionTab('retrieve')">
                                 <div class="flex items-center justify-center gap-2">
                                     <i class="fas fa-arrow-left text-amber-600"></i>
                                     <span>Retrieve</span>
@@ -2556,9 +2423,9 @@ if (!empty($_GET['location'])) {
                             </button>
 
                             <!-- Retire Tab -->
-                            <button type="button" id="retireTab"
+                            <button type="button" id="deviceRetireTab"
                                 class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
-                                onclick="showActionTab('retire')">
+                                onclick="showDeviceActionTab('retire')">
                                 <div class="flex items-center justify-center gap-2">
                                     <i class="fas fa-archive text-gray-600"></i>
                                     <span>Retire</span>
@@ -2568,20 +2435,20 @@ if (!empty($_GET['location'])) {
                     </div>
 
                     <!-- Form Container -->
-                    <form method="POST" action="inventory.php" id="actionForm">
-                        <input type="hidden" name="device_id" id="deviceId">
+                    <form method="POST" action="inventory.php" id="deviceActionsForm">
+                        <input type="hidden" name="device_id" id="deviceActionsId">
                         <input type="hidden" name="device_action" value="1">
 
                         <!-- Tab Content Container -->
                         <div class="p-6">
                             <!-- Assign Content -->
-                            <div id="assignContent" class="action-tab-content hidden">
+                            <div id="deviceAssignContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
                                             Select User <span class="text-red-500">*</span>
                                         </label>
-                                        <select name="assign_user" id="assignUserSelect" required
+                                        <select name="assign_user" id="deviceAssignUserSelect" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                             <option value="">Select User</option>
                                             <?php foreach ($users as $user): ?>
@@ -2600,7 +2467,7 @@ if (!empty($_GET['location'])) {
                                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                                 Department
                                             </label>
-                                            <select name="assign_department" id="assignDepartment"
+                                            <select name="assign_department" id="deviceAssignDepartment"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                                 <option value="">Select Department</option>
                                                 <?php foreach ($departmentsArr as $d): ?>
@@ -2615,7 +2482,7 @@ if (!empty($_GET['location'])) {
                                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                                 Location
                                             </label>
-                                            <select name="assign_location" id="assignLocation"
+                                            <select name="assign_location" id="deviceAssignLocation"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                                 <option value="">Select Location</option>
                                                 <?php foreach ($locationsArr as $l): ?>
@@ -2631,7 +2498,7 @@ if (!empty($_GET['location'])) {
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
                                             Assignment Notes (Optional)
                                         </label>
-                                        <textarea name="assign_notes" id="assignNotes" rows="2"
+                                        <textarea name="assign_notes" id="deviceAssignNotes" rows="2"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                                             placeholder="Add any notes about this assignment..."></textarea>
                                     </div>
@@ -2639,13 +2506,14 @@ if (!empty($_GET['location'])) {
                             </div>
 
                             <!-- Reassign Content -->
-                            <div id="reassignContent" class="action-tab-content hidden">
+                            <div id="deviceReassignContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
                                     <div class="p-3 bg-gray-50 rounded-lg mb-2">
                                         <p class="text-sm text-gray-700 mb-1">
                                             <i class="fas fa-user mr-2 text-blue-500"></i>
                                             <span class="font-medium">Current Assignment:</span>
-                                            <span id="previousUserName" class="font-semibold text-blue-700 ml-1"></span>
+                                            <span id="devicePreviousUserName"
+                                                class="font-semibold text-blue-700 ml-1"></span>
                                         </p>
                                         <p class="text-xs text-gray-500">
                                             This device is currently assigned to the user above.
@@ -2656,7 +2524,7 @@ if (!empty($_GET['location'])) {
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
                                             Select New User <span class="text-red-500">*</span>
                                         </label>
-                                        <select name="reassign_user" id="reassignUserSelect" required
+                                        <select name="reassign_user" id="deviceReassignUserSelect" required
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                             <option value="">Select User</option>
                                             <?php foreach ($users as $user): ?>
@@ -2675,7 +2543,7 @@ if (!empty($_GET['location'])) {
                                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                                 Department
                                             </label>
-                                            <select name="reassign_department" id="reassignDepartment"
+                                            <select name="reassign_department" id="deviceReassignDepartment"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                                 <option value="">Select Department</option>
                                                 <?php foreach ($departmentsArr as $d): ?>
@@ -2690,7 +2558,7 @@ if (!empty($_GET['location'])) {
                                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                                 Location
                                             </label>
-                                            <select name="reassign_location" id="reassignLocation"
+                                            <select name="reassign_location" id="deviceReassignLocation"
                                                 class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                                 <option value="">Select Location</option>
                                                 <?php foreach ($locationsArr as $l): ?>
@@ -2706,7 +2574,7 @@ if (!empty($_GET['location'])) {
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
                                             Reassignment Notes (Optional)
                                         </label>
-                                        <textarea name="reassign_notes" id="reassignNotes" rows="2"
+                                        <textarea name="reassign_notes" id="deviceReassignNotes" rows="2"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                                             placeholder="Add any notes about this reassignment..."></textarea>
                                     </div>
@@ -2714,13 +2582,13 @@ if (!empty($_GET['location'])) {
                             </div>
 
                             <!-- Retrieve Content -->
-                            <div id="retrieveContent" class="action-tab-content hidden">
+                            <div id="deviceRetrieveContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
                                     <div class="p-3 bg-amber-50 rounded-lg mb-2">
                                         <p class="text-sm text-gray-700 mb-1">
                                             <i class="fas fa-user mr-2 text-amber-600"></i>
                                             <span class="font-medium">Current Assignment:</span>
-                                            <span id="retrieveUserName"
+                                            <span id="deviceRetrieveUserName"
                                                 class="font-semibold text-amber-700 ml-1"></span>
                                         </p>
                                         <p class="text-xs text-gray-600">
@@ -2733,7 +2601,7 @@ if (!empty($_GET['location'])) {
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
                                             Reason for Retrieval (Optional)
                                         </label>
-                                        <textarea name="retrieve_reason" id="retrieveReason" rows="3"
+                                        <textarea name="retrieve_reason" id="deviceRetrieveReason" rows="3"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
                                             placeholder="e.g., Device inspection, maintenance, return to inventory..."></textarea>
                                     </div>
@@ -2748,7 +2616,7 @@ if (!empty($_GET['location'])) {
                             </div>
 
                             <!-- Retire Content -->
-                            <div id="retireContent" class="action-tab-content hidden">
+                            <div id="deviceRetireContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
                                     <div class="p-4 bg-gray-100 rounded-lg border border-gray-200">
                                         <div class="flex items-start gap-3">
@@ -2793,11 +2661,11 @@ if (!empty($_GET['location'])) {
 
                         <!-- Footer -->
                         <div class="px-6 py-4 border-t flex justify-end gap-3">
-                            <button type="button" onclick="closeActionModal()"
+                            <button type="button" onclick="closeDeviceActionsModal()"
                                 class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium transition">
                                 Cancel
                             </button>
-                            <button type="button" onclick="confirmAction()" id="submitActionBtn"
+                            <button type="button" onclick="confirmDeviceAction()" id="deviceSubmitActionBtn"
                                 class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition">
                                 Confirm Action
                             </button>
@@ -2844,35 +2712,41 @@ if (!empty($_GET['location'])) {
                 </div>
             </div>
 
-            <!-- ================= DELETE MODAL ================= -->
-            <div id="deleteModal"
-                class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 modal-backdrop">
-                <div class="bg-white w-full max-w-md rounded-xl shadow-xl modal-content">
+            <!-- ================= DELETE CONFIRMATION MODAL ================= -->
+            <div id="deleteConfirmationModal"
+                class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[100] p-4 confirmation-modal">
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl confirmation-content"
+                    onclick="event.stopPropagation()">
                     <!-- Header -->
                     <div class="px-6 py-4 border-b flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-800">Confirm Delete</h3>
-                        <button onclick="closeDeleteModal()" class="text-gray-400 hover:text-gray-600">
+                        <button onclick="closeDeleteConfirmationModal()" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
                     <!-- Body -->
                     <div class="px-6 py-5 text-gray-700">
-                        <p class="mb-2 font-medium">Are you sure you want to delete this item?</p>
-                        <p class="text-sm text-gray-500">
-                            This action <span class="text-red-600 font-semibold">cannot be undone</span>.
-                        </p>
+                        <p class="mb-4" id="deleteConfirmationMessage"></p>
+                        <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                            <p class="text-sm text-red-700 flex items-center gap-2">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>This action <strong>cannot be undone</strong>. All assignment records will also be
+                                    deleted.</span>
+                            </p>
+                        </div>
                     </div>
 
                     <!-- Footer -->
                     <div class="px-6 py-4 border-t flex justify-end gap-3">
-                        <button onclick="closeDeleteModal()"
-                            class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">
+                        <button onclick="closeDeleteConfirmationModal()"
+                            class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium transition">
                             Cancel
                         </button>
-                        <a id="confirmDeleteBtn" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-                            Yes, Delete
-                        </a>
+                        <button onclick="executeDelete()" id="confirmDeleteActionBtn"
+                            class="px-5 py-2.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium transition">
+                            Delete Device
+                        </button>
                     </div>
                 </div>
             </div>
@@ -3067,51 +2941,6 @@ if (!empty($_GET['location'])) {
             }
         }
 
-        // ==================== DROPDOWN POSITIONING FUNCTIONS ====================
-        function toggleDropdown(event, dropdownId) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            const dropdown = document.getElementById(dropdownId);
-            const allDropdowns = document.querySelectorAll('.dropdown-content');
-
-            // Close all other dropdowns
-            allDropdowns.forEach(d => {
-                if (d.id !== dropdownId) {
-                    d.classList.remove('show');
-                }
-            });
-
-            // Position dropdown based on available space
-            positionDropdown(event.target, dropdown);
-
-            // Toggle current dropdown
-            dropdown.classList.toggle('show');
-        }
-
-        function positionDropdown(button, dropdown) {
-            // Get button position and dimensions
-            const buttonRect = button.getBoundingClientRect();
-
-            // Get viewport dimensions
-            const viewportHeight = window.innerHeight;
-
-            // Check available space below and above the button
-            const spaceBelow = viewportHeight - buttonRect.bottom;
-            const spaceAbove = buttonRect.top;
-
-            // Default is bottom
-            dropdown.classList.remove('top', 'bottom');
-
-            if (spaceBelow < dropdown.offsetHeight && spaceAbove > spaceBelow) {
-                // Not enough space below, but more space above - position above
-                dropdown.classList.add('top');
-            } else {
-                // Enough space below or more space below than above - position below
-                dropdown.classList.add('bottom');
-            }
-        }
-
         // ==================== MODAL FUNCTIONS ====================
         function openModal(id) {
             const modal = document.getElementById(id);
@@ -3163,32 +2992,32 @@ if (!empty($_GET['location'])) {
             closeModal('viewModal');
         }
 
-        // ==================== ACTION MODAL ====================
-        let currentActionModalState = {
+        // ==================== DEVICE ACTIONS MODAL ====================
+        let currentDeviceActionsState = {
             deviceId: null,
             assignedUser: null,
             assetTag: null,
-            currentTab: 'assign',
-            actionData: null
+            deviceStatus: null,
+            currentTab: 'assign'
         };
 
-        function openActionModal(id, defaultAction, assetTag, assignedUser) {
-            currentActionModalState = {
+        function openDeviceActionsModal(id, assetTag, assignedUser, deviceStatus) {
+            currentDeviceActionsState = {
                 deviceId: id,
                 assignedUser: assignedUser,
                 assetTag: assetTag,
-                currentTab: defaultAction || 'assign',
-                actionData: null
+                deviceStatus: deviceStatus,
+                currentTab: 'assign'
             };
 
-            document.getElementById('deviceId').value = id;
-            document.getElementById('actionAssetTag').textContent = assetTag;
+            document.getElementById('deviceActionsId').value = id;
+            document.getElementById('deviceActionsAssetTag').textContent = assetTag;
 
             // Show current user info if available
-            const currentUserInfo = document.getElementById('currentUserInfo');
-            const currentUserName = document.getElementById('currentUserName');
-            const previousUserName = document.getElementById('previousUserName');
-            const retrieveUserName = document.getElementById('retrieveUserName');
+            const currentUserInfo = document.getElementById('deviceCurrentUserInfo');
+            const currentUserName = document.getElementById('deviceCurrentUserName');
+            const previousUserName = document.getElementById('devicePreviousUserName');
+            const retrieveUserName = document.getElementById('deviceRetrieveUserName');
 
             if (assignedUser && assignedUser.trim() !== '') {
                 currentUserInfo.classList.remove('hidden');
@@ -3203,77 +3032,71 @@ if (!empty($_GET['location'])) {
             }
 
             // Reset form
-            document.getElementById('actionForm').reset();
+            document.getElementById('deviceActionsForm').reset();
 
-            // Enable/disable tabs based on whether device is assigned
-            const assignTab = document.getElementById('assignTab');
-            const reassignTab = document.getElementById('reassignTab');
-            const retrieveTab = document.getElementById('retrieveTab');
-            const retireTab = document.getElementById('retireTab');
+            // Enable/disable tabs based on device status and assignment
+            const assignTab = document.getElementById('deviceAssignTab');
+            const reassignTab = document.getElementById('deviceReassignTab');
+            const retrieveTab = document.getElementById('deviceRetrieveTab');
+            const retireTab = document.getElementById('deviceRetireTab');
 
+            // Reset all tabs first
+            [assignTab, reassignTab, retrieveTab, retireTab].forEach(tab => {
+                tab.classList.remove('tab-disabled');
+                tab.disabled = false;
+            });
+
+            // Check if device is already retired
+            if (deviceStatus === 'retired') {
+                // Device is retired - disable all action tabs
+                [assignTab, reassignTab, retrieveTab, retireTab].forEach(tab => {
+                    tab.classList.add('tab-disabled');
+                    tab.disabled = true;
+                });
+                Toast.showWarning('This device is already retired and cannot be modified.', 'Device Retired');
+                return;
+            }
+
+            // Enable/disable based on assignment status
             if (assignedUser && assignedUser.trim() !== '') {
                 // Device is assigned - enable reassign/retrieve/retire, disable assign
                 assignTab.classList.add('tab-disabled');
                 assignTab.disabled = true;
 
-                reassignTab.classList.remove('tab-disabled');
-                reassignTab.disabled = false;
-
-                retrieveTab.classList.remove('tab-disabled');
-                retrieveTab.disabled = false;
-
-                retireTab.classList.remove('tab-disabled');
-                retireTab.disabled = false;
-
-                // Set default tab if provided, otherwise select reassign
-                if (defaultAction && defaultAction !== 'assign') {
-                    currentActionModalState.currentTab = defaultAction;
-                } else {
-                    currentActionModalState.currentTab = 'reassign';
-                }
+                // Set default tab to reassign
+                currentDeviceActionsState.currentTab = 'reassign';
             } else {
                 // Device is unassigned - enable assign/retire, disable reassign/retrieve
-                assignTab.classList.remove('tab-disabled');
-                assignTab.disabled = false;
-
                 reassignTab.classList.add('tab-disabled');
                 reassignTab.disabled = true;
-
                 retrieveTab.classList.add('tab-disabled');
                 retrieveTab.disabled = true;
 
-                retireTab.classList.remove('tab-disabled');
-                retireTab.disabled = false;
-
-                // Set default tab if provided, otherwise select assign
-                if (defaultAction && defaultAction !== 'reassign' && defaultAction !== 'retrieve') {
-                    currentActionModalState.currentTab = defaultAction;
-                } else {
-                    currentActionModalState.currentTab = 'assign';
-                }
+                // Set default tab to assign
+                currentDeviceActionsState.currentTab = 'assign';
             }
 
             // Show the selected tab
-            showActionTab(currentActionModalState.currentTab);
+            showDeviceActionTab(currentDeviceActionsState.currentTab);
 
-            openModal('actionModal');
+            openModal('deviceActionsModal');
         }
 
-        function showActionTab(tabName) {
+        function showDeviceActionTab(tabName) {
             // Don't switch to disabled tabs
-            const tabElement = document.getElementById(tabName + 'Tab');
+            const tabElement = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab');
             if (tabElement.classList.contains('tab-disabled')) {
                 return;
             }
 
             // Update current tab state
-            currentActionModalState.currentTab = tabName;
+            currentDeviceActionsState.currentTab = tabName;
 
             // Remove active state from all tabs
             const allTabs = ['assign', 'reassign', 'retrieve', 'retire'];
             allTabs.forEach(tab => {
-                const tabBtn = document.getElementById(tab + 'Tab');
-                const content = document.getElementById(tab + 'Content');
+                const tabBtn = document.getElementById('device' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab');
+                const content = document.getElementById('device' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Content');
 
                 tabBtn.classList.remove('tab-active');
                 tabBtn.classList.add('tab-inactive');
@@ -3284,8 +3107,8 @@ if (!empty($_GET['location'])) {
             });
 
             // Add active state to selected tab
-            const selectedTab = document.getElementById(tabName + 'Tab');
-            const selectedContent = document.getElementById(tabName + 'Content');
+            const selectedTab = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab');
+            const selectedContent = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Content');
 
             selectedTab.classList.remove('tab-inactive');
             selectedTab.classList.add('tab-active');
@@ -3294,13 +3117,13 @@ if (!empty($_GET['location'])) {
                 selectedContent.classList.remove('hidden');
             }
 
-            // Update submit button text based on action
-            const submitBtn = document.getElementById('submitActionBtn');
+            // Update submit button text and color based on action
+            const submitBtn = document.getElementById('deviceSubmitActionBtn');
             const actionLabels = {
-                'assign': 'Confirm Assignment',
-                'reassign': 'Confirm Reassignment',
-                'retrieve': 'Confirm Retrieval',
-                'retire': 'Confirm Retirement'
+                'assign': 'Assign Device',
+                'reassign': 'Reassign Device',
+                'retrieve': 'Retrieve Device',
+                'retire': 'Retire Device'
             };
 
             submitBtn.textContent = actionLabels[tabName] || 'Confirm Action';
@@ -3326,34 +3149,29 @@ if (!empty($_GET['location'])) {
             }
         }
 
-        function closeActionModal() {
+        function closeDeviceActionsModal() {
             // Reset state
-            currentActionModalState = {
+            currentDeviceActionsState = {
                 deviceId: null,
                 assignedUser: null,
                 assetTag: null,
-                currentTab: 'assign',
-                actionData: null
+                deviceStatus: null,
+                currentTab: 'assign'
             };
 
             // Reset form
-            document.getElementById('actionForm').reset();
+            document.getElementById('deviceActionsForm').reset();
 
-            // Reset tabs to default state
-            const allTabs = ['assign', 'reassign', 'retrieve', 'retire'];
-            allTabs.forEach(tab => {
-                const tabBtn = document.getElementById(tab + 'Tab');
-                tabBtn.classList.remove('tab-active', 'tab-inactive', 'tab-disabled');
-                tabBtn.disabled = false;
-            });
-
-            closeModal('actionModal');
+            closeModal('deviceActionsModal');
         }
 
         // ==================== CONFIRMATION MODAL ====================
-        function confirmAction() {
-            const currentTab = currentActionModalState.currentTab;
-            const deviceTag = currentActionModalState.assetTag;
+        let pendingAction = null;
+        let pendingDeleteUrl = null;
+
+        function confirmDeviceAction() {
+            const currentTab = currentDeviceActionsState.currentTab;
+            const deviceTag = currentDeviceActionsState.assetTag;
 
             // Validate required fields based on current tab
             let isValid = true;
@@ -3361,7 +3179,7 @@ if (!empty($_GET['location'])) {
 
             switch (currentTab) {
                 case 'assign':
-                    const assignUser = document.getElementById('assignUserSelect');
+                    const assignUser = document.getElementById('deviceAssignUserSelect');
                     if (!assignUser.value) {
                         isValid = false;
                         errorMessage = 'Please select a user to assign the device to!';
@@ -3370,7 +3188,7 @@ if (!empty($_GET['location'])) {
                     break;
 
                 case 'reassign':
-                    const reassignUser = document.getElementById('reassignUserSelect');
+                    const reassignUser = document.getElementById('deviceReassignUserSelect');
                     if (!reassignUser.value) {
                         isValid = false;
                         errorMessage = 'Please select a user to reassign the device to!';
@@ -3385,13 +3203,6 @@ if (!empty($_GET['location'])) {
             }
 
             // Prepare confirmation message based on action
-            const actionNames = {
-                'assign': 'assign',
-                'reassign': 'reassign',
-                'retrieve': 'retrieve to store',
-                'retire': 'retire'
-            };
-
             const actionTitles = {
                 'assign': 'Confirm Assignment',
                 'reassign': 'Confirm Reassignment',
@@ -3413,10 +3224,11 @@ if (!empty($_GET['location'])) {
                 'retire': 'This action cannot be undone. The device will be permanently marked as retired.'
             };
 
-            // Store action data for execution
-            currentActionModalState.actionData = {
+            // Store pending action
+            pendingAction = {
+                type: 'deviceAction',
                 tab: currentTab,
-                formData: new FormData(document.getElementById('actionForm'))
+                form: document.getElementById('deviceActionsForm')
             };
 
             // Show confirmation modal
@@ -3463,59 +3275,73 @@ if (!empty($_GET['location'])) {
                     confirmBtn.classList.add('bg-blue-600');
             }
 
-            // Close action modal and open confirmation modal
-            closeModal('actionModal');
+            // Close device actions modal and open confirmation modal
+            closeModal('deviceActionsModal');
             openModal('confirmationModal');
         }
 
         function closeConfirmationModal() {
+            pendingAction = null;
             closeModal('confirmationModal');
-            // Reopen action modal if user cancels
-            setTimeout(() => {
-                if (currentActionModalState.deviceId) {
-                    openModal('actionModal');
-                }
-            }, 300);
         }
 
         function executeConfirmedAction() {
-            const form = document.getElementById('actionForm');
-            const currentTab = currentActionModalState.currentTab;
+            if (!pendingAction) {
+                closeConfirmationModal();
+                return;
+            }
 
-            // Set the action value based on current tab
-            const actionInput = document.createElement('input');
-            actionInput.type = 'hidden';
-            actionInput.name = 'action';
-            actionInput.value = currentTab;
-            form.appendChild(actionInput);
+            if (pendingAction.type === 'deviceAction') {
+                // Set the action value based on current tab
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = pendingAction.tab;
+                pendingAction.form.appendChild(actionInput);
 
-            // Show success toast
-            const deviceTag = currentActionModalState.assetTag;
-            const successMessages = {
-                'assign': `Device "${deviceTag}" assigned successfully!`,
-                'reassign': `Device "${deviceTag}" reassigned successfully!`,
-                'retrieve': `Device "${deviceTag}" retrieved successfully!`,
-                'retire': `Device "${deviceTag}" retired successfully!`
-            };
+                // Show success toast
+                const deviceTag = currentDeviceActionsState.assetTag;
+                const successMessages = {
+                    'assign': `Device "${deviceTag}" assigned successfully!`,
+                    'reassign': `Device "${deviceTag}" reassigned successfully!`,
+                    'retrieve': `Device "${deviceTag}" retrieved successfully!`,
+                    'retire': `Device "${deviceTag}" retired successfully!`
+                };
 
-            // Submit the form
-            form.submit();
+                Toast.showSuccess(successMessages[pendingAction.tab], 'Success');
 
-            // Show toast (will be overridden by PHP session toast)
-            Toast.showSuccess(successMessages[currentTab], 'Success');
+                // Submit the form
+                pendingAction.form.submit();
+            }
 
             closeConfirmationModal();
         }
 
         // ==================== DELETE MODAL ====================
         function openDeleteModal(id) {
-            const confirmBtn = document.getElementById('confirmDeleteBtn');
-            confirmBtn.href = `inventory.php?delete=${id}`;
-            openModal('deleteModal');
+            pendingDeleteUrl = `inventory.php?delete=${id}`;
+
+            // Get device info for confirmation message
+            const row = document.querySelector(`[onclick*="openDeleteModal(${id})"]`)?.closest('tr');
+            const assetTag = row?.querySelector('.asset-tag-badge')?.textContent || 'this device';
+
+            document.getElementById('deleteConfirmationMessage').innerHTML =
+                `Are you sure you want to delete device <strong>"${assetTag}"</strong>?`;
+
+            openModal('deleteConfirmationModal');
         }
 
-        function closeDeleteModal() {
-            closeModal('deleteModal');
+        function closeDeleteConfirmationModal() {
+            pendingDeleteUrl = null;
+            closeModal('deleteConfirmationModal');
+        }
+
+        function executeDelete() {
+            if (pendingDeleteUrl) {
+                Toast.showSuccess('Device deleted successfully!', 'Success');
+                window.location.href = pendingDeleteUrl;
+            }
+            closeDeleteConfirmationModal();
         }
 
         // ==================== QUICK ACTIONS MODAL ====================
@@ -3577,11 +3403,35 @@ if (!empty($_GET['location'])) {
 
             if (screenWidth < 768) {
                 container.style.overflowX = 'auto';
-                container.classList.remove('no-scrollbar');
             } else {
                 container.style.overflowX = 'visible';
-                container.classList.add('no-scrollbar');
             }
+        }
+
+        // ==================== FORM VALIDATION ====================
+        function validateEditForm(formId) {
+            const form = document.getElementById(formId);
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+            let errorMessages = [];
+
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    const fieldName = field.name.replace(/_/g, ' ');
+                    errorMessages.push(`${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} is required`);
+                    field.classList.add('border-red-500');
+                } else {
+                    field.classList.remove('border-red-500');
+                }
+            });
+
+            if (!isValid) {
+                Toast.showError(errorMessages.join('<br>'), 'Validation Error', 7000);
+                return false;
+            }
+
+            return true;
         }
 
         // ==================== INITIALIZATION ====================
@@ -3589,69 +3439,71 @@ if (!empty($_GET['location'])) {
             // Show PHP toasts
             showPHPToasts();
 
-            // Close dropdowns when clicking outside
-            document.addEventListener('click', function (event) {
-                if (!event.target.closest('.dropdown')) {
-                    document.querySelectorAll('.dropdown-content.show').forEach(dropdown => {
-                        dropdown.classList.remove('show');
-                    });
-                }
-            });
-
             // Adjust table layout
             adjustTableLayout();
+
+            // Add form validation for edit forms
+            document.querySelectorAll('form[id^="editForm"]').forEach(form => {
+                form.addEventListener('submit', function (e) {
+                    if (!validateEditForm(this.id)) {
+                        e.preventDefault();
+                    }
+                });
+            });
 
             // Add keyboard shortcuts
             document.addEventListener('keydown', function (e) {
                 // Escape key closes modals
                 if (e.key === 'Escape') {
-                    if (document.getElementById('actionModal').classList.contains('flex')) {
-                        closeActionModal();
+                    if (document.getElementById('deviceActionsModal').classList.contains('flex')) {
+                        closeDeviceActionsModal();
                     } else if (document.getElementById('confirmationModal').classList.contains('flex')) {
                         closeConfirmationModal();
-                    } else if (document.getElementById('deleteModal').classList.contains('flex')) {
-                        closeDeleteModal();
+                    } else if (document.getElementById('deleteConfirmationModal').classList.contains('flex')) {
+                        closeDeleteConfirmationModal();
                     } else if (document.getElementById('quickActionsModal').classList.contains('flex')) {
                         closeQuickActionsModal();
                     }
                 }
 
-                // Enter key in action modal
-                if (e.key === 'Enter' && document.getElementById('actionModal').classList.contains('flex')) {
-                    e.preventDefault();
-                    confirmAction();
-                }
-
-                // Tab navigation with arrow keys in action modal
-                if (document.getElementById('actionModal').classList.contains('flex')) {
-                    const tabs = ['assign', 'reassign', 'retrieve', 'retire'];
-                    const currentIndex = tabs.indexOf(currentActionModalState.currentTab);
-
-                    if (e.key === 'ArrowRight' && currentIndex < tabs.length - 1) {
+                // Enter key in device actions modal
+                if (document.getElementById('deviceActionsModal').classList.contains('flex')) {
+                    if (e.key === 'Enter' && !e.target.tagName === 'TEXTAREA') {
                         e.preventDefault();
-                        let nextIndex = currentIndex + 1;
-                        // Skip disabled tabs
-                        while (nextIndex < tabs.length) {
-                            const nextTab = document.getElementById(tabs[nextIndex] + 'Tab');
-                            if (!nextTab.classList.contains('tab-disabled')) {
-                                showActionTab(tabs[nextIndex]);
-                                break;
-                            }
-                            nextIndex++;
-                        }
+                        confirmDeviceAction();
                     }
 
-                    if (e.key === 'ArrowLeft' && currentIndex > 0) {
-                        e.preventDefault();
-                        let prevIndex = currentIndex - 1;
-                        // Skip disabled tabs
-                        while (prevIndex >= 0) {
-                            const prevTab = document.getElementById(tabs[prevIndex] + 'Tab');
-                            if (!prevTab.classList.contains('tab-disabled')) {
-                                showActionTab(tabs[prevIndex]);
-                                break;
+                    // Tab navigation with arrow keys
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                        const tabs = ['assign', 'reassign', 'retrieve', 'retire'];
+                        const currentIndex = tabs.indexOf(currentDeviceActionsState.currentTab);
+
+                        if (e.key === 'ArrowRight' && currentIndex < tabs.length - 1) {
+                            e.preventDefault();
+                            let nextIndex = currentIndex + 1;
+                            // Skip disabled tabs
+                            while (nextIndex < tabs.length) {
+                                const nextTab = document.getElementById('device' + tabs[nextIndex].charAt(0).toUpperCase() + tabs[nextIndex].slice(1) + 'Tab');
+                                if (!nextTab.classList.contains('tab-disabled')) {
+                                    showDeviceActionTab(tabs[nextIndex]);
+                                    break;
+                                }
+                                nextIndex++;
                             }
-                            prevIndex--;
+                        }
+
+                        if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                            e.preventDefault();
+                            let prevIndex = currentIndex - 1;
+                            // Skip disabled tabs
+                            while (prevIndex >= 0) {
+                                const prevTab = document.getElementById('device' + tabs[prevIndex].charAt(0).toUpperCase() + tabs[prevIndex].slice(1) + 'Tab');
+                                if (!prevTab.classList.contains('tab-disabled')) {
+                                    showDeviceActionTab(tabs[prevIndex]);
+                                    break;
+                                }
+                                prevIndex--;
+                            }
                         }
                     }
                 }
