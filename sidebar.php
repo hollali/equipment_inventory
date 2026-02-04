@@ -23,10 +23,7 @@ function active($page, $current)
 
     #sidebar.collapsed .nav-text,
     #sidebar.collapsed .header-text,
-    #sidebar.collapsed #logo {
-        display: none;
-    }
-
+    #sidebar.collapsed #logo,
     #sidebar.collapsed .badge {
         display: none;
     }
@@ -38,6 +35,20 @@ function active($page, $current)
 
     #mainContent.collapsed {
         margin-left: 5rem;
+    }
+
+    /* FOOTER FIX */
+    @media (min-width: 768px) {
+        #mainFooter {
+            margin-left: 16rem;
+            width: calc(100% - 16rem);
+            transition: margin-left 0.3s ease, width 0.3s ease;
+        }
+
+        body.sidebar-collapsed #mainFooter {
+            margin-left: 5rem;
+            width: calc(100% - 5rem);
+        }
     }
 
     /* Navigation link styles */
@@ -54,7 +65,6 @@ function active($page, $current)
         box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
     }
 
-    /* Badge positioning - FIXED */
     .badge {
         position: absolute;
         right: 12px;
@@ -63,33 +73,19 @@ function active($page, $current)
         transition: opacity 0.2s ease;
     }
 
-    /* Smooth icon transitions */
-    .nav-link i {
-        transition: transform 0.2s ease;
+    .nav-text {
+        flex: 1;
+        min-width: 0;
     }
 
-    .nav-link:hover i {
-        transform: scale(1.1);
+    .nav-link.with-badge {
+        padding-right: 3rem;
     }
 
-    /* Divider style */
     .nav-divider {
         height: 1px;
         background: linear-gradient(to right, transparent, #e5e7eb, transparent);
         margin: 0.5rem 1rem;
-    }
-
-    /* Fix for links with badges to maintain alignment */
-    .nav-link.with-badge {
-        position: relative;
-        padding-right: 3rem;
-        /* Extra space for badge */
-    }
-
-    .nav-text {
-        flex: 1;
-        min-width: 0;
-        /* Prevent text from expanding */
     }
 </style>
 
@@ -115,7 +111,6 @@ function active($page, $current)
 
     <!-- Navigation -->
     <nav class="p-3 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
-        <!-- Dashboard -->
         <a href="dashboard.php"
             class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('dashboard.php', $current) ?>">
             <i class="fas fa-chart-line w-5 text-center"></i>
@@ -124,7 +119,6 @@ function active($page, $current)
 
         <div class="nav-divider"></div>
 
-        <!-- Inventory Section -->
         <div class="nav-text px-4 py-2">
             <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Inventory</span>
         </div>
@@ -140,79 +134,65 @@ function active($page, $current)
             <i class="fas fa-box-open w-5 text-center"></i>
             <span class="nav-text">Unassigned</span>
             <?php
-            // FIXED: Get unassigned AND stored devices count for badge - Updated with correct logic
             if (file_exists(__DIR__ . "/config/database.php")) {
                 require_once __DIR__ . "/config/database.php";
                 $db = new Database();
                 $conn = $db->getConnection();
-
-                // Updated query to match the logic from unassigned_devices.php
-                // This counts devices that are not retired and either:
-                // 1. Have no active assignment OR
-                // 2. Are in storage status
-                $unassignedQuery = "SELECT COUNT(DISTINCT i.id) as count 
-                                   FROM inventory_items i
-                                   LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
-                                   WHERE (dua.id IS NULL OR i.status = 'in_storage') 
-                                   AND i.status != 'retired'";
-
-                $unassignedResult = $conn->query($unassignedQuery);
-                if ($unassignedResult) {
-                    $unassignedCount = $unassignedResult->fetch_assoc()['count'];
-                    if ($unassignedCount > 0) {
-                        echo '<span class="badge bg-red-100 text-red-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $unassignedCount . '</span>';
+                $q = "SELECT COUNT(DISTINCT i.id) AS count 
+                      FROM inventory_items i
+                      LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
+                      WHERE (dua.id IS NULL OR i.status = 'in_storage') 
+                      AND i.status != 'retired'";
+                $r = $conn->query($q);
+                if ($r) {
+                    $c = $r->fetch_assoc()['count'];
+                    if ($c > 0) {
+                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full">' . $c . '</span>';
                     }
                 }
             }
             ?>
         </a>
 
-
-        <!-- ADDED: Device History Link -->
         <a href="device_history.php"
             class="nav-link with-badge flex items-center gap-3 px-4 py-3 rounded-lg <?= active('device_history.php', $current) ?>">
             <i class="fas fa-history w-5 text-center"></i>
             <span class="nav-text">Device History</span>
             <?php
-            // Get devices with assignments count for badge (optional)
             if (file_exists(__DIR__ . "/config/database.php")) {
                 require_once __DIR__ . "/config/database.php";
                 $db = new Database();
                 $conn = $db->getConnection();
-
-                // Count devices that have been assigned at least once
-                $historyQuery = "SELECT COUNT(DISTINCT dua.inventory_id) as count 
-                                 FROM device_user_assignments dua
-                                 JOIN inventory_items i ON dua.inventory_id = i.id
-                                 WHERE i.status != 'retired'";
-                $historyResult = $conn->query($historyQuery);
-                if ($historyResult) {
-                    $historyCount = $historyResult->fetch_assoc()['count'];
-                    if ($historyCount > 0) {
-                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $historyCount . '</span>';
+                $q = "SELECT COUNT(DISTINCT dua.inventory_id) AS count 
+                      FROM device_user_assignments dua
+                      JOIN inventory_items i ON dua.inventory_id = i.id
+                      WHERE i.status != 'retired'";
+                $r = $conn->query($q);
+                if ($r) {
+                    $c = $r->fetch_assoc()['count'];
+                    if ($c > 0) {
+                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full">' . $c . '</span>';
                     }
                 }
             }
             ?>
         </a>
 
-        <!-- ADDED: Retired Devices Link -->
         <a href="retired_devices.php"
             class="nav-link with-badge flex items-center gap-3 px-4 py-3 rounded-lg <?= active('retired_devices.php', $current) ?>">
             <i class="fas fa-recycle w-5 text-center"></i>
             <span class="nav-text">Retired Devices</span>
             <?php
-            // Get retired devices count for badge
             if (file_exists(__DIR__ . "/config/database.php")) {
                 require_once __DIR__ . "/config/database.php";
                 $db = new Database();
                 $conn = $db->getConnection();
-                $retiredQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired'";
-                $retiredResult = $conn->query($retiredQuery);
-                if ($retiredResult) {
-                    $retiredCount = $retiredResult->fetch_assoc()['count'];
-                    if ($retiredCount > 0) {
-                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">' . $retiredCount . '</span>';
+                $q = "SELECT COUNT(*) AS count FROM inventory_items WHERE status = 'retired'";
+                $r = $conn->query($q);
+                if ($r) {
+                    $c = $r->fetch_assoc()['count'];
+                    if ($c > 0) {
+                        echo '<span class="badge bg-blue-100 text-blue-600 text-xs font-bold px-2.5 py-0.5 rounded-full">' . $c . '</span>';
                     }
                 }
             }
@@ -221,7 +201,6 @@ function active($page, $current)
 
         <div class="nav-divider"></div>
 
-        <!-- Management Section -->
         <div class="nav-text px-4 py-2">
             <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</span>
         </div>
@@ -258,7 +237,6 @@ function active($page, $current)
 
         <div class="nav-divider"></div>
 
-        <!-- Analytics & Settings Section -->
         <div class="nav-text px-4 py-2">
             <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">System</span>
         </div>
@@ -279,62 +257,40 @@ function active($page, $current)
 </aside>
 
 <script>
-    // Sidebar toggle
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('mainContent');
     const toggleBtn = document.getElementById('toggleSidebar');
-    const toggleText = document.querySelector('#toggleSidebar .toggle-text');
 
-    // Restore sidebar state from localStorage on page load
     function restoreSidebarState() {
         const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
 
         if (isCollapsed) {
             sidebar.classList.add('collapsed');
-            if (mainContent) {
-                mainContent.classList.add('collapsed');
-            }
-            // Update toggle button text when collapsed
-            if (toggleText) {
-                toggleText.textContent = 'Expand';
-            }
+            document.body.classList.add('sidebar-collapsed');
+            if (mainContent) mainContent.classList.add('collapsed');
         }
     }
 
-    // Call on page load
     document.addEventListener('DOMContentLoaded', restoreSidebarState);
 
-    // Toggle sidebar
     toggleBtn.addEventListener('click', () => {
-        const isCollapsing = !sidebar.classList.contains('collapsed');
+        const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
 
         sidebar.classList.toggle('collapsed');
+        if (mainContent) mainContent.classList.toggle('collapsed');
 
-        if (mainContent) {
-            mainContent.classList.toggle('collapsed');
-        }
-
-        // Update toggle button text
-        if (toggleText) {
-            if (sidebar.classList.contains('collapsed')) {
-                toggleText.textContent = 'Expand';
-                localStorage.setItem('sidebarCollapsed', 'true');
-            } else {
-                toggleText.textContent = 'Collapse';
-                localStorage.setItem('sidebarCollapsed', 'false');
-            }
+        if (isCurrentlyCollapsed) {
+            document.body.classList.remove('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', 'false');
+        } else {
+            document.body.classList.add('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', 'true');
         }
     });
 
-    // Adjust main content height on resize
     window.addEventListener('resize', () => {
-        if (mainContent) {
-            mainContent.style.minHeight = window.innerHeight + 'px';
-        }
+        if (mainContent) mainContent.style.minHeight = window.innerHeight + 'px';
     });
 
-    // Set initial min-height for main content
-    if (mainContent) {
-        mainContent.style.minHeight = window.innerHeight + 'px';
-    }
+    if (mainContent) mainContent.style.minHeight = window.innerHeight + 'px';
 </script>

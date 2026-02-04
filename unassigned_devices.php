@@ -1437,7 +1437,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             </div>
         </div>
     </div>
-
+    <?php include __DIR__ . '/footer.php'; ?>
     <!-- JavaScript Libraries -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>

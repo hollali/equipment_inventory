@@ -1488,7 +1488,7 @@ if (!empty($_GET['location'])) {
                                                 <!-- DEVICE ACTIONS BUTTON -->
                                                 <button
                                                     onclick="openDeviceActionsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>', '<?= $row['status'] ?>')"
-                                                    class="action-btn bg-purple-500 text-white hover:bg-purple-600"
+                                                    class="action-btn bg-gray-500 text-white hover:bg-gray-600"
                                                     title="Device Actions">
                                                     <i class="fas fa-cog text-xs"></i>
                                                 </button>
@@ -2264,7 +2264,7 @@ if (!empty($_GET['location'])) {
                                 class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
                                 onclick="showDeviceActionTab('reassign')">
                                 <div class="flex items-center justify-center gap-2">
-                                    <i class="fas fa-user-exchange text-blue-600"></i>
+                                    <i class="fas fa-recycle text-blue-600"></i>
                                     <span>Reassign</span>
                                 </div>
                             </button>
@@ -2660,8 +2660,10 @@ if (!empty($_GET['location'])) {
                     </div>
                 </div>
             </div>
+
         </main>
     </div>
+    <?php include __DIR__ . '/footer.php'; ?>
 
     <script>
         // ==================== TOAST NOTIFICATION FUNCTIONS ====================

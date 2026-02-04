@@ -26,6 +26,21 @@ function e($string)
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+// Status label helper function
+// Status label helper function
+function getStatusLabel($status)
+{
+    $statusLabels = [
+        'In Use' => 'In Use',
+        'Store' => 'In Storage',
+        'Faulty' => 'Faulty',
+        'Repairing' => 'Repairing',
+        'Retired' => 'Retired'
+    ];
+
+    return $statusLabels[$status] ?? ucfirst($status);
+}
+
 // Time ago function
 function timeAgo($datetime)
 {
@@ -51,13 +66,6 @@ function timeAgo($datetime)
         return date('M j, Y g:i A', $time);
     }
 }
-
-// Status labels based on your enum
-const STATUS_LABELS = [
-    'In Use' => 'In Use',
-    'Store' => 'In Storage',
-    'Faulty' => 'Faulty'
-];
 
 // Condition labels based on your enum
 const CONDITION_LABELS = [
@@ -282,11 +290,14 @@ try {
 $stats = [
     'total_items' => 0,
     'total_users' => 0,
-    'in_storage' => 0,
+    'unassigned_devices' => 0,
     'faulty_devices' => 0,
     'active_users' => 0,
     'admin_users' => 0,
-    'today_changes' => 0
+    'today_changes' => 0,
+    'in_use' => 0,
+    'repairing' => 0,
+    'retired' => 0
 ];
 
 // Fetch Departments and Locations
@@ -294,64 +305,79 @@ $departmentsArr = [];
 $locationsArr = [];
 
 try {
-    // Get device statistics
+    // Get device statistics - UPDATED TO SHOW UNASSIGNED DEVICES
     $statsQuery = "
         SELECT 
             (SELECT COUNT(*) FROM inventory_items) as total_items,
             (SELECT COUNT(*) FROM users) as total_users,
-            (SELECT COUNT(*) FROM inventory_items WHERE status='Store') as in_storage,
+            (SELECT COUNT(*) FROM inventory_items WHERE assigned_user IS NULL OR assigned_user = 0) as unassigned_devices,
             (SELECT COUNT(*) FROM inventory_items WHERE status='Faulty') as faulty_devices,
             (SELECT COUNT(*) FROM users WHERE status='active') as active_users,
             (SELECT COUNT(*) FROM users WHERE role='admin') as admin_users,
-            (SELECT COUNT(*) FROM inventory_items WHERE created_at >= CURDATE()) as today_changes
+            (SELECT COUNT(*) FROM inventory_items WHERE created_at >= CURDATE()) as today_changes,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='In Use') as in_use,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='Repairing') as repairing,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='Retired') as retired
     ";
 
     $statsResult = $conn->query($statsQuery);
     if ($statsResult) {
-        $stats = $statsResult->fetch_assoc();
+        $statsRow = $statsResult->fetch_assoc();
+        if ($statsRow) {
+            $stats = [
+                'total_items' => (int) ($statsRow['total_items'] ?? 0),
+                'total_users' => (int) ($statsRow['total_users'] ?? 0),
+                'unassigned_devices' => (int) ($statsRow['unassigned_devices'] ?? 0),
+                'faulty_devices' => (int) ($statsRow['faulty_devices'] ?? 0),
+                'active_users' => (int) ($statsRow['active_users'] ?? 0),
+                'admin_users' => (int) ($statsRow['admin_users'] ?? 0),
+                'today_changes' => (int) ($statsRow['today_changes'] ?? 0),
+                'in_use' => (int) ($statsRow['in_use'] ?? 0),
+                'repairing' => (int) ($statsRow['repairing'] ?? 0),
+                'retired' => (int) ($statsRow['retired'] ?? 0)
+            ];
+        }
     }
 
     // Fetch Departments
     $deptStmt = $conn->prepare("SELECT id, department_name FROM departments ORDER BY department_name");
-    $deptStmt->execute();
-    $deptResult = $deptStmt->get_result();
-    if ($deptResult) {
-        while ($row = $deptResult->fetch_assoc()) {
-            $departmentsArr[] = $row;
+    if ($deptStmt) {
+        $deptStmt->execute();
+        $deptResult = $deptStmt->get_result();
+        if ($deptResult) {
+            while ($row = $deptResult->fetch_assoc()) {
+                $departmentsArr[] = $row;
+            }
         }
     }
 
     // Fetch Locations
     $locStmt = $conn->prepare("SELECT id, location_name FROM locations ORDER BY location_name");
-    $locStmt->execute();
-    $locResult = $locStmt->get_result();
-    if ($locResult) {
-        while ($row = $locResult->fetch_assoc()) {
-            $locationsArr[] = $row;
+    if ($locStmt) {
+        $locStmt->execute();
+        $locResult = $locStmt->get_result();
+        if ($locResult) {
+            while ($row = $locResult->fetch_assoc()) {
+                $locationsArr[] = $row;
+            }
         }
     }
 
-    // Additional statistics
-    $assignedDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE assigned_user IS NOT NULL AND assigned_user != 0")->fetch_assoc()['count'] ?? 0;
-    $inUseDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE status='In Use'")->fetch_assoc()['count'] ?? 0;
-    $newConditionDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE condition='New'")->fetch_assoc()['count'] ?? 0;
-    $goodConditionDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE condition='Good'")->fetch_assoc()['count'] ?? 0;
-    $fairConditionDevices = $conn->query("SELECT COUNT(*) as count FROM inventory_items WHERE condition='Fair'")->fetch_assoc()['count'] ?? 0;
-
 } catch (Exception $e) {
     error_log("Error fetching statistics: " . $e->getMessage());
-    // Use default values already set
-    $assignedDevices = $inUseDevices = $newConditionDevices = $goodConditionDevices = $fairConditionDevices = 0;
 }
 
-// Store stats in variables
-$totalItems = $stats['total_items'] ?? 0;
-$totalUsers = $stats['total_users'] ?? 0;
-$inStorage = $stats['in_storage'] ?? 0;
-$faultyDevices = $stats['faulty_devices'] ?? 0;
-$activeUsers = $stats['active_users'] ?? 0;
-$adminUsers = $stats['admin_users'] ?? 0;
-$todayChanges = $stats['today_changes'] ?? 0;
+// Store stats in variables with proper type casting
+$totalItems = (int) ($stats['total_items'] ?? 0);
+$totalUsers = (int) ($stats['total_users'] ?? 0);
+$unassignedDevices = (int) ($stats['unassigned_devices'] ?? 0);
+$faultyDevices = (int) ($stats['faulty_devices'] ?? 0);
+$activeUsers = (int) ($stats['active_users'] ?? 0);
+$adminUsers = (int) ($stats['admin_users'] ?? 0);
+$todayChanges = (int) ($stats['today_changes'] ?? 0);
+$inUseDevices = (int) ($stats['in_use'] ?? 0);
+$repairingDevices = (int) ($stats['repairing'] ?? 0);
+$retiredDevices = (int) ($stats['retired'] ?? 0);
 
 /* ================== PAGINATION ================== */
 
@@ -407,6 +433,7 @@ foreach ($activitySummary as $type => $summary) {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -547,9 +574,19 @@ foreach ($activitySummary as $type => $summary) {
             color: #92400e;
         }
 
+        .status-Repairing {
+            background-color: #fed7aa;
+            color: #9a3412;
+        }
+
         .status-Faulty {
             background-color: #fee2e2;
             color: #991b1b;
+        }
+
+        .status-Retired {
+            background-color: #e5e7eb;
+            color: #374151;
         }
 
         .condition-New {
@@ -591,35 +628,57 @@ foreach ($activitySummary as $type => $summary) {
 
         <!-- Header -->
         <div class="mb-8 animate-fade-in-up">
-            <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                <div>
+            <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
+                <!-- Left Section: Title & Info -->
+                <div class="flex-1">
                     <h1
                         class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         Dashboard Overview
                     </h1>
-                    <p class="text-gray-600 text-sm mt-2 flex items-center gap-2">
-                        <i class="fas fa-calendar-day text-blue-500"></i>
-                        <?= date('l, F j, Y') ?> •
-                        <span class="realtime-indicator live-pulse flex items-center gap-1">
-                            <i class="fas fa-circle text-emerald-500 text-xs"></i>
-                            <span>Live Activity Tracking</span>
-                        </span>
-                    </p>
+                    <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                        <div class="flex items-center gap-2 text-gray-600">
+                            <div class="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                                <i class="fas fa-calendar-day text-blue-500 text-xs"></i>
+                            </div>
+                            <span><?= date('l, F j, Y') ?></span>
+                        </div>
+                        <span class="text-gray-300">•</span>
+                        <div
+                            class="realtime-indicator live-pulse flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full">
+                            <span class="relative flex h-2 w-2">
+                                <span
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span class="text-emerald-700 font-medium">Live Activity Tracking</span>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Right Section: Action Buttons -->
                 <div class="flex items-center gap-3">
+                    <!-- Admin Badge -->
                     <div
-                        class="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg flex items-center gap-2">
+                        class="px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg flex items-center gap-2 hover:shadow-xl transition-shadow">
                         <i class="fas fa-shield-alt"></i>
                         <span class="font-semibold text-sm">ADMIN</span>
                     </div>
+
+                    <!-- Refresh Button -->
                     <button onclick="refreshData()"
-                        class="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md flex items-center justify-center hover:shadow-lg transition-all animate-pulse-glow"
+                        class="group w-10 h-10 rounded-xl bg-emerald-600 text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center hover:scale-105 active:scale-95"
                         title="Refresh real-time data">
-                        <i class="fas fa-sync-alt"></i>
+                        <i class="fas fa-sync-alt group-hover:rotate-180 transition-transform duration-500"></i>
                     </button>
+
+                    <!-- Notification Button -->
                     <button
-                        class="w-10 h-10 rounded-xl bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow">
-                        <i class="fas fa-bell text-gray-600"></i>
+                        class="group relative w-10 h-10 rounded-xl bg-white shadow-md hover:shadow-lg transition-shadow flex items-center justify-center hover:scale-105 active:scale-95">
+                        <i class="fas fa-bell text-gray-600 group-hover:text-blue-600 transition-colors"></i>
+                        <span
+                            class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-md">
+                            3
+                        </span>
                     </button>
                 </div>
             </div>
@@ -706,19 +765,20 @@ foreach ($activitySummary as $type => $summary) {
         </div>
 
         <!-- Device Status Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <!-- Unassigned Devices Card -->
             <div
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
                     <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-warehouse text-white text-xl"></i>
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-user-slash text-white text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">In Storage</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($inStorage) ?></p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">Unassigned Devices</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($unassignedDevices) ?></p>
                         <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">Available devices</span>
+                            <span class="text-xs text-gray-400">Available for assignment</span>
                         </div>
                     </div>
                 </div>
@@ -728,14 +788,14 @@ foreach ($activitySummary as $type => $summary) {
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
                     <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-laptop text-white text-xl"></i>
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-tools text-white text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">In Use</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($inUseDevices) ?></p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">Repairing</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($repairingDevices) ?></p>
                         <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">Assigned devices</span>
+                            <span class="text-xs text-gray-400">Under maintenance</span>
                         </div>
                     </div>
                 </div>
@@ -749,7 +809,7 @@ foreach ($activitySummary as $type => $summary) {
                         <i class="fas fa-exclamation-triangle text-white text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Faulty Devices</p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">Faulty</p>
                         <p class="text-3xl font-bold text-gray-800"><?= number_format($faultyDevices) ?></p>
                         <div class="mt-2 flex items-center gap-1">
                             <span class="text-xs text-gray-400">Require attention</span>
@@ -762,68 +822,16 @@ foreach ($activitySummary as $type => $summary) {
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
                     <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-users text-white text-xl"></i>
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-archive text-white text-xl"></i>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Admin Users</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($adminUsers) ?></p>
+                        <p class="text-sm text-gray-500 font-medium mb-1">Retired</p>
+                        <p class="text-3xl font-bold text-gray-800">
+                            <?= number_format($retiredDevices) ?>
+                        </p>
                         <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">System administrators</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Device Condition Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div
-                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
-                <div class="flex items-center gap-3">
-                    <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-star text-white text-xl"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">New Condition</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($newConditionDevices) ?></p>
-                        <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">Brand new devices</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
-                <div class="flex items-center gap-3">
-                    <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-thumbs-up text-white text-xl"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Good Condition</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($goodConditionDevices) ?></p>
-                        <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">Well maintained</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
-                <div class="flex items-center gap-3">
-                    <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-balance-scale text-white text-xl"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Fair Condition</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($fairConditionDevices) ?></p>
-                        <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">Functional but aged</span>
+                            <span class="text-xs text-gray-400">Decommissioned</span>
                         </div>
                     </div>
                 </div>
@@ -964,7 +972,7 @@ foreach ($activitySummary as $type => $summary) {
                                                     <span
                                                         class="status-badge status-<?= str_replace(' ', '_', e($activity['status'])) ?>">
                                                         <i class="fas fa-circle text-[10px]"></i>
-                                                        <?= STATUS_LABELS[$activity['status']] ?? ucfirst($activity['status']) ?>
+                                                        <?= e(getStatusLabel($activity['status'])) ?>
                                                     </span>
                                                 <?php endif; ?>
                                                 <?php if (!empty($activity['condition'])): ?>
@@ -1195,13 +1203,17 @@ foreach ($activitySummary as $type => $summary) {
             </div>
         </div>
     </div>
-
+    <?php include __DIR__ . '/footer.php'; ?>
     <!-- JS -->
     <script>
         // Initialize Activity Chart
         const chartData = <?= json_encode($chartData) ?>;
         const chartLabels = <?= json_encode($chartLabels) ?>;
         const chartColors = <?= json_encode(array_slice($chartColors, 0, count($chartData))) ?>;
+
+        console.log('Chart Data:', chartData);
+        console.log('Chart Labels:', chartLabels);
+        console.log('Chart Colors:', chartColors);
 
         if (chartData.length > 0) {
             const ctx = document.getElementById('activityChart').getContext('2d');
@@ -1242,6 +1254,10 @@ foreach ($activitySummary as $type => $summary) {
                                 }
                             }
                         }
+                    },
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true
                     }
                 }
             });
@@ -1252,6 +1268,7 @@ foreach ($activitySummary as $type => $summary) {
                 <div class="h-full flex flex-col items-center justify-center">
                     <i class="fas fa-chart-pie text-4xl text-gray-300 mb-3"></i>
                     <p class="text-gray-400">No activity data to display</p>
+                    <p class="text-sm text-gray-500 mt-1">Add some devices or make changes to see activity here</p>
                 </div>
             `;
         }

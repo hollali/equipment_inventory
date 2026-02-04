@@ -962,6 +962,7 @@ $status_labels = [
         </div>
     </div>
 
+    <?php include __DIR__ . '/footer.php'; ?>
     <script>
         // Pagination function
         function changeItemsPerPage(select) {
