@@ -27,7 +27,6 @@ function e($string)
 }
 
 // Status label helper function
-// Status label helper function
 function getStatusLabel($status)
 {
     $statusLabels = [
@@ -304,6 +303,11 @@ $stats = [
 $departmentsArr = [];
 $locationsArr = [];
 
+// Additional statistics for charts
+$deviceStatusStats = [];
+$deviceConditionStats = [];
+$dailyActivityStats = [];
+
 try {
     // Get device statistics - UPDATED TO SHOW UNASSIGNED DEVICES
     $statsQuery = "
@@ -335,6 +339,71 @@ try {
                 'in_use' => (int) ($statsRow['in_use'] ?? 0),
                 'repairing' => (int) ($statsRow['repairing'] ?? 0),
                 'retired' => (int) ($statsRow['retired'] ?? 0)
+            ];
+        }
+    }
+
+    // Fetch device status statistics for chart
+    $statusQuery = "
+        SELECT 
+            status,
+            COUNT(*) as count
+        FROM inventory_items 
+        WHERE status IS NOT NULL 
+        GROUP BY status
+        ORDER BY count DESC
+    ";
+
+    $statusResult = $conn->query($statusQuery);
+    if ($statusResult) {
+        while ($row = $statusResult->fetch_assoc()) {
+            $deviceStatusStats[] = [
+                'status' => $row['status'],
+                'count' => (int) $row['count'],
+                'label' => getStatusLabel($row['status'])
+            ];
+        }
+    }
+
+    // Fetch device condition statistics for chart
+    $conditionQuery = "
+        SELECT 
+            `condition`,
+            COUNT(*) as count
+        FROM inventory_items 
+        WHERE `condition` IS NOT NULL 
+        GROUP BY `condition`
+        ORDER BY count DESC
+    ";
+
+    $conditionResult = $conn->query($conditionQuery);
+    if ($conditionResult) {
+        while ($row = $conditionResult->fetch_assoc()) {
+            $deviceConditionStats[] = [
+                'condition' => $row['condition'],
+                'count' => (int) $row['count'],
+                'label' => CONDITION_LABELS[$row['condition']] ?? ucfirst($row['condition'])
+            ];
+        }
+    }
+
+    // Fetch daily activity statistics for the last 7 days
+    $dailyActivityQuery = "
+        SELECT 
+            DATE(created_at) as activity_date,
+            COUNT(*) as activity_count
+        FROM inventory_items 
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY activity_date
+    ";
+
+    $dailyActivityResult = $conn->query($dailyActivityQuery);
+    if ($dailyActivityResult) {
+        while ($row = $dailyActivityResult->fetch_assoc()) {
+            $dailyActivityStats[] = [
+                'date' => $row['activity_date'],
+                'count' => (int) $row['activity_count']
             ];
         }
     }
@@ -378,6 +447,78 @@ $todayChanges = (int) ($stats['today_changes'] ?? 0);
 $inUseDevices = (int) ($stats['in_use'] ?? 0);
 $repairingDevices = (int) ($stats['repairing'] ?? 0);
 $retiredDevices = (int) ($stats['retired'] ?? 0);
+
+// Prepare chart data for JavaScript
+$deviceStatusChartData = [
+    'labels' => [],
+    'data' => [],
+    'colors' => []
+];
+
+foreach ($deviceStatusStats as $stat) {
+    $deviceStatusChartData['labels'][] = $stat['label'];
+    $deviceStatusChartData['data'][] = $stat['count'];
+
+    // Assign colors based on status
+    switch ($stat['status']) {
+        case 'In Use':
+            $deviceStatusChartData['colors'][] = 'rgba(34, 197, 94, 0.8)'; // Green
+            break;
+        case 'Store':
+            $deviceStatusChartData['colors'][] = 'rgba(245, 158, 11, 0.8)'; // Yellow
+            break;
+        case 'Faulty':
+            $deviceStatusChartData['colors'][] = 'rgba(239, 68, 68, 0.8)'; // Red
+            break;
+        case 'Repairing':
+            $deviceStatusChartData['colors'][] = 'rgba(249, 115, 22, 0.8)'; // Orange
+            break;
+        case 'Retired':
+            $deviceStatusChartData['colors'][] = 'rgba(107, 114, 128, 0.8)'; // Gray
+            break;
+        default:
+            $deviceStatusChartData['colors'][] = 'rgba(156, 163, 175, 0.8)'; // Default gray
+    }
+}
+
+$deviceConditionChartData = [
+    'labels' => [],
+    'data' => [],
+    'colors' => []
+];
+
+foreach ($deviceConditionStats as $stat) {
+    $deviceConditionChartData['labels'][] = $stat['label'];
+    $deviceConditionChartData['data'][] = $stat['count'];
+
+    // Assign colors based on condition
+    switch ($stat['condition']) {
+        case 'New':
+            $deviceConditionChartData['colors'][] = 'rgba(59, 130, 246, 0.8)'; // Blue
+            break;
+        case 'Good':
+            $deviceConditionChartData['colors'][] = 'rgba(34, 197, 94, 0.8)'; // Green
+            break;
+        case 'Fair':
+            $deviceConditionChartData['colors'][] = 'rgba(245, 158, 11, 0.8)'; // Yellow
+            break;
+        case 'Faulty':
+            $deviceConditionChartData['colors'][] = 'rgba(239, 68, 68, 0.8)'; // Red
+            break;
+        default:
+            $deviceConditionChartData['colors'][] = 'rgba(156, 163, 175, 0.8)'; // Default gray
+    }
+}
+
+$dailyActivityChartData = [
+    'dates' => [],
+    'counts' => []
+];
+
+foreach ($dailyActivityStats as $stat) {
+    $dailyActivityChartData['dates'][] = date('M j', strtotime($stat['date']));
+    $dailyActivityChartData['counts'][] = $stat['count'];
+}
 
 /* ================== PAGINATION ================== */
 
@@ -615,6 +756,11 @@ foreach ($activitySummary as $type => $summary) {
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
     </style>
 </head>
 
@@ -838,12 +984,66 @@ foreach ($activitySummary as $type => $summary) {
             </div>
         </div>
 
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Device Status Distribution -->
+            <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-chart-pie text-blue-500"></i>
+                    Device Status Distribution
+                </h3>
+                <div class="chart-container">
+                    <canvas id="deviceStatusChart"></canvas>
+                </div>
+                <?php if (empty($deviceStatusChartData['data'])): ?>
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-500">No device status data</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Device Condition Distribution -->
+            <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-star-half-alt text-amber-500"></i>
+                    Device Condition Distribution
+                </h3>
+                <div class="chart-container">
+                    <canvas id="deviceConditionChart"></canvas>
+                </div>
+                <?php if (empty($deviceConditionChartData['data'])): ?>
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-500">No device condition data</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Daily Activity Trend -->
+            <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-chart-line text-emerald-500"></i>
+                    Daily Activity Trend (7 Days)
+                </h3>
+                <div class="chart-container">
+                    <canvas id="dailyActivityChart"></canvas>
+                </div>
+                <?php if (empty($dailyActivityChartData['counts'])): ?>
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
+                        <p class="text-gray-500">No daily activity data</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
         <!-- Activity Summary -->
         <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
             <div class="flex flex-col lg:flex-row gap-6">
                 <div class="flex-1">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <i class="fas fa-chart-pie text-blue-500"></i>
+                        <i class="fas fa-chart-pie text-purple-500"></i>
                         Activity Distribution (Last 7 Days)
                     </h3>
                     <div class="h-64">
@@ -1206,15 +1406,36 @@ foreach ($activitySummary as $type => $summary) {
     <?php include __DIR__ . '/footer.php'; ?>
     <!-- JS -->
     <script>
-        // Initialize Activity Chart
+        // Initialize Activity Distribution Chart
         const chartData = <?= json_encode($chartData) ?>;
         const chartLabels = <?= json_encode($chartLabels) ?>;
         const chartColors = <?= json_encode(array_slice($chartColors, 0, count($chartData))) ?>;
 
-        console.log('Chart Data:', chartData);
-        console.log('Chart Labels:', chartLabels);
-        console.log('Chart Colors:', chartColors);
+        // Device Status Chart Data
+        const deviceStatusData = {
+            labels: <?= json_encode($deviceStatusChartData['labels']) ?>,
+            data: <?= json_encode($deviceStatusChartData['data']) ?>,
+            colors: <?= json_encode($deviceStatusChartData['colors']) ?>
+        };
 
+        // Device Condition Chart Data
+        const deviceConditionData = {
+            labels: <?= json_encode($deviceConditionChartData['labels']) ?>,
+            data: <?= json_encode($deviceConditionChartData['data']) ?>,
+            colors: <?= json_encode($deviceConditionChartData['colors']) ?>
+        };
+
+        // Daily Activity Chart Data
+        const dailyActivityData = {
+            dates: <?= json_encode($dailyActivityChartData['dates']) ?>,
+            counts: <?= json_encode($dailyActivityChartData['counts']) ?>
+        };
+
+        console.log('Device Status Data:', deviceStatusData);
+        console.log('Device Condition Data:', deviceConditionData);
+        console.log('Daily Activity Data:', dailyActivityData);
+
+        // Initialize Activity Distribution Chart
         if (chartData.length > 0) {
             const ctx = document.getElementById('activityChart').getContext('2d');
             const activityChart = new Chart(ctx, {
@@ -1271,6 +1492,164 @@ foreach ($activitySummary as $type => $summary) {
                     <p class="text-sm text-gray-500 mt-1">Add some devices or make changes to see activity here</p>
                 </div>
             `;
+        }
+
+        // Initialize Device Status Chart
+        if (deviceStatusData.data.length > 0) {
+            const statusCtx = document.getElementById('deviceStatusChart').getContext('2d');
+            const deviceStatusChart = new Chart(statusCtx, {
+                type: 'pie',
+                data: {
+                    labels: deviceStatusData.labels,
+                    datasets: [{
+                        data: deviceStatusData.data,
+                        backgroundColor: deviceStatusData.colors,
+                        borderColor: deviceStatusData.colors.map(color => color.replace('0.8', '1')),
+                        borderWidth: 2,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} devices (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Device Condition Chart
+        if (deviceConditionData.data.length > 0) {
+            const conditionCtx = document.getElementById('deviceConditionChart').getContext('2d');
+            const deviceConditionChart = new Chart(conditionCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: deviceConditionData.labels,
+                    datasets: [{
+                        data: deviceConditionData.data,
+                        backgroundColor: deviceConditionData.colors,
+                        borderColor: deviceConditionData.colors.map(color => color.replace('0.8', '1')),
+                        borderWidth: 2,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} devices (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Daily Activity Chart
+        if (dailyActivityData.counts.length > 0) {
+            const dailyCtx = document.getElementById('dailyActivityChart').getContext('2d');
+            const dailyActivityChart = new Chart(dailyCtx, {
+                type: 'line',
+                data: {
+                    labels: dailyActivityData.dates,
+                    datasets: [{
+                        label: 'Device Activities',
+                        data: dailyActivityData.counts,
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function (context) {
+                                    return `Activities: ${context.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Activities'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'nearest'
+                    }
+                }
+            });
         }
 
         // Live search with debounce
@@ -1331,6 +1710,9 @@ foreach ($activitySummary as $type => $summary) {
                 totalUsers: <?= $totalUsers ?>,
                 todayActivities: <?= $todayChanges ?>,
                 recentActivities: <?= $totalActivities ?>,
+                deviceStatus: deviceStatusData,
+                deviceCondition: deviceConditionData,
+                dailyActivity: dailyActivityData,
                 summary: {}
             };
 
