@@ -14,6 +14,16 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 
+// Status labels
+$statusLabels = [
+    'active' => 'Active',
+    'in_use' => 'In Use',
+    'in_storage' => 'Store',
+    'repairing' => 'Repairing',
+    'faulty' => 'Faulty',
+    'retired' => 'Retired'
+];
+
 // Output encoding helper
 function e($string)
 {
@@ -23,15 +33,7 @@ function e($string)
 // Status label helper function
 function getStatusLabel($status)
 {
-    $statusLabels = [
-        'active' => 'Active',
-        'in_use' => 'In Use',
-        'in_storage' => 'In Storage',
-        'repairing' => 'Repairing',
-        'faulty' => 'Faulty',
-        'retired' => 'Retired'
-    ];
-
+    global $statusLabels;
     return $statusLabels[$status] ?? ucfirst($status);
 }
 
@@ -300,6 +302,8 @@ try {
 
 function formatInventoryActivity($row)
 {
+    global $statusLabels;
+
     $activityType = $row['activity_type'] ?? 'updated';
 
     // Determine activity details based on type
@@ -323,14 +327,14 @@ function formatInventoryActivity($row)
         case 'retrieved':
             $title = 'Device Retrieved';
             $icon = 'fa-undo';
-            $color = 'from-yellow-500 to-yellow-600';
+            $color = 'from-red-500 to-red-600';
             $description = 'Device retrieved from user';
             break;
 
         case 'retired':
             $title = 'Device Retired';
             $icon = 'fa-archive';
-            $color = 'from-gray-500 to-gray-600';
+            $color = 'from-red-500 to-red-600';
             $description = 'Device has been retired';
             break;
 
@@ -381,6 +385,7 @@ function formatInventoryActivity($row)
         'specifications' => $row['specifications'] ?? '',
         'condition' => $row['condition'] ?? '',
         'status' => $row['status'] ?? '',
+        'status_label' => $statusLabels[$row['status']] ?? ucfirst($row['status'] ?? ''),
         'remarks' => $row['remarks'] ?? '',
         'category_name' => $row['category_name'] ?? '',
         'department_name' => $row['department_name'] ?? '',
@@ -472,7 +477,7 @@ $deviceStatusChartData = [
 ];
 
 foreach ($deviceStatusStats as $stat) {
-    $deviceStatusChartData['labels'][] = $stat['label'];
+    $deviceStatusChartData['labels'][] = $stat['label']; // Use the label from getStatusLabel()
     $deviceStatusChartData['data'][] = $stat['count'];
 
     // Assign colors based on status
@@ -799,7 +804,7 @@ foreach ($deviceConditionStats as $stat) {
             <?php
             $mainStats = [
                 [
-                    'title' => 'Total Devices',
+                    'title' => 'Total Number of Devices',
                     'value' => $totalItems,
                     'icon' => 'fa-laptop',
                     'gradient' => 'from-blue-500 to-blue-600',
@@ -807,7 +812,7 @@ foreach ($deviceConditionStats as $stat) {
                     'id' => 'totalDevices'
                 ],
                 [
-                    'title' => 'In Use',
+                    'title' => 'Current Devices In Use',
                     'value' => $inUseDevices,
                     'icon' => 'fa-user-check',
                     'gradient' => 'from-green-500 to-green-600',
@@ -815,7 +820,7 @@ foreach ($deviceConditionStats as $stat) {
                     'id' => 'inUse'
                 ],
                 [
-                    'title' => 'In Storage',
+                    'title' => 'Total Number of In Storage',
                     'value' => $inStorageDevices,
                     'icon' => 'fa-warehouse',
                     'gradient' => 'from-yellow-500 to-yellow-600',
@@ -823,7 +828,7 @@ foreach ($deviceConditionStats as $stat) {
                     'id' => 'inStorage'
                 ],
                 [
-                    'title' => 'Unassigned',
+                    'title' => 'Total Number of Unassigned Devices',
                     'value' => $unassignedDevices,
                     'icon' => 'fa-user-slash',
                     'gradient' => 'from-cyan-500 to-cyan-600',
@@ -1141,10 +1146,9 @@ foreach ($deviceConditionStats as $stat) {
                                                     <?= e($activity['asset_tag']) ?>
                                                 </span>
                                                 <?php if (!empty($activity['status'])): ?>
-                                                    <span
-                                                        class="status-badge status-<?= str_replace(' ', '_', e($activity['status'])) ?>">
+                                                    <span class="status-badge status-<?= e($activity['status']) ?>">
                                                         <i class="fas fa-circle text-[10px]"></i>
-                                                        <?= e(getStatusLabel($activity['status'])) ?>
+                                                        <?= e($activity['status_label']) ?>
                                                     </span>
                                                 <?php endif; ?>
                                                 <?php if (!empty($activity['condition'])): ?>
