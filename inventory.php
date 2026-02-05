@@ -50,7 +50,6 @@ if (isset($_POST['save'])) {
     $condition = mysqli_real_escape_string($conn, trim($_POST['condition']));
     $status = mysqli_real_escape_string($conn, trim($_POST['status']));
     $remarks = mysqli_real_escape_string($conn, trim($_POST['remarks'] ?? ''));
-    $assigned_user = !empty($_POST['assigned_user']) ? (int) $_POST['assigned_user'] : null;
 
     // Generate asset tag if not provided
     if (empty($asset_tag)) {
@@ -112,23 +111,6 @@ if (isset($_POST['save'])) {
     );
 
     if (mysqli_stmt_execute($stmt)) {
-        $inventory_id = mysqli_stmt_insert_id($stmt);
-
-        // If user is assigned during creation and status is 'in_use', create assignment record
-        if (!empty($assigned_user) && $status == 'in_use') {
-            $assignStmt = mysqli_prepare($conn, "
-                INSERT INTO device_user_assignments (
-                    inventory_id,
-                    user_id,
-                    assigned_at,
-                    status
-                ) VALUES (?, ?, NOW(), 'assigned')
-            ");
-            mysqli_stmt_bind_param($assignStmt, "ii", $inventory_id, $assigned_user);
-            mysqli_stmt_execute($assignStmt);
-            mysqli_stmt_close($assignStmt);
-        }
-
         $_SESSION['success_message'] = 'Item added successfully!';
         header("Location: inventory.php?success=added");
         exit;
@@ -171,21 +153,6 @@ if ($editMode) {
     $result = mysqli_stmt_get_result($stmt);
     $item = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
-
-    // Get current active assignment
-    $assignStmt = mysqli_prepare($conn, "
-        SELECT dua.*, u.firstname, u.lastname 
-        FROM device_user_assignments dua
-        JOIN users u ON dua.user_id = u.id
-        WHERE dua.inventory_id = ? AND dua.status = 'assigned'
-        ORDER BY dua.assigned_at DESC 
-        LIMIT 1
-    ");
-    mysqli_stmt_bind_param($assignStmt, "i", $edit_id);
-    mysqli_stmt_execute($assignStmt);
-    $assignResult = mysqli_stmt_get_result($assignStmt);
-    $currentAssignment = mysqli_fetch_assoc($assignResult);
-    mysqli_stmt_close($assignStmt);
 }
 
 /* ================== UPDATE INVENTORY ================== */
@@ -262,9 +229,9 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
             throw new Exception("Update failed: " . mysqli_stmt_error($stmt));
         }
 
-        // Handle status changes - if status not 'in_use', end any active assignments
+        // Handle status changes that affect assignments
         if ($status != 'in_use') {
-            // End any active assignments
+            // If status is not 'in_use', end any active assignments
             $endAssignStmt = mysqli_prepare($conn, "
                 UPDATE device_user_assignments 
                 SET status = 'retrieved', returned_at = NOW()
@@ -306,9 +273,14 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
 
     try {
         if ($action === 'assign') {
-            $user_id = (int) $_POST['assign_user'];
-            $notes = mysqli_real_escape_string($conn, $_POST['assign_notes'] ?? '');
-            $department_id = !empty($_POST['assign_department']) ? (int) $_POST['assign_department'] : null;
+            // ASSIGN DEVICE
+            $user_id = !empty($_POST['assign_user']) ? (int) $_POST['assign_user'] : null;
+            $assign_notes = mysqli_real_escape_string($conn, $_POST['assign_notes'] ?? '');
+            $department_id = !empty($_POST['assign_department_id']) ? (int) $_POST['assign_department_id'] : null;
+
+            if (!$user_id) {
+                throw new Exception('Please select a user to assign.');
+            }
 
             // Create assignment record
             $stmt = mysqli_prepare($conn, "
@@ -316,18 +288,17 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
                     inventory_id,
                     user_id,
                     assigned_at,
-                    status,
-                    notes
-                ) VALUES (?, ?, NOW(), 'assigned', ?)
+                    status
+                ) VALUES (?, ?, NOW(), 'assigned')
             ");
-            mysqli_stmt_bind_param($stmt, "iis", $device_id, $user_id, $notes);
+            mysqli_stmt_bind_param($stmt, "ii", $device_id, $user_id);
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
 
-            // Update inventory status
+            // Update inventory item status and department
             $updateStmt = mysqli_prepare($conn, "
                 UPDATE inventory_items 
-                SET status = 'in_use',
+                SET status = 'in_use', 
                     department_id = ?
                 WHERE id = ?
             ");
@@ -335,17 +306,34 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_execute($updateStmt);
             mysqli_stmt_close($updateStmt);
 
+            // Update remarks
+            if (!empty($assign_notes)) {
+                $notesStmt = mysqli_prepare($conn, "
+                    UPDATE inventory_items 
+                    SET remarks = CONCAT(IFNULL(remarks, ''), '\nAssigned to user ID ', ?, ' on ', NOW(), ': ', ?)
+                    WHERE id = ?
+                ");
+                mysqli_stmt_bind_param($notesStmt, "isi", $user_id, $assign_notes, $device_id);
+                mysqli_stmt_execute($notesStmt);
+                mysqli_stmt_close($notesStmt);
+            }
+
             $_SESSION['success_message'] = 'Device assigned successfully!';
 
         } elseif ($action === 'reassign') {
-            $new_user_id = (int) $_POST['reassign_user'];
-            $notes = mysqli_real_escape_string($conn, $_POST['reassign_notes'] ?? '');
-            $department_id = !empty($_POST['reassign_department']) ? (int) $_POST['reassign_department'] : null;
+            // REASSIGN DEVICE
+            $user_id = !empty($_POST['reassign_user']) ? (int) $_POST['reassign_user'] : null;
+            $reassign_notes = mysqli_real_escape_string($conn, $_POST['reassign_notes'] ?? '');
+            $department_id = !empty($_POST['reassign_department_id']) ? (int) $_POST['reassign_department_id'] : null;
+
+            if (!$user_id) {
+                throw new Exception('Please select a user to reassign to.');
+            }
 
             // End current assignment
             $endStmt = mysqli_prepare($conn, "
                 UPDATE device_user_assignments 
-                SET status = 'reassigned', 
+                SET status = 'retrieved', 
                     returned_at = NOW()
                 WHERE inventory_id = ? AND status = 'assigned'
             ");
@@ -354,29 +342,39 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_close($endStmt);
 
             // Create new assignment
-            $assignStmt = mysqli_prepare($conn, "
+            $stmt = mysqli_prepare($conn, "
                 INSERT INTO device_user_assignments (
                     inventory_id,
                     user_id,
                     assigned_at,
-                    status,
-                    notes
-                ) VALUES (?, ?, NOW(), 'assigned', ?)
+                    status
+                ) VALUES (?, ?, NOW(), 'assigned')
             ");
-            mysqli_stmt_bind_param($assignStmt, "iis", $device_id, $new_user_id, $notes);
-            mysqli_stmt_execute($assignStmt);
-            mysqli_stmt_close($assignStmt);
+            mysqli_stmt_bind_param($stmt, "ii", $device_id, $user_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
 
-            // Update inventory department
-            if ($department_id) {
-                $updateStmt = mysqli_prepare($conn, "
+            // Update inventory item status and department
+            $updateStmt = mysqli_prepare($conn, "
+                UPDATE inventory_items 
+                SET status = 'in_use', 
+                    department_id = ?
+                WHERE id = ?
+            ");
+            mysqli_stmt_bind_param($updateStmt, "ii", $department_id, $device_id);
+            mysqli_stmt_execute($updateStmt);
+            mysqli_stmt_close($updateStmt);
+
+            // Update remarks
+            if (!empty($reassign_notes)) {
+                $notesStmt = mysqli_prepare($conn, "
                     UPDATE inventory_items 
-                    SET department_id = ?
+                    SET remarks = CONCAT(IFNULL(remarks, ''), '\nReassigned to user ID ', ?, ' on ', NOW(), ': ', ?)
                     WHERE id = ?
                 ");
-                mysqli_stmt_bind_param($updateStmt, "ii", $department_id, $device_id);
-                mysqli_stmt_execute($updateStmt);
-                mysqli_stmt_close($updateStmt);
+                mysqli_stmt_bind_param($notesStmt, "isi", $user_id, $reassign_notes, $device_id);
+                mysqli_stmt_execute($notesStmt);
+                mysqli_stmt_close($notesStmt);
             }
 
             $_SESSION['success_message'] = 'Device reassigned successfully!';
@@ -411,7 +409,7 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
 
-            // UPDATE: Set status to 'in_storage' instead of 'active'
+            // Set status to 'in_storage'
             $updateStmt = mysqli_prepare($conn, "
                 UPDATE inventory_items 
                 SET status = 'in_storage'
@@ -436,12 +434,13 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             $_SESSION['success_message'] = 'Device retrieved to store successfully!';
 
         } elseif ($action === 'retire') {
-            $reason = mysqli_real_escape_string($conn, $_POST['retire_reason'] ?? '');
+            // RETIRE DEVICE
+            $retire_reason = mysqli_real_escape_string($conn, $_POST['retire_reason'] ?? '');
 
             // End any active assignments
             $endStmt = mysqli_prepare($conn, "
                 UPDATE device_user_assignments 
-                SET status = 'retired', 
+                SET status = 'retrieved', 
                     returned_at = NOW()
                 WHERE inventory_id = ? AND status = 'assigned'
             ");
@@ -449,7 +448,7 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_execute($endStmt);
             mysqli_stmt_close($endStmt);
 
-            // Update inventory status
+            // Update device status to retired
             $updateStmt = mysqli_prepare($conn, "
                 UPDATE inventory_items 
                 SET status = 'retired'
@@ -460,13 +459,13 @@ if (isset($_POST['device_action']) && isset($_POST['device_id']) && is_numeric($
             mysqli_stmt_close($updateStmt);
 
             // Update remarks
-            if (!empty($reason)) {
+            if (!empty($retire_reason)) {
                 $notesStmt = mysqli_prepare($conn, "
                     UPDATE inventory_items 
-                    SET remarks = CONCAT(IFNULL(remarks, ''), '\nDevice retired on ', NOW(), ': ', ?)
+                    SET remarks = CONCAT(IFNULL(remarks, ''), '\nRetired on ', NOW(), ': ', ?)
                     WHERE id = ?
                 ");
-                mysqli_stmt_bind_param($notesStmt, "si", $reason, $device_id);
+                mysqli_stmt_bind_param($notesStmt, "si", $retire_reason, $device_id);
                 mysqli_stmt_execute($notesStmt);
                 mysqli_stmt_close($notesStmt);
             }
@@ -598,7 +597,7 @@ if (!empty($_GET['search'])) {
 
     $searchTerm = '%' . $_GET['search'] . '%';
 
-    // Add 6 times for the 6 placeholders
+    // Add 6 times for the 6 placeholders (removed location)
     $params = array_merge($params, [
         $searchTerm,
         $searchTerm,
@@ -1152,6 +1151,19 @@ if (!empty($_GET['department'])) {
             cursor: not-allowed;
         }
 
+        /* Disabled option styling */
+        .action-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #f9fafb;
+        }
+
+        .action-option.disabled:hover {
+            background-color: #f9fafb;
+            border-left-color: transparent;
+            padding-left: 16px;
+        }
+
         /* Confirmation Modal */
         .confirmation-modal {
             background: rgba(0, 0, 0, 0.7);
@@ -1210,7 +1222,7 @@ if (!empty($_GET['department'])) {
             <div class="flex justify-between items-center mb-6">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800">Device Inventory</h1>
-                    <p class="text-gray-500">Manage all device inventory</p>
+                    <p class="text-gray-500">Manage all inventory items</p>
                 </div>
                 <button onclick="openModal('addModal')"
                     class="bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
@@ -1518,7 +1530,7 @@ if (!empty($_GET['department'])) {
 
                                                 <!-- DEVICE ACTIONS BUTTON -->
                                                 <button
-                                                    onclick="openDeviceActionsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>', '<?= $row['status'] ?>')"
+                                                    onclick="openDeviceActionsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>', '<?= $row['status'] ?>', '<?= htmlspecialchars($row['department_name'] ?? '') ?>', '<?= $row['department_id'] ?? '' ?>')"
                                                     class="action-btn bg-gray-500 text-white hover:bg-gray-600"
                                                     title="Device Actions">
                                                     <i class="fas fa-cog text-xs"></i>
@@ -1654,6 +1666,22 @@ if (!empty($_GET['department'])) {
                 mysqli_data_seek($list, 0); // Reset pointer
             
                 while ($row = mysqli_fetch_assoc($list)) {
+                    // Fetch assignment for this device
+                    $assignStmt = mysqli_prepare($conn, "
+                        SELECT dua.*, u.firstname, u.lastname
+                        FROM device_user_assignments dua
+                        JOIN users u ON dua.user_id = u.id
+                        WHERE dua.inventory_id = ? AND dua.status = 'assigned'
+                        ORDER BY dua.assigned_at DESC
+                        LIMIT 1
+                    ");
+                    mysqli_stmt_bind_param($assignStmt, "i", $row['id']);
+                    mysqli_stmt_execute($assignStmt);
+                    $assignResult = mysqli_stmt_get_result($assignStmt);
+                    $assignment = mysqli_fetch_assoc($assignResult);
+                    mysqli_stmt_close($assignStmt);
+
+                    $currentUserId = $assignment['user_id'] ?? '';
                     ?>
                     <div id="editModal<?= $row['id'] ?>"
                         class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4 modal-backdrop"
@@ -1749,11 +1777,11 @@ if (!empty($_GET['department'])) {
                                     <!-- ASSIGNMENT -->
                                     <div class="bg-gray-50 rounded-xl p-4 mb-6">
                                         <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                            <i class="fas fa-building text-blue-600"></i>
-                                            Department
+                                            <i class="fas fa-user-tag text-blue-600"></i>
+                                            Assignment Details
                                         </h3>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
                                                 <select name="department_id"
@@ -1945,10 +1973,10 @@ if (!empty($_GET['department'])) {
                             <!-- Assignment Details -->
                             <div class="bg-gray-50 rounded-xl p-5 mb-6">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-building text-blue-600"></i>
-                                    Department & Assignment
+                                    <i class="fas fa-user-tag text-blue-600"></i>
+                                    Assignment Details
                                 </h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
                                         <select name="department_id"
@@ -1957,24 +1985,6 @@ if (!empty($_GET['department'])) {
                                             <?php foreach ($departmentsArr as $d): ?>
                                                 <option value="<?= $d['id'] ?>" <?= isset($item['department_id']) && $item['department_id'] == $d['id'] ? 'selected' : '' ?>>
                                                     <?= htmlspecialchars($d['department_name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Assigned User (Optional)
-                                        </label>
-                                        <select name="assigned_user"
-                                            class="w-full border border-gray-300 p-3 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="">— Not Assigned —</option>
-                                            <?php foreach ($users as $user): ?>
-                                                <?php
-                                                $fullName = $user['firstname'] . ' ' . $user['lastname'];
-                                                $selected = ($currentAssignment['user_id'] ?? '') == $user['id'] ? 'selected' : '';
-                                                ?>
-                                                <option value="<?= $user['id'] ?>" <?= $selected ?>>
-                                                    <?= htmlspecialchars($fullName) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -2206,11 +2216,18 @@ if (!empty($_GET['department'])) {
 
                     <!-- Current User Info -->
                     <div id="deviceCurrentUserInfo" class="px-6 py-3 bg-blue-50 border-b hidden">
-                        <p class="text-sm text-gray-700">
-                            <i class="fas fa-user mr-2 text-blue-500"></i>
-                            <span class="font-medium">Current User:</span>
-                            <span id="deviceCurrentUserName" class="font-semibold text-blue-700 ml-1"></span>
-                        </p>
+                        <div class="flex flex-col gap-1">
+                            <p class="text-sm text-gray-700">
+                                <i class="fas fa-user mr-2 text-blue-500"></i>
+                                <span class="font-medium">Current User:</span>
+                                <span id="deviceCurrentUserName" class="font-semibold text-blue-700 ml-1"></span>
+                            </p>
+                            <p class="text-sm text-gray-700">
+                                <i class="fas fa-building mr-2 text-blue-500"></i>
+                                <span class="font-medium">Current Department:</span>
+                                <span id="deviceCurrentDepartment" class="font-semibold text-blue-700 ml-1"></span>
+                            </p>
+                        </div>
                     </div>
 
                     <!-- Horizontal Tabs -->
@@ -2286,19 +2303,23 @@ if (!empty($_GET['department'])) {
                                         </select>
                                     </div>
 
+                                    <!-- Department Field for Assign -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Department
+                                            Department (Optional)
                                         </label>
-                                        <select name="assign_department" id="deviceAssignDepartment"
+                                        <select name="assign_department_id" id="deviceAssignDepartmentSelect"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="">Select Department</option>
+                                            <option value="">Select Department (Optional)</option>
                                             <?php foreach ($departmentsArr as $d): ?>
                                                 <option value="<?= $d['id'] ?>">
                                                     <?= htmlspecialchars($d['department_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            You can update the department for this device during assignment
+                                        </p>
                                     </div>
 
                                     <div>
@@ -2316,14 +2337,22 @@ if (!empty($_GET['department'])) {
                             <div id="deviceReassignContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
                                     <div class="p-3 bg-gray-50 rounded-lg mb-2">
-                                        <p class="text-sm text-gray-700 mb-1">
-                                            <i class="fas fa-user mr-2 text-blue-500"></i>
-                                            <span class="font-medium">Current Assignment:</span>
-                                            <span id="devicePreviousUserName"
-                                                class="font-semibold text-blue-700 ml-1"></span>
-                                        </p>
-                                        <p class="text-xs text-gray-500">
-                                            This device is currently assigned to the user above.
+                                        <div class="space-y-2">
+                                            <p class="text-sm text-gray-700">
+                                                <i class="fas fa-user mr-2 text-blue-500"></i>
+                                                <span class="font-medium">Current Assignment:</span>
+                                                <span id="devicePreviousUserName"
+                                                    class="font-semibold text-blue-700 ml-1"></span>
+                                            </p>
+                                            <p class="text-sm text-gray-700">
+                                                <i class="fas fa-building mr-2 text-blue-500"></i>
+                                                <span class="font-medium">Current Department:</span>
+                                                <span id="devicePreviousDepartment"
+                                                    class="font-semibold text-blue-700 ml-1"></span>
+                                            </p>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">
+                                            This device is currently assigned to the user and department above.
                                         </p>
                                     </div>
 
@@ -2345,19 +2374,23 @@ if (!empty($_GET['department'])) {
                                         </select>
                                     </div>
 
+                                    <!-- Department Field for Reassign -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Department
+                                            Update Department (Optional)
                                         </label>
-                                        <select name="reassign_department" id="deviceReassignDepartment"
+                                        <select name="reassign_department_id" id="deviceReassignDepartmentSelect"
                                             class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                            <option value="">Select Department</option>
+                                            <option value="">Keep Current Department</option>
                                             <?php foreach ($departmentsArr as $d): ?>
                                                 <option value="<?= $d['id'] ?>">
                                                     <?= htmlspecialchars($d['department_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            You can change the department for this device during reassignment
+                                        </p>
                                     </div>
 
                                     <div>
@@ -2789,15 +2822,19 @@ if (!empty($_GET['department'])) {
             assignedUser: null,
             assetTag: null,
             deviceStatus: null,
+            departmentName: null,
+            departmentId: null,
             currentTab: 'assign'
         };
 
-        function openDeviceActionsModal(id, assetTag, assignedUser, deviceStatus) {
+        function openDeviceActionsModal(id, assetTag, assignedUser, deviceStatus, departmentName = '', departmentId = '') {
             currentDeviceActionsState = {
                 deviceId: id,
                 assignedUser: assignedUser,
                 assetTag: assetTag,
                 deviceStatus: deviceStatus,
+                departmentName: departmentName || '',
+                departmentId: departmentId || '',
                 currentTab: 'assign'
             };
 
@@ -2809,21 +2846,35 @@ if (!empty($_GET['department'])) {
             const currentUserName = document.getElementById('deviceCurrentUserName');
             const previousUserName = document.getElementById('devicePreviousUserName');
             const retrieveUserName = document.getElementById('deviceRetrieveUserName');
+            const currentDepartment = document.getElementById('deviceCurrentDepartment');
+            const previousDepartment = document.getElementById('devicePreviousDepartment');
 
-            if (assignedUser && assignedUser.trim() !== '') {
+            if (assignedUser && assignedUser.trim() !== '' && assignedUser !== 'undefined') {
                 currentUserInfo.classList.remove('hidden');
                 currentUserName.textContent = assignedUser;
                 previousUserName.textContent = assignedUser;
                 retrieveUserName.textContent = assignedUser;
             } else {
                 currentUserInfo.classList.add('hidden');
-                currentUserName.textContent = '';
-                previousUserName.textContent = '';
-                retrieveUserName.textContent = '';
+                currentUserName.textContent = 'Unassigned';
+                previousUserName.textContent = 'Unassigned';
+                retrieveUserName.textContent = 'Unassigned';
+            }
+
+            // Set department information
+            if (departmentName) {
+                currentDepartment.textContent = departmentName;
+                previousDepartment.textContent = departmentName;
+            } else {
+                currentDepartment.textContent = 'No Department';
+                previousDepartment.textContent = 'No Department';
             }
 
             // Reset form
             document.getElementById('deviceActionsForm').reset();
+
+            // Remove any existing hidden action inputs
+            document.querySelectorAll('input[name="action"]').forEach(input => input.remove());
 
             // Enable/disable tabs based on device status and assignment
             const assignTab = document.getElementById('deviceAssignTab');
@@ -2849,19 +2900,29 @@ if (!empty($_GET['department'])) {
             }
 
             // Enable/disable based on assignment status
-            if (assignedUser && assignedUser.trim() !== '') {
+            const isAssigned = assignedUser && assignedUser.trim() !== '' && assignedUser !== 'undefined';
+
+            if (isAssigned) {
                 // Device is assigned - enable reassign/retrieve/retire, disable assign
                 assignTab.classList.add('tab-disabled');
                 assignTab.disabled = true;
+                reassignTab.classList.remove('tab-disabled');
+                reassignTab.disabled = false;
+                retrieveTab.classList.remove('tab-disabled');
+                retrieveTab.disabled = false;
 
                 // Set default tab to reassign
                 currentDeviceActionsState.currentTab = 'reassign';
             } else {
                 // Device is unassigned - enable assign/retire, disable reassign/retrieve
+                assignTab.classList.remove('tab-disabled');
+                assignTab.disabled = false;
                 reassignTab.classList.add('tab-disabled');
                 reassignTab.disabled = true;
                 retrieveTab.classList.add('tab-disabled');
                 retrieveTab.disabled = true;
+                retireTab.classList.remove('tab-disabled');
+                retireTab.disabled = false;
 
                 // Set default tab to assign
                 currentDeviceActionsState.currentTab = 'assign';
@@ -2889,8 +2950,10 @@ if (!empty($_GET['department'])) {
                 const tabBtn = document.getElementById('device' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab');
                 const content = document.getElementById('device' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Content');
 
-                tabBtn.classList.remove('tab-active');
-                tabBtn.classList.add('tab-inactive');
+                if (tabBtn) {
+                    tabBtn.classList.remove('tab-active');
+                    tabBtn.classList.add('tab-inactive');
+                }
 
                 if (content) {
                     content.classList.add('hidden');
@@ -2901,8 +2964,10 @@ if (!empty($_GET['department'])) {
             const selectedTab = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab');
             const selectedContent = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Content');
 
-            selectedTab.classList.remove('tab-inactive');
-            selectedTab.classList.add('tab-active');
+            if (selectedTab) {
+                selectedTab.classList.remove('tab-inactive');
+                selectedTab.classList.add('tab-active');
+            }
 
             if (selectedContent) {
                 selectedContent.classList.remove('hidden');
@@ -2947,11 +3012,16 @@ if (!empty($_GET['department'])) {
                 assignedUser: null,
                 assetTag: null,
                 deviceStatus: null,
+                departmentName: null,
+                departmentId: null,
                 currentTab: 'assign'
             };
 
             // Reset form
             document.getElementById('deviceActionsForm').reset();
+
+            // Remove any hidden action inputs
+            document.querySelectorAll('input[name="action"]').forEach(input => input.remove());
 
             closeModal('deviceActionsModal');
         }
@@ -2986,6 +3056,14 @@ if (!empty($_GET['department'])) {
                         reassignUser.focus();
                     }
                     break;
+
+                case 'retrieve':
+                    // Retrieve doesn't require any specific validation
+                    break;
+
+                case 'retire':
+                    // Retire doesn't require any specific validation
+                    break;
             }
 
             if (!isValid) {
@@ -3019,7 +3097,8 @@ if (!empty($_GET['department'])) {
             pendingAction = {
                 type: 'deviceAction',
                 tab: currentTab,
-                form: document.getElementById('deviceActionsForm')
+                formId: 'deviceActionsForm',
+                deviceTag: deviceTag
             };
 
             // Show confirmation modal
@@ -3083,29 +3162,34 @@ if (!empty($_GET['department'])) {
             }
 
             if (pendingAction.type === 'deviceAction') {
-                // Set the action value based on current tab
-                const actionInput = document.createElement('input');
-                actionInput.type = 'hidden';
-                actionInput.name = 'action';
+                const form = document.getElementById(pendingAction.formId);
+
+                // Create or update the action input
+                let actionInput = form.querySelector('input[name="action"]');
+                if (!actionInput) {
+                    actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    form.appendChild(actionInput);
+                }
                 actionInput.value = pendingAction.tab;
-                pendingAction.form.appendChild(actionInput);
 
                 // Show success toast
-                const deviceTag = currentDeviceActionsState.assetTag;
                 const successMessages = {
-                    'assign': `Device "${deviceTag}" assigned successfully!`,
-                    'reassign': `Device "${deviceTag}" reassigned successfully!`,
-                    'retrieve': `Device "${deviceTag}" retrieved successfully!`,
-                    'retire': `Device "${deviceTag}" retired successfully!`
+                    'assign': `Device "${pendingAction.deviceTag}" assigned successfully!`,
+                    'reassign': `Device "${pendingAction.deviceTag}" reassigned successfully!`,
+                    'retrieve': `Device "${pendingAction.deviceTag}" retrieved successfully!`,
+                    'retire': `Device "${pendingAction.deviceTag}" retired successfully!`
                 };
 
                 Toast.showSuccess(successMessages[pendingAction.tab], 'Success');
 
                 // Submit the form
-                pendingAction.form.submit();
+                form.submit();
             }
 
             closeConfirmationModal();
+            pendingAction = null;
         }
 
         // ==================== DELETE MODAL ====================
