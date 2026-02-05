@@ -15,20 +15,12 @@ require_once __DIR__ . "/config/database.php";
 $db = new Database();
 $conn = $db->getConnection();
 
-/* Fetch Departments, Locations, and Categories for Filters */
+/* Fetch Departments and Categories for Filters */
 $departmentsArr = [];
 $deptResult = $conn->query("SELECT id, department_name FROM departments ORDER BY department_name");
 if ($deptResult) {
     while ($row = $deptResult->fetch_assoc()) {
         $departmentsArr[] = $row;
-    }
-}
-
-$locationsArr = [];
-$locResult = $conn->query("SELECT id, location_name FROM locations ORDER BY location_name");
-if ($locResult) {
-    while ($row = $locResult->fetch_assoc()) {
-        $locationsArr[] = ['id' => $row['id'], 'location_name' => $row['location_name']];
     }
 }
 
@@ -84,12 +76,6 @@ if (!empty($_GET['department'])) {
     $paramTypes .= "i";
 }
 
-if (!empty($_GET['location'])) {
-    $whereConditions[] = "i.location_id = ?";
-    $params[] = intval($_GET['location']);
-    $paramTypes .= "i";
-}
-
 if (!empty($_GET['brand'])) {
     $whereConditions[] = "i.brand_id = ?";
     $params[] = intval($_GET['brand']);
@@ -132,14 +118,12 @@ $query = "
         i.*,
         b.brand_name AS brand_name,
         d.department_name AS department_name,
-        l.location_name AS location_name,
         c.category_name AS category_name,
         dua.user_id as assigned_user_id,
         dua.assigned_at
     FROM inventory_items i
     LEFT JOIN brands b ON i.brand_id = b.id
     LEFT JOIN departments d ON i.department_id = d.id
-    LEFT JOIN locations l ON i.location_id = l.id
     LEFT JOIN categories c ON i.category_id = c.id
     LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id AND dua.status = 'assigned'
     $whereClause
@@ -165,7 +149,6 @@ while ($row = $result->fetch_assoc()) {
 /* ================== FILTER INPUTS ================== */
 $filterStatus = $_GET['status'] ?? '';
 $filterDepartment = $_GET['department'] ?? '';
-$filterLocation = $_GET['location'] ?? '';
 $filterBrand = $_GET['brand'] ?? '';
 $filterCategory = $_GET['category'] ?? '';
 $filterCondition = $_GET['condition'] ?? '';
@@ -853,19 +836,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                         </select>
                     </div>
 
-                    <!-- Location -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-2">Location</label>
-                        <select id="filterLocation" name="location" class="filter-select w-full">
-                            <option value="">All Locations</option>
-                            <?php foreach ($locationsArr as $l): ?>
-                                <option value="<?= $l['id'] ?>" <?= ($filterLocation == $l['id']) ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($l['location_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
                     <!-- Brand -->
                     <div>
                         <label class="block text-xs font-medium text-gray-700 mb-2">Brand</label>
@@ -961,7 +931,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                         <tr>
                             <th class="compact-column-sm">Device</th>
                             <th class="compact-column">Asset Tag</th>
-                            <th class="compact-column">Location</th>
+                            <th class="compact-column">Department</th>
                             <th class="compact-column-sm">Condition</th>
                             <th class="compact-column-sm">Status</th>
                             <th class="compact-column-sm">Last Updated</th>
@@ -1047,7 +1017,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                                         </span>
                                     </td>
 
-                                    <!-- Location -->
+                                    <!-- Department -->
                                     <td>
                                         <div class="space-y-1">
                                             <div class="flex items-center gap-2">
@@ -1055,13 +1025,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                                                 <span class="text-gray-700 text-sm text-ellipsis"
                                                     title="<?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>">
                                                     <?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>
-                                                </span>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <i class="fas fa-location-dot text-gray-400 text-xs"></i>
-                                                <span class="text-gray-600 text-xs text-ellipsis"
-                                                    title="<?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>">
-                                                    <?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>
                                                 </span>
                                             </div>
                                         </div>
@@ -1149,7 +1112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                         </div>
                         <div class="flex gap-2">
                             <?php if ($page > 1): ?>
-                                <a href="?page=<?= $page - 1 ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                <a href="?page=<?= $page - 1 ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
                                     class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-all flex items-center gap-2">
                                     <i class="fas fa-chevron-left mr-1"></i> Previous
                                 </a>
@@ -1164,14 +1127,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-white text-gray-700 hover:bg-gray-50';
                                 ?>
-                                <a href="?page=<?= $i ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                <a href="?page=<?= $i ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
                                     class="px-4 py-2 border border-gray-300 rounded-lg text-sm transition-all <?= $activeClass ?>">
                                     <?= $i ?>
                                 </a>
                             <?php endfor; ?>
 
                             <?php if ($page < $totalPages): ?>
-                                <a href="?page=<?= $page + 1 ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                <a href="?page=<?= $page + 1 ?>&status=<?= $filterStatus ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
                                     class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-all flex items-center gap-2">
                                     Next <i class="fas fa-chevron-right ml-1"></i>
                                 </a>
@@ -1265,17 +1228,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                                 </span>
                             </div>
 
-                            <!-- Location Info -->
+                            <!-- Department Info -->
                             <div class="space-y-2 mb-6">
                                 <div class="flex items-center gap-2 text-sm">
                                     <i class="fas fa-building text-gray-400"></i>
                                     <span
                                         class="text-gray-700"><?= htmlspecialchars($device['department_name'] ?? 'N/A') ?></span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm">
-                                    <i class="fas fa-location-dot text-gray-400"></i>
-                                    <span
-                                        class="text-gray-700"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
                                 </div>
                             </div>
 
@@ -1666,7 +1624,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
         function clearFilters() {
             document.getElementById('filterStatus').value = '';
             document.getElementById('filterDepartment').value = '';
-            document.getElementById('filterLocation').value = '';
             document.getElementById('filterBrand').value = '';
             document.getElementById('filterCategory').value = '';
             document.getElementById('filterCondition').value = '';
@@ -1682,7 +1639,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             // Get current filters
             const status = document.getElementById('filterStatus').value;
             const department = document.getElementById('filterDepartment').value;
-            const location = document.getElementById('filterLocation').value;
             const brand = document.getElementById('filterBrand').value;
             const category = document.getElementById('filterCategory').value;
             const condition = document.getElementById('filterCondition').value;
@@ -1691,7 +1647,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             const params = new URLSearchParams();
             if (status) params.append('status', status);
             if (department) params.append('department', department);
-            if (location) params.append('location', location);
             if (brand) params.append('brand', brand);
             if (category) params.append('category', category);
             if (condition) params.append('condition', condition);
@@ -1793,12 +1748,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                     </div>
                     
                     <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <h3 class="font-semibold text-gray-800 mb-2">Location Information</h3>
+                        <h3 class="font-semibold text-gray-800 mb-2">Device Details</h3>
                         <div class="space-y-2">
                             <p><span class="font-medium">Brand:</span> ${escapeHtml(device.brand_name || 'N/A')}</p>
                             <p><span class="font-medium">Model:</span> ${escapeHtml(device.model || 'N/A')}</p>
                             <p><span class="font-medium">Department:</span> ${escapeHtml(device.department_name || 'N/A')}</p>
-                            <p><span class="font-medium">Location:</span> ${escapeHtml(device.location_name || 'N/A')}</p>
                         </div>
                     </div>
                 </div>

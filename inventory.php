@@ -44,7 +44,6 @@ if (isset($_POST['save'])) {
 
     // Convert empty string to NULL for integer fields
     $department_id = !empty($_POST['department_id']) ? (int) $_POST['department_id'] : null;
-    $location_id = !empty($_POST['location_id']) ? (int) $_POST['location_id'] : null;
     $category_id = (int) $_POST['category_id'];
 
     // String fields
@@ -81,13 +80,12 @@ if (isset($_POST['save'])) {
             serial_number,
             specifications,
             department_id,
-            location_id,
             `condition`,
             status,
             category_id,
             remarks,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
 
     if (!$stmt) {
@@ -99,7 +97,7 @@ if (isset($_POST['save'])) {
     // Bind parameters
     mysqli_stmt_bind_param(
         $stmt,
-        "ssisssiissss",
+        "ssisssissss",
         $asset_tag,
         $device_type,
         $brand_id,
@@ -107,7 +105,6 @@ if (isset($_POST['save'])) {
         $serial_number,
         $specifications,
         $department_id,
-        $location_id,
         $condition,
         $status,
         $category_id,
@@ -217,7 +214,6 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
     $serial_number = mysqli_real_escape_string($conn, trim($_POST['serial_number'] ?? ''));
     $specifications = mysqli_real_escape_string($conn, trim($_POST['specifications'] ?? ''));
     $department_id = !empty($_POST['department_id']) ? (int) $_POST['department_id'] : null;
-    $location_id = !empty($_POST['location_id']) ? (int) $_POST['location_id'] : null;
     $condition = mysqli_real_escape_string($conn, trim($_POST['condition']));
     $status = mysqli_real_escape_string($conn, trim($_POST['status']));
     $category_id = (int) $_POST['category_id'];
@@ -236,7 +232,6 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
                 serial_number=?,
                 specifications=?,
                 department_id=?,
-                location_id=?,
                 `condition`=?,
                 status=?,
                 category_id=?,
@@ -250,14 +245,13 @@ if (isset($_POST['update_inventory']) && is_numeric($_POST['id'])) {
 
         mysqli_stmt_bind_param(
             $stmt,
-            "sisssiissssi",
+            "sisssissssi",
             $device_type,
             $brand_id,
             $model,
             $serial_number,
             $specifications,
             $department_id,
-            $location_id,
             $condition,
             $status,
             $category_id,
@@ -513,12 +507,6 @@ if ($departmentsResult) {
     $departmentsArr = mysqli_fetch_all($departmentsResult, MYSQLI_ASSOC);
 }
 
-$locationsArr = [];
-$locationsResult = mysqli_query($conn, "SELECT id, location_name FROM locations ORDER BY location_name");
-if ($locationsResult) {
-    $locationsArr = mysqli_fetch_all($locationsResult, MYSQLI_ASSOC);
-}
-
 /* ================== FETCH DISTINCT STATUSES ================== */
 $statuses = [];
 $statusQuery = mysqli_query($conn, "SELECT DISTINCT status FROM inventory_items ORDER BY status ASC");
@@ -545,14 +533,12 @@ if (!empty($_GET['search'])) {
                 OR b.brand_name LIKE ? 
                 OR i.model LIKE ? 
                 OR CONCAT(u.firstname, ' ', u.lastname) LIKE ? 
-                OR d.department_name LIKE ? 
-                OR l.location_name LIKE ?)";
+                OR d.department_name LIKE ?)";
 
     $searchTerm = '%' . $_GET['search'] . '%';
 
-    // Add 7 times for the 7 placeholders
+    // Add 6 times for the 6 placeholders (removed location)
     $params = array_merge($params, [
-        $searchTerm,
         $searchTerm,
         $searchTerm,
         $searchTerm,
@@ -561,7 +547,7 @@ if (!empty($_GET['search'])) {
         $searchTerm
     ]);
 
-    $paramTypes .= str_repeat('s', 7);
+    $paramTypes .= str_repeat('s', 6);
 }
 
 if (!empty($_GET['status'])) {
@@ -579,12 +565,6 @@ if (!empty($_GET['department'])) {
 if (!empty($_GET['category'])) {
     $where[] = "i.category_id=?";
     $params[] = (int) $_GET['category'];
-    $paramTypes .= 'i';
-}
-
-if (!empty($_GET['location'])) {
-    $where[] = "i.location_id = ?";
-    $params[] = (int) $_GET['location'];
     $paramTypes .= 'i';
 }
 
@@ -608,7 +588,6 @@ $countQuery = mysqli_prepare($conn, "
     LEFT JOIN categories c ON i.category_id = c.id
     LEFT JOIN brands b ON i.brand_id = b.id
     LEFT JOIN departments d ON i.department_id = d.id
-    LEFT JOIN locations l ON i.location_id = l.id
     $whereSql
 ");
 
@@ -627,8 +606,7 @@ $sql = "
         i.*, 
         c.category_name, 
         b.brand_name, 
-        d.department_name, 
-        l.location_name,
+        d.department_name,
         u.firstname,
         u.lastname,
         dua.user_id as assigned_user_id,
@@ -638,7 +616,6 @@ $sql = "
     LEFT JOIN categories c ON i.category_id = c.id
     LEFT JOIN brands b ON i.brand_id = b.id
     LEFT JOIN departments d ON i.department_id = d.id
-    LEFT JOIN locations l ON i.location_id = l.id
     LEFT JOIN (
         SELECT dua1.* 
         FROM device_user_assignments dua1
@@ -675,6 +652,7 @@ if (!empty($_GET['category'])) {
     foreach ($categoriesArr as $c) {
         if ($c['id'] == $_GET['category']) {
             $catName = $c['category_name'];
+            break;
         }
     }
     $activeFilters[] = ['label' => 'Category: ' . htmlspecialchars($catName), 'param' => 'category'];
@@ -692,21 +670,6 @@ if (!empty($_GET['department'])) {
     $activeFilters[] = [
         'label' => 'Department: ' . htmlspecialchars($deptName),
         'param' => 'department'
-    ];
-}
-
-if (!empty($_GET['location'])) {
-    $locName = '';
-    foreach ($locationsArr as $l) {
-        if ($l['id'] == $_GET['location']) {
-            $locName = $l['location_name'];
-            break;
-        }
-    }
-
-    $activeFilters[] = [
-        'label' => 'Location: ' . htmlspecialchars($locName),
-        'param' => 'location'
     ];
 }
 ?>
@@ -1249,18 +1212,38 @@ if (!empty($_GET['location'])) {
                             </div>
                         </div>
 
-                        <!-- Location Filter -->
+                        <!-- Department Filter -->
                         <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Location</label>
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Department</label>
                             <div class="relative">
                                 <i
-                                    class="fas fa-map-marker-alt absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <select name="location"
+                                    class="fas fa-building absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <select name="department"
                                     class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
-                                    <option value="">All Locations</option>
-                                    <?php foreach ($locationsArr as $l): ?>
-                                        <option value="<?= $l['id'] ?>" <?= ($_GET['location'] ?? '') == $l['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($l['location_name']) ?>
+                                    <option value="">All Departments</option>
+                                    <?php foreach ($departmentsArr as $d): ?>
+                                        <option value="<?= $d['id'] ?>" <?= ($_GET['department'] ?? '') == $d['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($d['department_name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <i
+                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                            </div>
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Category</label>
+                            <div class="relative">
+                                <i
+                                    class="fas fa-tag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <select name="category"
+                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                    <option value="">All Categories</option>
+                                    <?php foreach ($categoriesArr as $c): ?>
+                                        <option value="<?= $c['id'] ?>" <?= ($_GET['category'] ?? '') == $c['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($c['category_name']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -1324,7 +1307,7 @@ if (!empty($_GET['location'])) {
                                 <th class="compact-column-sm">Brand</th>
                                 <th class="compact-column-sm">Model</th>
                                 <th class="compact-column">User</th>
-                                <th class="compact-column-sm">Location</th>
+                                <th class="compact-column-sm">Department</th>
                                 <th class="compact-column-xs">Status</th>
                                 <th class="compact-column-sm">Category</th>
                                 <th class="actions-column">Actions</th>
@@ -1437,13 +1420,13 @@ if (!empty($_GET['location'])) {
                                             </div>
                                         </td>
 
-                                        <!-- LOCATION -->
+                                        <!-- DEPARTMENT -->
                                         <td>
                                             <div class="flex items-center gap-2">
-                                                <i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>
+                                                <i class="fas fa-building text-gray-400 text-xs"></i>
                                                 <span class="text-gray-600 text-sm text-ellipsis"
-                                                    title="<?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>">
-                                                    <?= htmlspecialchars($row['location_name'] ?? 'N/A') ?>
+                                                    title="<?= htmlspecialchars($row['department_name'] ?? 'N/A') ?>">
+                                                    <?= htmlspecialchars($row['department_name'] ?? 'N/A') ?>
                                                 </span>
                                             </div>
                                         </td>
@@ -1769,19 +1752,6 @@ if (!empty($_GET['location'])) {
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
-
-                                            <div class="md:col-span-2">
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Device
-                                                    Location</label>
-                                                <select name="location_id" class="w-full border border-gray-300 p-3 rounded-lg">
-                                                    <option value="">Select Location</option>
-                                                    <?php foreach ($locationsArr as $l): ?>
-                                                        <option value="<?= $l['id'] ?>" <?= $row['location_id'] == $l['id'] ? 'selected' : '' ?>>
-                                                            <?= htmlspecialchars($l['location_name']) ?>
-                                                        </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            </div>
                                         </div>
                                     </div>
 
@@ -1995,19 +1965,6 @@ if (!empty($_GET['location'])) {
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device
-                                            Location</label>
-                                        <select name="location_id"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="">Select Location</option>
-                                            <?php foreach ($locationsArr as $l): ?>
-                                                <option value="<?= $l['id'] ?>" <?= isset($item['location_id']) && $item['location_id'] == $l['id'] ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($l['location_name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
                                 </div>
                             </div>
 
@@ -2171,10 +2128,6 @@ if (!empty($_GET['location'])) {
                                     <p class="text-xs text-gray-500 mb-1">Assigned Since</p>
                                     <p class="font-semibold text-gray-800" id="view_assigned_at"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3 md:col-span-2">
-                                    <p class="text-xs text-gray-500 mb-1">Location</p>
-                                    <p class="font-semibold text-gray-800" id="view_location"></p>
-                                </div>
                             </div>
                         </div>
 
@@ -2319,36 +2272,19 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                                Department
-                                            </label>
-                                            <select name="assign_department" id="deviceAssignDepartment"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                                <option value="">Select Department</option>
-                                                <?php foreach ($departmentsArr as $d): ?>
-                                                    <option value="<?= $d['id'] ?>">
-                                                        <?= htmlspecialchars($d['department_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                                Location
-                                            </label>
-                                            <select name="assign_location" id="deviceAssignLocation"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                                <option value="">Select Location</option>
-                                                <?php foreach ($locationsArr as $l): ?>
-                                                    <option value="<?= $l['id'] ?>">
-                                                        <?= htmlspecialchars($l['location_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Department
+                                        </label>
+                                        <select name="assign_department" id="deviceAssignDepartment"
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">Select Department</option>
+                                            <?php foreach ($departmentsArr as $d): ?>
+                                                <option value="<?= $d['id'] ?>">
+                                                    <?= htmlspecialchars($d['department_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
                                     </div>
 
                                     <div>
@@ -2395,36 +2331,19 @@ if (!empty($_GET['location'])) {
                                         </select>
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                                Department
-                                            </label>
-                                            <select name="reassign_department" id="deviceReassignDepartment"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                                <option value="">Select Department</option>
-                                                <?php foreach ($departmentsArr as $d): ?>
-                                                    <option value="<?= $d['id'] ?>">
-                                                        <?= htmlspecialchars($d['department_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                                Location
-                                            </label>
-                                            <select name="reassign_location" id="deviceReassignLocation"
-                                                class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                                <option value="">Select Location</option>
-                                                <?php foreach ($locationsArr as $l): ?>
-                                                    <option value="<?= $l['id'] ?>">
-                                                        <?= htmlspecialchars($l['location_name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Department
+                                        </label>
+                                        <select name="reassign_department" id="deviceReassignDepartment"
+                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            <option value="">Select Department</option>
+                                            <?php foreach ($departmentsArr as $d): ?>
+                                                <option value="<?= $d['id'] ?>">
+                                                    <?= htmlspecialchars($d['department_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
                                     </div>
 
                                     <div>
@@ -2839,7 +2758,6 @@ if (!empty($_GET['location'])) {
             document.getElementById('view_assigned_user').textContent = (item.firstname && item.lastname) ? item.firstname + ' ' + item.lastname : 'Unassigned';
             document.getElementById('view_assigned_user_id').textContent = item.assigned_user_id || 'N/A';
             document.getElementById('view_assigned_at').textContent = item.assigned_at ? new Date(item.assigned_at).toLocaleDateString() : 'N/A';
-            document.getElementById('view_location').textContent = item.location_name || '';
             document.getElementById('view_condition').textContent = item.condition || '';
             document.getElementById('view_status').textContent = item.status || '';
             document.getElementById('view_remarks').textContent = item.remarks || '';

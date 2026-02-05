@@ -217,7 +217,7 @@ function displayRetiredDevicesPage()
         return;
     }
 
-    /* Fetch Departments, Locations, and Categories for Filters */
+    /* Fetch Departments and Categories for Filters */
     $departmentsArr = [];
     $deptResult = $conn->query("SELECT id, department_name FROM departments ORDER BY department_name");
     if ($deptResult) {
@@ -227,16 +227,6 @@ function displayRetiredDevicesPage()
     } else {
         // Handle query error
         error_log("Departments query failed: " . $conn->error);
-    }
-
-    $locationsArr = [];
-    $locResult = $conn->query("SELECT id, location_name FROM locations ORDER BY location_name");
-    if ($locResult) {
-        while ($row = $locResult->fetch_assoc()) {
-            $locationsArr[] = ['id' => $row['id'], 'location_name' => $row['location_name']];
-        }
-    } else {
-        error_log("Locations query failed: " . $conn->error);
     }
 
     // Get categories from categories table
@@ -274,12 +264,6 @@ function displayRetiredDevicesPage()
         $paramTypes .= "s";
     }
 
-    if (!empty($_GET['location'])) {
-        $whereConditions[] = "l.location_name = ?";
-        $params[] = $_GET['location'];
-        $paramTypes .= "s";
-    }
-
     if (!empty($_GET['brand'])) {
         $whereConditions[] = "i.brand_id = ?";
         $params[] = intval($_GET['brand']);
@@ -305,7 +289,6 @@ function displayRetiredDevicesPage()
     $totalPages = 0;
     $countQuery = "SELECT COUNT(*) as total FROM inventory_items i 
                    LEFT JOIN departments d ON i.department_id = d.id
-                   LEFT JOIN locations l ON i.location_id = l.id
                    $whereClause";
 
     if (!empty($params)) {
@@ -334,7 +317,6 @@ function displayRetiredDevicesPage()
             i.*,
             b.brand_name AS brand_name,
             d.department_name AS department_name,
-            l.location_name AS location_name,
             c.category_name AS category_name,
             u.firstname AS assigned_firstname,
             u.lastname AS assigned_lastname,
@@ -342,7 +324,6 @@ function displayRetiredDevicesPage()
         FROM inventory_items i
         LEFT JOIN brands b ON i.brand_id = b.id
         LEFT JOIN departments d ON i.department_id = d.id
-        LEFT JOIN locations l ON i.location_id = l.id
         LEFT JOIN categories c ON i.category_id = c.id
         LEFT JOIN users u ON i.assigned_user = u.id
         $whereClause
@@ -371,7 +352,6 @@ function displayRetiredDevicesPage()
 
     /* ================== FILTER INPUTS ================== */
     $filterDepartment = $_GET['department'] ?? '';
-    $filterLocation = $_GET['location'] ?? '';
     $filterBrand = $_GET['brand'] ?? '';
     $filterCategory = $_GET['category'] ?? '';
     $filterCondition = $_GET['condition'] ?? '';
@@ -882,20 +862,6 @@ function displayRetiredDevicesPage()
                             </select>
                         </div>
 
-                        <!-- Location -->
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-2">Location</label>
-                            <select id="filterLocation" name="location" class="filter-select w-full">
-                                <option value="">All Locations</option>
-                                <?php foreach ($locationsArr as $l): ?>
-                                    <option value="<?= htmlspecialchars($l['location_name']) ?>"
-                                        <?= ($filterLocation === $l['location_name']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($l['location_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
                         <!-- Brand -->
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-2">Brand</label>
@@ -993,7 +959,7 @@ function displayRetiredDevicesPage()
                             <tr>
                                 <th class="compact-column-sm">Device</th>
                                 <th class="compact-column-xs">Asset Tag</th>
-                                <th class="compact-column-sm">Location</th>
+                                <th class="compact-column-sm">Department</th>
                                 <th class="compact-column-xs">Assigned To</th>
                                 <th class="compact-column-xs">Condition</th>
                                 <th class="compact-column-xs">Status</th>
@@ -1073,7 +1039,7 @@ function displayRetiredDevicesPage()
                                             </span>
                                         </td>
 
-                                        <!-- Location -->
+                                        <!-- Department -->
                                         <td>
                                             <div class="space-y-1">
                                                 <div class="flex items-center gap-2">
@@ -1081,13 +1047,6 @@ function displayRetiredDevicesPage()
                                                     <span class="text-gray-700 text-sm text-ellipsis"
                                                         title="<?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>">
                                                         <?= htmlspecialchars($device['department_name'] ?? 'N/A') ?>
-                                                    </span>
-                                                </div>
-                                                <div class="flex items-center gap-2">
-                                                    <i class="fas fa-location-dot text-gray-400 text-xs"></i>
-                                                    <span class="text-gray-600 text-xs text-ellipsis"
-                                                        title="<?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>">
-                                                        <?= htmlspecialchars($device['location_name'] ?? 'N/A') ?>
                                                     </span>
                                                 </div>
                                             </div>
@@ -1178,7 +1137,7 @@ function displayRetiredDevicesPage()
                             </div>
                             <div class="flex gap-2">
                                 <?php if ($page > 1): ?>
-                                    <a href="?page=<?= $page - 1 ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                    <a href="?page=<?= $page - 1 ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
                                         class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-all flex items-center gap-2">
                                         <i class="fas fa-chevron-left mr-1"></i> Previous
                                     </a>
@@ -1193,14 +1152,14 @@ function displayRetiredDevicesPage()
                                         ? 'bg-red-500 text-white'
                                         : 'bg-white text-gray-700 hover:bg-gray-50';
                                     ?>
-                                    <a href="?page=<?= $i ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                    <a href="?page=<?= $i ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
                                         class="px-4 py-2 border border-gray-300 rounded-lg text-sm transition-all <?= $activeClass ?>">
                                         <?= $i ?>
                                     </a>
                                 <?php endfor; ?>
 
                                 <?php if ($page < $totalPages): ?>
-                                    <a href="?page=<?= $page + 1 ?>&department=<?= $filterDepartment ?>&location=<?= $filterLocation ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                    <a href="?page=<?= $page + 1 ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
                                         class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-all flex items-center gap-2">
                                         Next <i class="fas fa-chevron-right ml-1"></i>
                                     </a>
@@ -1290,17 +1249,12 @@ function displayRetiredDevicesPage()
                                     </span>
                                 </div>
 
-                                <!-- Location Info -->
+                                <!-- Department Info -->
                                 <div class="space-y-2 mb-4">
                                     <div class="flex items-center gap-2 text-sm">
                                         <i class="fas fa-building text-gray-400"></i>
                                         <span
                                             class="text-gray-700"><?= htmlspecialchars($device['department_name'] ?? 'N/A') ?></span>
-                                    </div>
-                                    <div class="flex items-center gap-2 text-sm">
-                                        <i class="fas fa-location-dot text-gray-400"></i>
-                                        <span
-                                            class="text-gray-700"><?= htmlspecialchars($device['location_name'] ?? 'N/A') ?></span>
                                     </div>
                                 </div>
 
@@ -1505,7 +1459,6 @@ function displayRetiredDevicesPage()
 
             function clearFilters() {
                 document.getElementById('filterDepartment').value = '';
-                document.getElementById('filterLocation').value = '';
                 document.getElementById('filterBrand').value = '';
                 document.getElementById('filterCategory').value = '';
                 document.getElementById('filterCondition').value = '';
@@ -1520,7 +1473,6 @@ function displayRetiredDevicesPage()
             function exportRetired() {
                 // Get current filters
                 const department = document.getElementById('filterDepartment').value;
-                const location = document.getElementById('filterLocation').value;
                 const brand = document.getElementById('filterBrand').value;
                 const category = document.getElementById('filterCategory').value;
                 const condition = document.getElementById('filterCondition').value;
@@ -1528,7 +1480,6 @@ function displayRetiredDevicesPage()
                 // Build query string
                 const params = new URLSearchParams();
                 if (department) params.append('department', department);
-                if (location) params.append('location', location);
                 if (brand) params.append('brand', brand);
                 if (category) params.append('category', category);
                 if (condition) params.append('condition', condition);
@@ -1564,7 +1515,6 @@ function displayRetiredDevicesPage()
                             <p><span class="font-medium">Condition:</span> ${escapeHtml(device.condition || 'N/A')}</p>
                             <p><span class="font-medium">Status:</span> <span class="text-red-600 font-semibold">${escapeHtml(device.status || 'N/A')}</span></p>
                             <p><span class="font-medium">Department:</span> ${escapeHtml(device.department_name || 'N/A')}</p>
-                            <p><span class="font-medium">Location:</span> ${escapeHtml(device.location_name || 'N/A')}</p>
                             <p><span class="font-medium">Created:</span> ${escapeHtml(device.created_at ? new Date(device.created_at).toLocaleDateString() : 'N/A')}</p>
                             <p><span class="font-medium">Last Updated:</span> ${escapeHtml(device.updated_at ? new Date(device.updated_at).toLocaleDateString() : 'N/A')}</p>
                         </div>
@@ -1781,7 +1731,6 @@ function exportToCSV($whereClause, $params, $paramTypes)
             b.brand_name,
             c.category_name,
             d.department_name,
-            l.location_name,
             i.serial_number,
             i.condition,
             i.status,
@@ -1793,7 +1742,6 @@ function exportToCSV($whereClause, $params, $paramTypes)
         FROM inventory_items i
         LEFT JOIN brands b ON i.brand_id = b.id
         LEFT JOIN departments d ON i.department_id = d.id
-        LEFT JOIN locations l ON i.location_id = l.id
         LEFT JOIN categories c ON i.category_id = c.id
         LEFT JOIN users u ON i.assigned_user = u.id
         $whereClause
@@ -1839,7 +1787,6 @@ function exportToCSV($whereClause, $params, $paramTypes)
         'Brand',
         'Category',
         'Department',
-        'Location',
         'Serial Number',
         'Condition',
         'Status',
@@ -1859,7 +1806,6 @@ function exportToCSV($whereClause, $params, $paramTypes)
             $row['brand_name'],
             $row['category_name'],
             $row['department_name'],
-            $row['location_name'],
             $row['serial_number'],
             $row['condition'],
             $row['status'],

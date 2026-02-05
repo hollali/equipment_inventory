@@ -229,12 +229,6 @@ function active($page, $current)
             <span class="nav-text">Departments</span>
         </a>
 
-        <a href="locations.php"
-            class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg <?= active('locations.php', $current) ?>">
-            <i class="fa-solid fa-location-dot w-5 text-center"></i>
-            <span class="nav-text">Locations</span>
-        </a>
-
         <div class="nav-divider"></div>
 
         <div class="nav-text px-4 py-2">

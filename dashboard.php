@@ -5,7 +5,6 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . "/config/database.php";
-require_once __DIR__ . '/vendor/autoload.php';
 
 // Initialize database connection
 try {
@@ -13,11 +12,6 @@ try {
     $conn = $db->getConnection();
 } catch (Exception $e) {
     die("Database connection failed: " . $e->getMessage());
-}
-
-// Generate CSRF token
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 // Output encoding helper
@@ -30,260 +24,27 @@ function e($string)
 function getStatusLabel($status)
 {
     $statusLabels = [
-        'In Use' => 'In Use',
-        'Store' => 'In Storage',
-        'Faulty' => 'Faulty',
-        'Repairing' => 'Repairing',
-        'Retired' => 'Retired'
+        'active' => 'Active',
+        'in_use' => 'In Use',
+        'in_storage' => 'In Storage',
+        'repairing' => 'Repairing',
+        'faulty' => 'Faulty',
+        'retired' => 'Retired'
     ];
 
     return $statusLabels[$status] ?? ucfirst($status);
 }
 
-// Time ago function
-function timeAgo($datetime)
-{
-    if (empty($datetime))
-        return 'Just now';
-
-    $time = strtotime($datetime);
-    $now = time();
-    $diff = $now - $time;
-
-    if ($diff < 60) {
-        return 'Just now';
-    } elseif ($diff < 3600) {
-        $minutes = floor($diff / 60);
-        return $minutes . ' minute' . ($minutes > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 86400) {
-        $hours = floor($diff / 3600);
-        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-    } elseif ($diff < 604800) {
-        $days = floor($diff / 86400);
-        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-    } else {
-        return date('M j, Y g:i A', $time);
-    }
-}
-
-// Condition labels based on your enum
+// Condition labels
 const CONDITION_LABELS = [
     'New' => 'New',
     'Good' => 'Good',
     'Fair' => 'Fair',
+    'Poor' => 'Poor',
     'Faulty' => 'Faulty'
 ];
 
-/* ================== FETCH RECENT ACTIVITIES ================== */
-
-class RecentActivities
-{
-    private $conn;
-
-    public function __construct($connection)
-    {
-        $this->conn = $connection;
-    }
-
-    public function getRecentActivities($limit = 100)
-    {
-        // First, check what timestamp columns exist
-        $timestampColumn = $this->getTimestampColumn();
-
-        $query = "
-            SELECT 
-                i.id,
-                i.asset_tag,
-                i.device_type,
-                i.model,
-                i.specifications,
-                i.condition,
-                i.status,
-                i.remarks,
-                i.assigned_user,
-                i.created_at,
-                i.{$timestampColumn} as updated_at,
-                b.brand_name,
-                d.department_name,
-                l.location_name,
-                c.category_name,
-                u.id as user_id,
-                u.firstname as user_firstname,
-                u.lastname as user_lastname,
-                u.email as user_email,
-                u.role as user_role,
-                u.status as user_status,
-                
-                -- Determine activity type based on timestamps and status
-                CASE 
-                    WHEN i.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'new_device'
-                    WHEN i.{$timestampColumn} >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 
-                        CASE i.status
-                            WHEN 'Store' THEN 'stored'
-                            WHEN 'Faulty' THEN 'faulty'
-                            ELSE 'updated'
-                        END
-                    ELSE 'updated'
-                END as activity_type
-                
-            FROM inventory_items i
-            LEFT JOIN brands b ON i.brand_id = b.id
-            LEFT JOIN departments d ON i.department_id = d.id
-            LEFT JOIN locations l ON i.location_id = l.id
-            LEFT JOIN categories c ON i.category_id = c.id
-            LEFT JOIN users u ON i.assigned_user = u.id
-            WHERE i.{$timestampColumn} >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-               OR i.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY GREATEST(i.{$timestampColumn}, i.created_at) DESC
-            LIMIT ?
-        ";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("i", $limit);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $activities = [];
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
-                $activity = $this->formatActivity($row);
-                if ($activity) {
-                    $activities[] = $activity;
-                }
-            }
-        }
-
-        return $activities;
-    }
-
-    private function getTimestampColumn()
-    {
-        // Check for common timestamp column names
-        $columns = ['updated_at', 'modified_at', 'last_updated', 'update_at'];
-
-        foreach ($columns as $column) {
-            $check = $this->conn->query("SHOW COLUMNS FROM inventory_items LIKE '{$column}'");
-            if ($check && $check->num_rows > 0) {
-                return $column;
-            }
-        }
-
-        // Fallback to created_at if no update column found
-        return 'created_at';
-    }
-
-    private function formatActivity($row)
-    {
-        $activityType = $row['activity_type'] ?? 'updated';
-        $assignedUserName = '';
-
-        if (!empty($row['user_firstname'])) {
-            $assignedUserName = trim($row['user_firstname'] . ' ' . $row['user_lastname']);
-        }
-
-        // Determine activity details based on type
-        switch ($activityType) {
-            case 'new_device':
-                $title = 'New Device Added';
-                $icon = 'fa-plus-circle';
-                $color = 'from-emerald-500 to-emerald-600';
-                $description = 'New device has been added to inventory';
-                break;
-
-            case 'assigned':
-                $title = 'Device Assigned';
-                $icon = 'fa-user-check';
-                $color = 'from-green-500 to-green-600';
-                $description = !empty($assignedUserName)
-                    ? "Device assigned to " . e($assignedUserName)
-                    : "Device assigned to a user";
-                break;
-
-            case 'reassigned':
-                $title = 'Device Reassigned';
-                $icon = 'fa-user-exchange';
-                $color = 'from-purple-500 to-purple-600';
-                $description = !empty($assignedUserName)
-                    ? "Device reassigned to " . e($assignedUserName)
-                    : "Device reassigned";
-                break;
-
-            case 'unassigned':
-                $title = 'Device Unassigned';
-                $icon = 'fa-user-times';
-                $color = 'from-gray-500 to-gray-600';
-                $description = 'Device was unassigned';
-                break;
-
-            case 'stored':
-                $title = 'Device Stored';
-                $icon = 'fa-warehouse';
-                $color = 'from-yellow-500 to-yellow-600';
-                $description = 'Device placed in storage';
-                break;
-
-            case 'faulty':
-                $title = 'Device Marked as Faulty';
-                $icon = 'fa-exclamation-triangle';
-                $color = 'from-red-400 to-red-500';
-                $description = 'Device marked as faulty';
-                break;
-
-            case 'updated':
-            default:
-                $title = 'Device Updated';
-                $icon = 'fa-edit';
-                $color = 'from-blue-500 to-blue-600';
-                $description = 'Device information was updated';
-                break;
-        }
-
-        // Use the most recent timestamp
-        $activityTime = !empty($row['updated_at']) && strtotime($row['updated_at']) > strtotime($row['created_at'])
-            ? $row['updated_at']
-            : $row['created_at'];
-
-        return [
-            'id' => $row['id'] ?? null,
-            'type' => $activityType,
-            'title' => $title,
-            'icon' => $icon,
-            'color' => $color,
-            'description' => $description,
-            'device_name' => ($row['brand_name'] ?? '') . ' ' . ($row['model'] ?? ''),
-            'asset_tag' => $row['asset_tag'] ?? 'N/A',
-            'device_type' => $row['device_type'] ?? '',
-            'model' => $row['model'] ?? '',
-            'specifications' => $row['specifications'] ?? '',
-            'condition' => $row['condition'] ?? '',
-            'status' => $row['status'] ?? '',
-            'remarks' => $row['remarks'] ?? '',
-            'category_name' => $row['category_name'] ?? '',
-            'department_name' => $row['department_name'] ?? '',
-            'location_name' => $row['location_name'] ?? '',
-            'assigned_user' => [
-                'id' => $row['user_id'] ?? null,
-                'name' => $assignedUserName,
-                'email' => $row['user_email'] ?? '',
-                'role' => $row['user_role'] ?? '',
-                'status' => $row['user_status'] ?? ''
-            ],
-            'updated_at' => $activityTime,
-            'is_new' => (time() - strtotime($activityTime)) < 300 // New if less than 5 minutes
-        ];
-    }
-}
-
-// Initialize activity tracker
-try {
-    $activityTracker = new RecentActivities($conn);
-    $recentActivities = $activityTracker->getRecentActivities(100);
-} catch (Exception $e) {
-    $recentActivities = [];
-    error_log("Error fetching recent activities: " . $e->getMessage());
-}
-
-/* ================== STATISTICS ================== */
+/* ================== INVENTORY STATISTICS ================== */
 
 // Initialize statistics with defaults
 $stats = [
@@ -295,33 +56,39 @@ $stats = [
     'admin_users' => 0,
     'today_changes' => 0,
     'in_use' => 0,
+    'in_storage' => 0,
     'repairing' => 0,
-    'retired' => 0
+    'retired' => 0,
+    'total_brands' => 0,
+    'total_categories' => 0,
+    'total_departments' => 0
 ];
-
-// Fetch Departments and Locations
-$departmentsArr = [];
-$locationsArr = [];
 
 // Additional statistics for charts
 $deviceStatusStats = [];
 $deviceConditionStats = [];
-$dailyActivityStats = [];
+$topBrands = [];
+$topCategories = [];
+$departmentsArr = [];
 
 try {
-    // Get device statistics - UPDATED TO SHOW UNASSIGNED DEVICES
+    // Get inventory statistics
     $statsQuery = "
         SELECT 
             (SELECT COUNT(*) FROM inventory_items) as total_items,
             (SELECT COUNT(*) FROM users) as total_users,
             (SELECT COUNT(*) FROM inventory_items WHERE assigned_user IS NULL OR assigned_user = 0) as unassigned_devices,
-            (SELECT COUNT(*) FROM inventory_items WHERE status='Faulty') as faulty_devices,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='faulty') as faulty_devices,
             (SELECT COUNT(*) FROM users WHERE status='active') as active_users,
             (SELECT COUNT(*) FROM users WHERE role='admin') as admin_users,
             (SELECT COUNT(*) FROM inventory_items WHERE created_at >= CURDATE()) as today_changes,
-            (SELECT COUNT(*) FROM inventory_items WHERE status='In Use') as in_use,
-            (SELECT COUNT(*) FROM inventory_items WHERE status='Repairing') as repairing,
-            (SELECT COUNT(*) FROM inventory_items WHERE status='Retired') as retired
+            (SELECT COUNT(*) FROM inventory_items WHERE status='in_use') as in_use,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='in_storage') as in_storage,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='repairing') as repairing,
+            (SELECT COUNT(*) FROM inventory_items WHERE status='retired') as retired,
+            (SELECT COUNT(*) FROM brands) as total_brands,
+            (SELECT COUNT(*) FROM categories) as total_categories,
+            (SELECT COUNT(*) FROM departments) as total_departments
     ";
 
     $statsResult = $conn->query($statsQuery);
@@ -337,8 +104,12 @@ try {
                 'admin_users' => (int) ($statsRow['admin_users'] ?? 0),
                 'today_changes' => (int) ($statsRow['today_changes'] ?? 0),
                 'in_use' => (int) ($statsRow['in_use'] ?? 0),
+                'in_storage' => (int) ($statsRow['in_storage'] ?? 0),
                 'repairing' => (int) ($statsRow['repairing'] ?? 0),
-                'retired' => (int) ($statsRow['retired'] ?? 0)
+                'retired' => (int) ($statsRow['retired'] ?? 0),
+                'total_brands' => (int) ($statsRow['total_brands'] ?? 0),
+                'total_categories' => (int) ($statsRow['total_categories'] ?? 0),
+                'total_departments' => (int) ($statsRow['total_departments'] ?? 0)
             ];
         }
     }
@@ -387,48 +158,56 @@ try {
         }
     }
 
-    // Fetch daily activity statistics for the last 7 days
-    $dailyActivityQuery = "
+    // Fetch top brands
+    $brandsQuery = "
         SELECT 
-            DATE(created_at) as activity_date,
-            COUNT(*) as activity_count
-        FROM inventory_items 
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(created_at)
-        ORDER BY activity_date
+            b.brand_name,
+            COUNT(i.id) as device_count
+        FROM inventory_items i
+        JOIN brands b ON i.brand_id = b.id
+        GROUP BY b.id, b.brand_name
+        ORDER BY device_count DESC
+        LIMIT 5
     ";
 
-    $dailyActivityResult = $conn->query($dailyActivityQuery);
-    if ($dailyActivityResult) {
-        while ($row = $dailyActivityResult->fetch_assoc()) {
-            $dailyActivityStats[] = [
-                'date' => $row['activity_date'],
-                'count' => (int) $row['activity_count']
+    $brandsResult = $conn->query($brandsQuery);
+    if ($brandsResult) {
+        while ($row = $brandsResult->fetch_assoc()) {
+            $topBrands[] = [
+                'brand_name' => $row['brand_name'],
+                'device_count' => (int) $row['device_count']
+            ];
+        }
+    }
+
+    // Fetch top categories
+    $categoriesQuery = "
+        SELECT 
+            c.category_name,
+            COUNT(i.id) as device_count
+        FROM inventory_items i
+        JOIN categories c ON i.category_id = c.id
+        GROUP BY c.id, c.category_name
+        ORDER BY device_count DESC
+        LIMIT 5
+    ";
+
+    $categoriesResult = $conn->query($categoriesQuery);
+    if ($categoriesResult) {
+        while ($row = $categoriesResult->fetch_assoc()) {
+            $topCategories[] = [
+                'category_name' => $row['category_name'],
+                'device_count' => (int) $row['device_count']
             ];
         }
     }
 
     // Fetch Departments
-    $deptStmt = $conn->prepare("SELECT id, department_name FROM departments ORDER BY department_name");
-    if ($deptStmt) {
-        $deptStmt->execute();
-        $deptResult = $deptStmt->get_result();
-        if ($deptResult) {
-            while ($row = $deptResult->fetch_assoc()) {
-                $departmentsArr[] = $row;
-            }
-        }
-    }
-
-    // Fetch Locations
-    $locStmt = $conn->prepare("SELECT id, location_name FROM locations ORDER BY location_name");
-    if ($locStmt) {
-        $locStmt->execute();
-        $locResult = $locStmt->get_result();
-        if ($locResult) {
-            while ($row = $locResult->fetch_assoc()) {
-                $locationsArr[] = $row;
-            }
+    $deptQuery = "SELECT id, department_name FROM departments ORDER BY department_name";
+    $deptResult = $conn->query($deptQuery);
+    if ($deptResult) {
+        while ($row = $deptResult->fetch_assoc()) {
+            $departmentsArr[] = $row;
         }
     }
 
@@ -436,17 +215,254 @@ try {
     error_log("Error fetching statistics: " . $e->getMessage());
 }
 
-// Store stats in variables with proper type casting
-$totalItems = (int) ($stats['total_items'] ?? 0);
-$totalUsers = (int) ($stats['total_users'] ?? 0);
-$unassignedDevices = (int) ($stats['unassigned_devices'] ?? 0);
-$faultyDevices = (int) ($stats['faulty_devices'] ?? 0);
-$activeUsers = (int) ($stats['active_users'] ?? 0);
-$adminUsers = (int) ($stats['admin_users'] ?? 0);
-$todayChanges = (int) ($stats['today_changes'] ?? 0);
-$inUseDevices = (int) ($stats['in_use'] ?? 0);
-$repairingDevices = (int) ($stats['repairing'] ?? 0);
-$retiredDevices = (int) ($stats['retired'] ?? 0);
+// Store stats in variables
+$totalItems = $stats['total_items'];
+$totalUsers = $stats['total_users'];
+$unassignedDevices = $stats['unassigned_devices'];
+$faultyDevices = $stats['faulty_devices'];
+$activeUsers = $stats['active_users'];
+$adminUsers = $stats['admin_users'];
+$todayChanges = $stats['today_changes'];
+$inUseDevices = $stats['in_use'];
+$inStorageDevices = $stats['in_storage'];
+$repairingDevices = $stats['repairing'];
+$retiredDevices = $stats['retired'];
+$totalBrands = $stats['total_brands'];
+$totalCategories = $stats['total_categories'];
+$totalDepartments = $stats['total_departments'];
+
+/* ================== RECENT INVENTORY CHANGES ================== */
+
+$recentActivities = [];
+
+try {
+    // Get recent inventory changes with user assignments
+    $activitiesQuery = "
+        SELECT 
+            i.*,
+            b.brand_name,
+            d.department_name,
+            c.category_name,
+            u.firstname as assigned_firstname,
+            u.lastname as assigned_lastname,
+            u.email as assigned_email,
+            u.role as assigned_role,
+            dua.assigned_at,
+            dua.returned_at,
+            dua.status as assignment_status,
+            
+            CASE 
+                WHEN i.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'new_device'
+                WHEN dua.assigned_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND dua.status = 'assigned' THEN 'assigned'
+                WHEN dua.returned_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'retrieved'
+                WHEN i.updated_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 
+                    CASE 
+                        WHEN i.status = 'retired' THEN 'retired'
+                        WHEN i.status = 'faulty' THEN 'faulty'
+                        WHEN i.status = 'repairing' THEN 'repairing'
+                        ELSE 'updated'
+                    END
+                ELSE 'updated'
+            END as activity_type
+            
+        FROM inventory_items i
+        LEFT JOIN brands b ON i.brand_id = b.id
+        LEFT JOIN departments d ON i.department_id = d.id
+        LEFT JOIN categories c ON i.category_id = c.id
+        LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id 
+            AND dua.status = 'assigned'
+        LEFT JOIN users u ON dua.user_id = u.id
+        WHERE i.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+           OR i.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+           OR dua.assigned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+           OR dua.returned_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY GREATEST(
+            COALESCE(i.created_at, '1970-01-01'),
+            COALESCE(i.updated_at, '1970-01-01'),
+            COALESCE(dua.assigned_at, '1970-01-01'),
+            COALESCE(dua.returned_at, '1970-01-01')
+        ) DESC
+        LIMIT 100
+    ";
+
+    $activitiesResult = $conn->query($activitiesQuery);
+    if ($activitiesResult) {
+        while ($row = $activitiesResult->fetch_assoc()) {
+            $activity = formatInventoryActivity($row);
+            if ($activity) {
+                $recentActivities[] = $activity;
+            }
+        }
+    }
+} catch (Exception $e) {
+    error_log("Error fetching recent activities: " . $e->getMessage());
+}
+
+function formatInventoryActivity($row)
+{
+    $activityType = $row['activity_type'] ?? 'updated';
+
+    // Determine activity details based on type
+    switch ($activityType) {
+        case 'new_device':
+            $title = 'New Device Added';
+            $icon = 'fa-plus-circle';
+            $color = 'from-emerald-500 to-emerald-600';
+            $description = 'New device has been added to inventory';
+            break;
+
+        case 'assigned':
+            $title = 'Device Assigned';
+            $icon = 'fa-user-check';
+            $color = 'from-green-500 to-green-600';
+            $description = !empty($row['assigned_firstname'])
+                ? "Device assigned to " . e($row['assigned_firstname'] . ' ' . $row['assigned_lastname'])
+                : "Device assigned to a user";
+            break;
+
+        case 'retrieved':
+            $title = 'Device Retrieved';
+            $icon = 'fa-undo';
+            $color = 'from-yellow-500 to-yellow-600';
+            $description = 'Device retrieved from user';
+            break;
+
+        case 'retired':
+            $title = 'Device Retired';
+            $icon = 'fa-archive';
+            $color = 'from-gray-500 to-gray-600';
+            $description = 'Device has been retired';
+            break;
+
+        case 'faulty':
+            $title = 'Device Marked as Faulty';
+            $icon = 'fa-exclamation-triangle';
+            $color = 'from-red-400 to-red-500';
+            $description = 'Device marked as faulty';
+            break;
+
+        case 'repairing':
+            $title = 'Device Sent for Repair';
+            $icon = 'fa-tools';
+            $color = 'from-orange-500 to-orange-600';
+            $description = 'Device sent for repair';
+            break;
+
+        case 'updated':
+        default:
+            $title = 'Device Updated';
+            $icon = 'fa-edit';
+            $color = 'from-blue-500 to-blue-600';
+            $description = 'Device information was updated';
+            break;
+    }
+
+    // Determine timestamp
+    $activityTime = $row['created_at'];
+    if ($activityType === 'assigned' && !empty($row['assigned_at'])) {
+        $activityTime = $row['assigned_at'];
+    } elseif ($activityType === 'retrieved' && !empty($row['returned_at'])) {
+        $activityTime = $row['returned_at'];
+    } elseif (!empty($row['updated_at']) && strtotime($row['updated_at']) > strtotime($row['created_at'])) {
+        $activityTime = $row['updated_at'];
+    }
+
+    return [
+        'id' => $row['id'] ?? null,
+        'type' => $activityType,
+        'title' => $title,
+        'icon' => $icon,
+        'color' => $color,
+        'description' => $description,
+        'device_name' => ($row['brand_name'] ?? '') . ' ' . ($row['model'] ?? ''),
+        'asset_tag' => $row['asset_tag'] ?? 'N/A',
+        'device_type' => $row['device_type'] ?? '',
+        'model' => $row['model'] ?? '',
+        'specifications' => $row['specifications'] ?? '',
+        'condition' => $row['condition'] ?? '',
+        'status' => $row['status'] ?? '',
+        'remarks' => $row['remarks'] ?? '',
+        'category_name' => $row['category_name'] ?? '',
+        'department_name' => $row['department_name'] ?? '',
+        'assigned_user' => [
+            'name' => !empty($row['assigned_firstname']) ? $row['assigned_firstname'] . ' ' . $row['assigned_lastname'] : '',
+            'email' => $row['assigned_email'] ?? '',
+            'role' => $row['assigned_role'] ?? ''
+        ],
+        'updated_at' => $activityTime,
+        'is_new' => (time() - strtotime($activityTime)) < 300 // New if less than 5 minutes
+    ];
+}
+
+/* ================== PAGINATION ================== */
+
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$perPage = 10;
+$totalActivities = count($recentActivities);
+$totalPages = ceil($totalActivities / $perPage);
+$offset = ($page - 1) * $perPage;
+
+// Get current page activities
+$currentPageActivities = array_slice($recentActivities, $offset, $perPage);
+
+/* ================== ACTIVITY SUMMARY ================== */
+
+// Calculate activity summary
+$activitySummary = [
+    'new_device' => ['icon' => 'fa-plus-circle', 'color' => 'bg-emerald-100 text-emerald-700', 'label' => 'New Devices', 'count' => 0],
+    'assigned' => ['icon' => 'fa-user-check', 'color' => 'bg-green-100 text-green-700', 'label' => 'Assignments', 'count' => 0],
+    'retrieved' => ['icon' => 'fa-undo', 'color' => 'bg-yellow-100 text-yellow-700', 'label' => 'Retrieved', 'count' => 0],
+    'retired' => ['icon' => 'fa-archive', 'color' => 'bg-gray-100 text-gray-700', 'label' => 'Retired', 'count' => 0],
+    'faulty' => ['icon' => 'fa-exclamation-triangle', 'color' => 'bg-red-100 text-red-700', 'label' => 'Faulty', 'count' => 0],
+    'repairing' => ['icon' => 'fa-tools', 'color' => 'bg-orange-100 text-orange-700', 'label' => 'Repairing', 'count' => 0],
+    'updated' => ['icon' => 'fa-edit', 'color' => 'bg-blue-100 text-blue-700', 'label' => 'Updated', 'count' => 0],
+];
+
+// Count each activity type
+foreach ($recentActivities as $activity) {
+    $type = $activity['type'] ?? 'updated';
+    if (isset($activitySummary[$type])) {
+        $activitySummary[$type]['count']++;
+    } else {
+        $activitySummary['updated']['count']++;
+    }
+}
+
+// Prepare chart data
+$chartData = [];
+$chartLabels = [];
+$chartColors = [];
+
+foreach ($activitySummary as $type => $summary) {
+    if ($summary['count'] > 0) {
+        $chartData[] = $summary['count'];
+        $chartLabels[] = $summary['label'];
+
+        // Assign colors based on type
+        switch ($type) {
+            case 'new_device':
+                $chartColors[] = 'rgba(16, 185, 129, 0.8)';
+                break;
+            case 'assigned':
+                $chartColors[] = 'rgba(34, 197, 94, 0.8)';
+                break;
+            case 'retrieved':
+                $chartColors[] = 'rgba(245, 158, 11, 0.8)';
+                break;
+            case 'retired':
+                $chartColors[] = 'rgba(107, 114, 128, 0.8)';
+                break;
+            case 'faulty':
+                $chartColors[] = 'rgba(239, 68, 68, 0.8)';
+                break;
+            case 'repairing':
+                $chartColors[] = 'rgba(249, 115, 22, 0.8)';
+                break;
+            default:
+                $chartColors[] = 'rgba(59, 130, 246, 0.8)';
+        }
+    }
+}
 
 // Prepare chart data for JavaScript
 $deviceStatusChartData = [
@@ -461,20 +477,23 @@ foreach ($deviceStatusStats as $stat) {
 
     // Assign colors based on status
     switch ($stat['status']) {
-        case 'In Use':
+        case 'in_use':
             $deviceStatusChartData['colors'][] = 'rgba(34, 197, 94, 0.8)'; // Green
             break;
-        case 'Store':
+        case 'in_storage':
             $deviceStatusChartData['colors'][] = 'rgba(245, 158, 11, 0.8)'; // Yellow
             break;
-        case 'Faulty':
+        case 'faulty':
             $deviceStatusChartData['colors'][] = 'rgba(239, 68, 68, 0.8)'; // Red
             break;
-        case 'Repairing':
+        case 'repairing':
             $deviceStatusChartData['colors'][] = 'rgba(249, 115, 22, 0.8)'; // Orange
             break;
-        case 'Retired':
+        case 'retired':
             $deviceStatusChartData['colors'][] = 'rgba(107, 114, 128, 0.8)'; // Gray
+            break;
+        case 'active':
+            $deviceStatusChartData['colors'][] = 'rgba(59, 130, 246, 0.8)'; // Blue
             break;
         default:
             $deviceStatusChartData['colors'][] = 'rgba(156, 163, 175, 0.8)'; // Default gray
@@ -502,75 +521,14 @@ foreach ($deviceConditionStats as $stat) {
         case 'Fair':
             $deviceConditionChartData['colors'][] = 'rgba(245, 158, 11, 0.8)'; // Yellow
             break;
+        case 'Poor':
+            $deviceConditionChartData['colors'][] = 'rgba(249, 115, 22, 0.8)'; // Orange
+            break;
         case 'Faulty':
             $deviceConditionChartData['colors'][] = 'rgba(239, 68, 68, 0.8)'; // Red
             break;
         default:
             $deviceConditionChartData['colors'][] = 'rgba(156, 163, 175, 0.8)'; // Default gray
-    }
-}
-
-$dailyActivityChartData = [
-    'dates' => [],
-    'counts' => []
-];
-
-foreach ($dailyActivityStats as $stat) {
-    $dailyActivityChartData['dates'][] = date('M j', strtotime($stat['date']));
-    $dailyActivityChartData['counts'][] = $stat['count'];
-}
-
-/* ================== PAGINATION ================== */
-
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$perPage = 10;
-$totalActivities = count($recentActivities);
-$totalPages = ceil($totalActivities / $perPage);
-$offset = ($page - 1) * $perPage;
-
-// Get current page activities
-$currentPageActivities = array_slice($recentActivities, $offset, $perPage);
-
-/* ================== ACTIVITY SUMMARY ================== */
-
-// Calculate activity summary
-$activitySummary = [
-    'new_device' => ['icon' => 'fa-plus-circle', 'color' => 'bg-emerald-100 text-emerald-700', 'label' => 'New Devices', 'count' => 0],
-    'assigned' => ['icon' => 'fa-user-check', 'color' => 'bg-green-100 text-green-700', 'label' => 'Assignments', 'count' => 0],
-    'reassigned' => ['icon' => 'fa-user-exchange', 'color' => 'bg-purple-100 text-purple-700', 'label' => 'Reassignments', 'count' => 0],
-    'unassigned' => ['icon' => 'fa-user-times', 'color' => 'bg-gray-100 text-gray-700', 'label' => 'Unassignments', 'count' => 0],
-    'stored' => ['icon' => 'fa-warehouse', 'color' => 'bg-yellow-100 text-yellow-700', 'label' => 'Devices Stored', 'count' => 0],
-    'faulty' => ['icon' => 'fa-exclamation-triangle', 'color' => 'bg-red-100 text-red-700', 'label' => 'Faulty Devices', 'count' => 0],
-    'updated' => ['icon' => 'fa-edit', 'color' => 'bg-gray-100 text-gray-600', 'label' => 'Device Updates', 'count' => 0],
-];
-
-// Count each activity type
-foreach ($recentActivities as $activity) {
-    $type = $activity['type'] ?? 'updated';
-    if (isset($activitySummary[$type])) {
-        $activitySummary[$type]['count']++;
-    } else {
-        $activitySummary['updated']['count']++;
-    }
-}
-
-// Filter out zero counts for chart
-$chartData = [];
-$chartLabels = [];
-$chartColors = [
-    'rgba(16, 185, 129, 0.8)',    // Emerald - New Devices
-    'rgba(34, 197, 94, 0.8)',     // Green - Assignments
-    'rgba(168, 85, 247, 0.8)',    // Purple - Reassignments
-    'rgba(107, 114, 128, 0.8)',   // Gray - Unassignments
-    'rgba(245, 158, 11, 0.8)',    // Yellow - Stored
-    'rgba(239, 68, 68, 0.8)',     // Red - Faulty
-    'rgba(156, 163, 175, 0.8)'    // Gray - Updates
-];
-
-foreach ($activitySummary as $type => $summary) {
-    if ($summary['count'] > 0) {
-        $chartData[] = $summary['count'];
-        $chartLabels[] = $summary['label'];
     }
 }
 ?>
@@ -580,7 +538,7 @@ foreach ($activitySummary as $type => $summary) {
 
 <head>
     <meta charset="UTF-8">
-    <title>Admin Dashboard - Real-time Activity</title>
+    <title>Inventory Dashboard - Real-time Activity</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="./images/logo.png">
 
@@ -705,29 +663,34 @@ foreach ($activitySummary as $type => $summary) {
             gap: 4px;
         }
 
-        .status-In_Use {
+        .status-in_use {
             background-color: #d1fae5;
             color: #065f46;
         }
 
-        .status-Store {
+        .status-in_storage {
             background-color: #fef3c7;
             color: #92400e;
         }
 
-        .status-Repairing {
+        .status-repairing {
             background-color: #fed7aa;
             color: #9a3412;
         }
 
-        .status-Faulty {
+        .status-faulty {
             background-color: #fee2e2;
             color: #991b1b;
         }
 
-        .status-Retired {
+        .status-retired {
             background-color: #e5e7eb;
             color: #374151;
+        }
+
+        .status-active {
+            background-color: #dbeafe;
+            color: #1e40af;
         }
 
         .condition-New {
@@ -745,6 +708,11 @@ foreach ($activitySummary as $type => $summary) {
             color: #92400e;
         }
 
+        .condition-Poor {
+            background-color: #fed7aa;
+            color: #9a3412;
+        }
+
         .condition-Faulty {
             background-color: #fee2e2;
             color: #991b1b;
@@ -760,6 +728,12 @@ foreach ($activitySummary as $type => $summary) {
         .chart-container {
             position: relative;
             height: 300px;
+        }
+
+        .brand-progress {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
         }
     </style>
 </head>
@@ -779,7 +753,7 @@ foreach ($activitySummary as $type => $summary) {
                 <div class="flex-1">
                     <h1
                         class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        Dashboard Overview
+                        Inventory Dashboard
                     </h1>
                     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
                         <div class="flex items-center gap-2 text-gray-600">
@@ -796,7 +770,7 @@ foreach ($activitySummary as $type => $summary) {
                                     class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
-                            <span class="text-emerald-700 font-medium">Live Activity Tracking</span>
+                            <span class="text-emerald-700 font-medium">Live Inventory Tracking</span>
                         </div>
                     </div>
                 </div>
@@ -813,63 +787,53 @@ foreach ($activitySummary as $type => $summary) {
                     <!-- Refresh Button -->
                     <button onclick="refreshData()"
                         class="group w-10 h-10 rounded-xl bg-emerald-600 text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center hover:scale-105 active:scale-95"
-                        title="Refresh real-time data">
+                        title="Refresh dashboard">
                         <i class="fas fa-sync-alt group-hover:rotate-180 transition-transform duration-500"></i>
-                    </button>
-
-                    <!-- Notification Button -->
-                    <button
-                        class="group relative w-10 h-10 rounded-xl bg-white shadow-md hover:shadow-lg transition-shadow flex items-center justify-center hover:scale-105 active:scale-95">
-                        <i class="fas fa-bell text-gray-600 group-hover:text-blue-600 transition-colors"></i>
-                        <span
-                            class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-md">
-                            3
-                        </span>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <!-- Main Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <?php
-            $statsData = [
+            $mainStats = [
                 [
                     'title' => 'Total Devices',
                     'value' => $totalItems,
-                    'icon' => 'fa-boxes-stacked',
+                    'icon' => 'fa-laptop',
                     'gradient' => 'from-blue-500 to-blue-600',
                     'change' => '+12',
                     'id' => 'totalDevices'
                 ],
                 [
-                    'title' => 'Total Users',
-                    'value' => $totalUsers,
-                    'icon' => 'fa-users',
-                    'gradient' => 'from-green-500 to-green-600',
-                    'change' => '+8',
-                    'id' => 'totalUsers'
-                ],
-                [
-                    'title' => 'Active Users',
-                    'value' => $activeUsers,
+                    'title' => 'In Use',
+                    'value' => $inUseDevices,
                     'icon' => 'fa-user-check',
-                    'gradient' => 'from-emerald-500 to-emerald-600',
+                    'gradient' => 'from-green-500 to-green-600',
                     'change' => '+5',
-                    'id' => 'activeUsers'
+                    'id' => 'inUse'
                 ],
                 [
-                    'title' => 'Today\'s Activities',
-                    'value' => $todayChanges,
-                    'icon' => 'fa-history',
-                    'gradient' => 'from-purple-500 to-purple-600',
-                    'change' => $todayChanges > 0 ? '+' . $todayChanges : '0',
-                    'id' => 'todayChanges'
+                    'title' => 'In Storage',
+                    'value' => $inStorageDevices,
+                    'icon' => 'fa-warehouse',
+                    'gradient' => 'from-yellow-500 to-yellow-600',
+                    'change' => '+3',
+                    'id' => 'inStorage'
+                ],
+                [
+                    'title' => 'Unassigned',
+                    'value' => $unassignedDevices,
+                    'icon' => 'fa-user-slash',
+                    'gradient' => 'from-cyan-500 to-cyan-600',
+                    'change' => $unassignedDevices > 0 ? '+' . $unassignedDevices : '0',
+                    'id' => 'unassigned'
                 ],
             ];
             ?>
 
-            <?php foreach ($statsData as $index => $stat):
+            <?php foreach ($mainStats as $index => $stat):
                 $isPositive = strpos($stat['change'], '+') === 0;
                 $trendColor = $isPositive ? 'text-green-600' : 'text-gray-400';
                 $trendIcon = $isPositive ? 'fa-arrow-up' : 'fa-minus';
@@ -901,7 +865,7 @@ foreach ($activitySummary as $type => $summary) {
                                         <i class="fas <?= $trendIcon ?>"></i>
                                         <?= $stat['change'] ?>
                                     </span>
-                                    <span class="text-xs text-gray-400">today</span>
+                                    <span class="text-xs text-gray-400">this week</span>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -910,26 +874,9 @@ foreach ($activitySummary as $type => $summary) {
             <?php endforeach; ?>
         </div>
 
-        <!-- Device Status Cards -->
+        <!-- Status Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-            <!-- Unassigned Devices Card -->
-            <div
-                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
-                <div class="flex items-center gap-3">
-                    <div
-                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg">
-                        <i class="fas fa-user-slash text-white text-xl"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm text-gray-500 font-medium mb-1">Unassigned Devices</p>
-                        <p class="text-3xl font-bold text-gray-800"><?= number_format($unassignedDevices) ?></p>
-                        <div class="mt-2 flex items-center gap-1">
-                            <span class="text-xs text-gray-400">Available for assignment</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+            <!-- Repairing -->
             <div
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
@@ -947,6 +894,7 @@ foreach ($activitySummary as $type => $summary) {
                 </div>
             </div>
 
+            <!-- Faulty -->
             <div
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
@@ -964,6 +912,7 @@ foreach ($activitySummary as $type => $summary) {
                 </div>
             </div>
 
+            <!-- Retired -->
             <div
                 class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
                 <div class="flex items-center gap-3">
@@ -982,9 +931,45 @@ foreach ($activitySummary as $type => $summary) {
                     </div>
                 </div>
             </div>
+
+            <!-- Active Users -->
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-users text-white text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Active Users</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($activeUsers) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400"><?= number_format($adminUsers) ?> admins</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's Changes -->
+            <div
+                class="stat-card glass-effect rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 animate-fade-in-up">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-history text-white text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-500 font-medium mb-1">Today's Changes</p>
+                        <p class="text-3xl font-bold text-gray-800"><?= number_format($todayChanges) ?></p>
+                        <div class="mt-2 flex items-center gap-1">
+                            <span class="text-xs text-gray-400">Activities today</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Charts Section -->
+        <!-- Charts & Overview Section -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <!-- Device Status Distribution -->
             <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
@@ -1020,65 +1005,56 @@ foreach ($activitySummary as $type => $summary) {
                 <?php endif; ?>
             </div>
 
-            <!-- Daily Activity Trend -->
+            <!-- Top Brands & Categories -->
             <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <i class="fas fa-chart-line text-emerald-500"></i>
-                    Daily Activity Trend (7 Days)
+                    <i class="fas fa-crown text-purple-500"></i>
+                    Top Brands & Categories
                 </h3>
-                <div class="chart-container">
-                    <canvas id="dailyActivityChart"></canvas>
-                </div>
-                <?php if (empty($dailyActivityChartData['counts'])): ?>
-                    <div class="text-center py-4">
-                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
-                        <p class="text-gray-500">No daily activity data</p>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
 
-        <!-- Activity Summary -->
-        <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
-            <div class="flex flex-col lg:flex-row gap-6">
-                <div class="flex-1">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <i class="fas fa-chart-pie text-purple-500"></i>
-                        Activity Distribution (Last 7 Days)
-                    </h3>
-                    <div class="h-64">
-                        <canvas id="activityChart"></canvas>
+                <!-- Top Brands -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Top Brands</h4>
+                    <div class="space-y-3">
+                        <?php if (empty($topBrands)): ?>
+                            <p class="text-gray-500 text-sm">No brand data available</p>
+                        <?php else: ?>
+                            <?php
+                            $maxBrandCount = !empty($topBrands) ? max(array_column($topBrands, 'device_count')) : 1;
+                            ?>
+                            <?php foreach ($topBrands as $brand): ?>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span class="font-medium text-gray-700"><?= e($brand['brand_name']) ?></span>
+                                        <span class="text-gray-600"><?= $brand['device_count'] ?> devices</span>
+                                    </div>
+                                    <div class="brand-progress"
+                                        style="width: <?= ($brand['device_count'] / $maxBrandCount) * 100 ?>%"></div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <div class="lg:w-1/3">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <i class="fas fa-bolt text-yellow-500"></i>
-                        Activity Summary
-                    </h3>
-                    <div class="space-y-3 max-h-64 overflow-y-auto pr-2">
-                        <?php if (empty($chartData)): ?>
-                            <div class="text-center py-4">
-                                <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
-                                <p class="text-gray-500">No recent activity</p>
-                            </div>
+
+                <!-- Top Categories -->
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Top Categories</h4>
+                    <div class="space-y-3">
+                        <?php if (empty($topCategories)): ?>
+                            <p class="text-gray-500 text-sm">No category data available</p>
                         <?php else: ?>
-                            <?php foreach ($activitySummary as $type => $summary): ?>
-                                <?php if ($summary['count'] > 0): ?>
-                                    <div
-                                        class="activity-summary-item flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                                        <div class="flex items-center gap-3">
-                                            <div
-                                                class="w-10 h-10 rounded-lg <?= $summary['color'] ?> flex items-center justify-center">
-                                                <i class="fas <?= $summary['icon'] ?>"></i>
-                                            </div>
-                                            <div>
-                                                <p class="font-medium text-gray-800"><?= $summary['label'] ?></p>
-                                                <p class="text-xs text-gray-500">Devices affected</p>
-                                            </div>
-                                        </div>
-                                        <span class="summary-count text-xl font-bold text-gray-800"><?= $summary['count'] ?></span>
+                            <?php
+                            $maxCatCount = !empty($topCategories) ? max(array_column($topCategories, 'device_count')) : 1;
+                            ?>
+                            <?php foreach ($topCategories as $category): ?>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span class="font-medium text-gray-700"><?= e($category['category_name']) ?></span>
+                                        <span class="text-gray-600"><?= $category['device_count'] ?> devices</span>
                                     </div>
-                                <?php endif; ?>
+                                    <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full"
+                                        style="width: <?= ($category['device_count'] / $maxCatCount) * 100 ?>%"></div>
+                                </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
@@ -1095,7 +1071,7 @@ foreach ($activitySummary as $type => $summary) {
                         <i class="fas fa-history text-white text-xl"></i>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-800">Recent Activity Stream</h2>
+                        <h2 class="text-lg font-semibold text-gray-800">Recent Inventory Activity</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
                             <span class="font-semibold text-blue-600"><?= number_format($totalActivities) ?></span>
                             activities in last 7 days • Showing latest updates
@@ -1110,10 +1086,6 @@ foreach ($activitySummary as $type => $summary) {
                             class="w-full lg:w-80 pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="exportActivity()"
-                            class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2">
-                            <i class="fas fa-download"></i> Export
-                        </button>
                         <button onclick="toggleAutoRefresh()" id="autoRefreshBtn"
                             class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2">
                             <i class="fas fa-sync"></i> Auto-refresh
@@ -1134,12 +1106,12 @@ foreach ($activitySummary as $type => $summary) {
                                     <i class="fas fa-inbox text-4xl text-gray-300"></i>
                                 </div>
                                 <p class="text-gray-400 font-medium">No recent activity</p>
-                                <p class="text-xs text-gray-400">Activity will appear here as devices are updated</p>
+                                <p class="text-xs text-gray-400">Activity will appear here as inventory is updated</p>
                             </div>
                         </div>
                     <?php else:
                         foreach ($currentPageActivities as $index => $activity):
-                            $timeAgo = timeAgo($activity['updated_at']);
+                            $timeAgo = date('M j, Y g:i A', strtotime($activity['updated_at']));
                             $assignedUser = $activity['assigned_user'];
                             $isNew = $activity['is_new'];
                             $newClass = $isNew ? 'animate-highlight-new border-l-4 border-l-blue-500 pl-3' : '';
@@ -1190,8 +1162,8 @@ foreach ($activitySummary as $type => $summary) {
                                             </div>
 
                                             <!-- Activity Description -->
-                                            <p class="text-gray-700 mb-3 flex items-center gap-2">
-                                                <i class="fas <?= $activity['icon'] ?> text-gray-400"></i>
+                                            <p class="text-gray-700 mb-3">
+                                                <i class="fas <?= $activity['icon'] ?> text-gray-400 mr-2"></i>
                                                 <?= e($activity['description']) ?>
                                             </p>
 
@@ -1228,14 +1200,6 @@ foreach ($activitySummary as $type => $summary) {
                                                         <span class="text-gray-700"><?= e($activity['department_name']) ?></span>
                                                     </div>
                                                 <?php endif; ?>
-
-                                                <?php if (!empty($activity['location_name'])): ?>
-                                                    <div class="flex items-center gap-2 text-sm">
-                                                        <i class="fas fa-location-dot text-gray-400"></i>
-                                                        <span class="font-medium">Location:</span>
-                                                        <span class="text-gray-700"><?= e($activity['location_name']) ?></span>
-                                                    </div>
-                                                <?php endif; ?>
                                             </div>
 
                                             <!-- Specifications -->
@@ -1248,19 +1212,11 @@ foreach ($activitySummary as $type => $summary) {
                                                 </div>
                                             <?php endif; ?>
 
-                                            <!-- Remarks -->
-                                            <?php if (!empty($activity['remarks'])): ?>
-                                                <div class="mb-3">
-                                                    <p class="text-xs text-gray-500 font-medium mb-1">Remarks:</p>
-                                                    <p class="text-sm text-gray-700"><?= e($activity['remarks']) ?></p>
-                                                </div>
-                                            <?php endif; ?>
-
                                             <!-- User Assignment Info -->
-                                            <?php if (!empty($assignedUser['name']) && in_array($activity['type'], ['assigned', 'reassigned'])): ?>
+                                            <?php if (!empty($assignedUser['name']) && in_array($activity['type'], ['assigned'])): ?>
                                                 <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
                                                     <div
-                                                        class="w-10 h-10 rounded-full <?= $assignedUser['status'] === 'active' ? 'user-status-active' : 'user-status-inactive' ?> flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                                                        class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm">
                                                         <?= strtoupper(substr($assignedUser['name'], 0, 2)) ?>
                                                     </div>
                                                     <div>
@@ -1278,19 +1234,7 @@ foreach ($activitySummary as $type => $summary) {
                                                         <?php endif; ?>
                                                     </div>
                                                 </div>
-                                            <?php elseif (in_array($activity['type'], ['unassigned'])): ?>
-                                                <div
-                                                    class="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
-                                                    <div
-                                                        class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-bold shadow-sm">
-                                                        <i class="fas fa-user-slash"></i>
-                                                    </div>
-                                                    <div>
-                                                        <p class="font-medium text-gray-800">Device is now unassigned</p>
-                                                        <p class="text-xs text-gray-500">Available for new assignment</p>
-                                                    </div>
-                                                </div>
-                                            <?php elseif (in_array($activity['type'], ['new_device'])): ?>
+                                            <?php elseif ($activity['type'] === 'new_device'): ?>
                                                 <div
                                                     class="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                                                     <div
@@ -1302,27 +1246,16 @@ foreach ($activitySummary as $type => $summary) {
                                                         <p class="text-xs text-emerald-600">Ready for assignment</p>
                                                     </div>
                                                 </div>
-                                            <?php elseif (in_array($activity['type'], ['stored'])): ?>
+                                            <?php elseif ($activity['type'] === 'retired'): ?>
                                                 <div
-                                                    class="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                                    class="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
                                                     <div
-                                                        class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 text-sm font-bold shadow-sm">
-                                                        <i class="fas fa-warehouse"></i>
+                                                        class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-archive"></i>
                                                     </div>
                                                     <div>
-                                                        <p class="font-medium text-yellow-800">Device placed in storage</p>
-                                                        <p class="text-xs text-yellow-600">Available for assignment</p>
-                                                    </div>
-                                                </div>
-                                            <?php elseif (in_array($activity['type'], ['faulty'])): ?>
-                                                <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                                                    <div
-                                                        class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 text-sm font-bold shadow-sm">
-                                                        <i class="fas fa-exclamation-triangle"></i>
-                                                    </div>
-                                                    <div>
-                                                        <p class="font-medium text-red-800">Device marked as faulty</p>
-                                                        <p class="text-xs text-red-600">Requires attention</p>
+                                                        <p class="font-medium text-gray-800">Device has been retired</p>
+                                                        <p class="text-xs text-gray-600">No longer available</p>
                                                     </div>
                                                 </div>
                                             <?php endif; ?>
@@ -1379,7 +1312,6 @@ foreach ($activitySummary as $type => $summary) {
                                     <?= $i ?>
                                 </a>
                             <?php endfor; ?>
-
                             <?php if ($page < $totalPages): ?>
                                 <a href="?page=<?= $page + 1 ?>"
                                     class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all font-medium">
@@ -1391,7 +1323,6 @@ foreach ($activitySummary as $type => $summary) {
                 </div>
             <?php endif; ?>
         </div>
-
     </main>
 
     <!-- Loading Overlay -->
@@ -1403,14 +1334,12 @@ foreach ($activitySummary as $type => $summary) {
             </div>
         </div>
     </div>
-    <?php include __DIR__ . '/footer.php'; ?>
-    <!-- JS -->
-    <script>
-        // Initialize Activity Distribution Chart
-        const chartData = <?= json_encode($chartData) ?>;
-        const chartLabels = <?= json_encode($chartLabels) ?>;
-        const chartColors = <?= json_encode(array_slice($chartColors, 0, count($chartData))) ?>;
 
+    <!-- Footer -->
+    <?php include __DIR__ . '/footer.php'; ?>
+
+    <!-- JavaScript -->
+    <script>
         // Device Status Chart Data
         const deviceStatusData = {
             labels: <?= json_encode($deviceStatusChartData['labels']) ?>,
@@ -1424,75 +1353,6 @@ foreach ($activitySummary as $type => $summary) {
             data: <?= json_encode($deviceConditionChartData['data']) ?>,
             colors: <?= json_encode($deviceConditionChartData['colors']) ?>
         };
-
-        // Daily Activity Chart Data
-        const dailyActivityData = {
-            dates: <?= json_encode($dailyActivityChartData['dates']) ?>,
-            counts: <?= json_encode($dailyActivityChartData['counts']) ?>
-        };
-
-        console.log('Device Status Data:', deviceStatusData);
-        console.log('Device Condition Data:', deviceConditionData);
-        console.log('Daily Activity Data:', dailyActivityData);
-
-        // Initialize Activity Distribution Chart
-        if (chartData.length > 0) {
-            const ctx = document.getElementById('activityChart').getContext('2d');
-            const activityChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        data: chartData,
-                        backgroundColor: chartColors,
-                        borderColor: chartColors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 2,
-                        hoverOffset: 15
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                usePointStyle: true,
-                                font: {
-                                    size: 11
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${value} (${percentage}%)`;
-                                }
-                            }
-                        }
-                    },
-                    animation: {
-                        animateScale: true,
-                        animateRotate: true
-                    }
-                }
-            });
-        } else {
-            // Hide chart if no data
-            document.getElementById('activityChart').style.display = 'none';
-            document.querySelector('#activityChart').parentElement.innerHTML = `
-                <div class="h-full flex flex-col items-center justify-center">
-                    <i class="fas fa-chart-pie text-4xl text-gray-300 mb-3"></i>
-                    <p class="text-gray-400">No activity data to display</p>
-                    <p class="text-sm text-gray-500 mt-1">Add some devices or make changes to see activity here</p>
-                </div>
-            `;
-        }
 
         // Initialize Device Status Chart
         if (deviceStatusData.data.length > 0) {
@@ -1584,74 +1444,6 @@ foreach ($activitySummary as $type => $summary) {
             });
         }
 
-        // Initialize Daily Activity Chart
-        if (dailyActivityData.counts.length > 0) {
-            const dailyCtx = document.getElementById('dailyActivityChart').getContext('2d');
-            const dailyActivityChart = new Chart(dailyCtx, {
-                type: 'line',
-                data: {
-                    labels: dailyActivityData.dates,
-                    datasets: [{
-                        label: 'Device Activities',
-                        data: dailyActivityData.counts,
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderColor: 'rgba(59, 130, 246, 1)',
-                        borderWidth: 3,
-                        tension: 0.3,
-                        fill: true,
-                        pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-                        pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2,
-                        pointRadius: 5,
-                        pointHoverRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            callbacks: {
-                                label: function (context) {
-                                    return `Activities: ${context.raw}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Number of Activities'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'nearest'
-                    }
-                }
-            });
-        }
-
         // Live search with debounce
         const searchInput = document.getElementById('searchInput');
         let searchTimer;
@@ -1702,40 +1494,6 @@ foreach ($activitySummary as $type => $summary) {
             }, 500);
         }
 
-        // Export functionality
-        function exportActivity() {
-            const data = {
-                timestamp: new Date().toISOString(),
-                totalDevices: <?= $totalItems ?>,
-                totalUsers: <?= $totalUsers ?>,
-                todayActivities: <?= $todayChanges ?>,
-                recentActivities: <?= $totalActivities ?>,
-                deviceStatus: deviceStatusData,
-                deviceCondition: deviceConditionData,
-                dailyActivity: dailyActivityData,
-                summary: {}
-            };
-
-            // Add activity summary
-            document.querySelectorAll('.activity-summary-item').forEach(item => {
-                const label = item.querySelector('.font-medium').textContent;
-                const count = item.querySelector('.summary-count').textContent;
-                data.summary[label] = parseInt(count) || 0;
-            });
-
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `dashboard-export-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            showToast('Data exported successfully', 'success');
-        }
-
         // Toast notification
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
@@ -1781,10 +1539,6 @@ foreach ($activitySummary as $type => $summary) {
             if (e.ctrlKey && e.key === 'f') {
                 e.preventDefault();
                 searchInput.focus();
-            }
-            if (e.ctrlKey && e.key === 'e') {
-                e.preventDefault();
-                exportActivity();
             }
             if (e.key === 'Escape') {
                 searchInput.value = '';
