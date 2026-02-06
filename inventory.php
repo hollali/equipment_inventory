@@ -1381,7 +1381,7 @@ if (!empty($_GET['department'])) {
                                 'active' => 'bg-green-100 text-green-700 border-green-200',
                                 'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
                                 'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                                'repairing' => 'bg-gray-100 text-gray-700 border-gray-200',
+                                'repairing' => 'bg-orange-100 text-orange-700 border-orange-200',
                                 'faulty' => 'bg-pink-100 text-pink-700 border-pink-200',
                                 'retired' => 'bg-red-100 text-red-700 border-red-200'
                             ];

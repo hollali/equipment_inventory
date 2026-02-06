@@ -992,7 +992,7 @@ foreach ($deviceConditionStats as $stat) {
         <!-- Charts & Overview Section -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <!-- Device Status Distribution -->
-            <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
+            <!--<div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <i class="fas fa-chart-pie text-blue-500"></i>
                     Device Status Distribution
@@ -1006,10 +1006,10 @@ foreach ($deviceConditionStats as $stat) {
                         <p class="text-gray-500">No device status data</p>
                     </div>
                 <?php endif; ?>
-            </div>
+            </div>-->
 
             <!-- Device Condition Distribution -->
-            <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
+            <!--<div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <i class="fas fa-star-half-alt text-amber-500"></i>
                     Device Condition Distribution
@@ -1023,17 +1023,17 @@ foreach ($deviceConditionStats as $stat) {
                         <p class="text-gray-500">No device condition data</p>
                     </div>
                 <?php endif; ?>
-            </div>
+            </div>--->
 
             <!-- Top Brands & Categories -->
-            <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
+            <!--<div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <i class="fas fa-crown text-purple-500"></i>
                     Top Brands & Categories
-                </h3>
+                </h3>--->
 
-                <!-- Top Brands -->
-                <div class="mb-6">
+            <!-- Top Brands -->
+            <!--<div class="mb-6">
                     <h4 class="text-sm font-semibold text-gray-700 mb-3">Top Brands</h4>
                     <div class="space-y-3">
                         <?php if (empty($topBrands)): ?>
@@ -1054,10 +1054,10 @@ foreach ($deviceConditionStats as $stat) {
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
-                </div>
+                </div>-->
 
-                <!-- Top Categories -->
-                <div>
+            <!-- Top Categories -->
+            <!--<div>
                     <h4 class="text-sm font-semibold text-gray-700 mb-3">Top Categories</h4>
                     <div class="space-y-3">
                         <?php if (empty($topCategories)): ?>
@@ -1079,7 +1079,7 @@ foreach ($deviceConditionStats as $stat) {
                         <?php endif; ?>
                     </div>
                 </div>
-            </div>
+            </div>-->
         </div>
 
         <!-- Activity Stream Header -->
@@ -1127,7 +1127,7 @@ foreach ($deviceConditionStats as $stat) {
                                 </div>
                                 <p class="text-gray-400 font-medium">No recent activity</p>
                                 <p class="text-xs text-gray-400">Activity will appear here as inventory is updated</p>
-                                </div>
+                            </div>
                         </div>
                     <?php else:
                         foreach ($currentPageActivities as $index => $activity):
