@@ -33,15 +33,6 @@ if ($catResult) {
     }
 }
 
-/* Fetch all users for assignment dropdown */
-$usersArr = [];
-$userResult = $conn->query("SELECT id, firstname, lastname, email FROM users WHERE status='active' ORDER BY firstname, lastname");
-if ($userResult) {
-    while ($row = $userResult->fetch_assoc()) {
-        $usersArr[] = $row;
-    }
-}
-
 /* Get unassigned and stored devices count */
 // Updated query to match your database schema
 $unassignedCountQuery = "SELECT COUNT(*) as count FROM inventory_items i
@@ -234,91 +225,6 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     $label = $conditionLabels[$condition] ?? ucwords($condition);
 
     return ['color' => $colorClass, 'label' => $label];
-}
-
-/* ================== PROCESS ASSIGNMENT ================== */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
-    $device_id = intval($_POST['device_id']);
-    $user_id = intval($_POST['user_id']);
-    $new_status = $_POST['new_status'] ?? 'in_use';
-    $new_condition = $_POST['new_condition'] ?? '';
-    $remarks = $_POST['assign_remarks'] ?? '';
-
-    // Start transaction
-    $conn->begin_transaction();
-
-    try {
-        // Get current assignment if any
-        $checkStmt = $conn->prepare("
-            SELECT id FROM device_user_assignments 
-            WHERE inventory_id = ? AND status = 'assigned'
-        ");
-        $checkStmt->bind_param("i", $device_id);
-        $checkStmt->execute();
-        $checkResult = $checkStmt->get_result();
-        $checkStmt->close();
-
-        if ($checkResult->num_rows > 0) {
-            // End existing assignment
-            $endStmt = $conn->prepare("
-                UPDATE device_user_assignments 
-                SET status = 'reassigned', returned_at = NOW()
-                WHERE inventory_id = ? AND status = 'assigned'
-            ");
-            $endStmt->bind_param("i", $device_id);
-            $endStmt->execute();
-            $endStmt->close();
-        }
-
-        // Create new assignment
-        $assignStmt = $conn->prepare("
-            INSERT INTO device_user_assignments (
-                inventory_id,
-                user_id,
-                assigned_at,
-                status
-            ) VALUES (?, ?, NOW(), 'assigned')
-        ");
-        $assignStmt->bind_param("ii", $device_id, $user_id);
-        $assignStmt->execute();
-        $assignStmt->close();
-
-        // Update inventory item
-        $updateStmt = $conn->prepare("
-            UPDATE inventory_items 
-            SET status = ?,
-                condition = ?,
-                updated_at = NOW()
-            WHERE id = ?
-        ");
-        $updateStmt->bind_param("ssi", $new_status, $new_condition, $device_id);
-        $updateStmt->execute();
-        $updateStmt->close();
-
-        // Update remarks if provided
-        if (!empty($remarks)) {
-            $remarksStmt = $conn->prepare("
-                UPDATE inventory_items 
-                SET remarks = CONCAT(IFNULL(remarks, ''), '\nAssigned on ', NOW(), ' to user ID ', ?, ': ', ?)
-                WHERE id = ?
-            ");
-            $remarksStmt->bind_param("isi", $user_id, $remarks, $device_id);
-            $remarksStmt->execute();
-            $remarksStmt->close();
-        }
-
-        $conn->commit();
-
-        $_SESSION['success_message'] = 'Device assigned successfully!';
-        header("Location: unassigned.php?success=assigned");
-        exit;
-
-    } catch (Exception $e) {
-        $conn->rollback();
-        $_SESSION['error_message'] = 'Error assigning device: ' . $e->getMessage();
-        header("Location: unassigned.php?error=assign_failed");
-        exit;
-    }
 }
 ?>
 
@@ -1068,17 +974,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                                     <td>
                                         <div class="flex gap-2">
                                             <?php if (!$isAssigned || $device['status'] === 'in_storage'): ?>
-                                                <button onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>)"
+                                                <button onclick="redirectToInventory(<?= $device['id'] ?>)"
                                                     class="action-btn bg-blue-500 text-white hover:bg-blue-600"
-                                                    title="Assign Device">
-                                                    <i class="fas fa-user-plus"></i>
+                                                    title="Go to Device in Inventory">
+                                                    <i class="fas fa-external-link-alt"></i>
                                                 </button>
                                             <?php else: ?>
-                                                <button
-                                                    onclick="Toast.showInfo('This device is already assigned. Use Reassign in main inventory.', 'Device Assigned')"
-                                                    class="action-btn bg-gray-300 text-gray-600 cursor-not-allowed"
-                                                    title="Already Assigned" disabled>
-                                                    <i class="fas fa-user-check"></i>
+                                                <button onclick="redirectToInventory(<?= $device['id'] ?>)"
+                                                    class="action-btn bg-yellow-500 text-white hover:bg-yellow-600"
+                                                    title="Go to Device in Inventory">
+                                                    <i class="fas fa-external-link-alt"></i>
                                                 </button>
                                             <?php endif; ?>
                                             <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
@@ -1086,14 +991,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
                                                 title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <?php if ($isAssigned && $device['status'] !== 'in_storage'): ?>
-                                                <button
-                                                    onclick="Toast.showWarning('Device is assigned. Go to main inventory to reassign.', 'Device in Use')"
-                                                    class="action-btn bg-yellow-500 text-white hover:bg-yellow-600"
-                                                    title="Device is in use">
-                                                    <i class="fas fa-exclamation-triangle"></i>
-                                                </button>
-                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -1250,20 +1147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
 
                             <!-- Action Buttons -->
                             <div class="flex gap-2">
-                                <?php if (!$isAssigned || $device['status'] === 'in_storage'): ?>
-                                    <button onclick="openAssignModal(<?= htmlspecialchars(json_encode($device)) ?>)"
-                                        class="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
-                                        title="Assign Device">
-                                        <i class="fas fa-user-plus"></i> Assign
-                                    </button>
-                                <?php else: ?>
-                                    <button
-                                        onclick="Toast.showInfo('This device is already assigned. Use Reassign in main inventory.', 'Device Assigned')"
-                                        class="flex-1 px-4 py-2.5 bg-gray-300 text-gray-600 rounded-lg text-sm font-medium cursor-not-allowed flex items-center justify-center gap-2"
-                                        title="Already Assigned" disabled>
-                                        <i class="fas fa-user-check"></i> Assigned
-                                    </button>
-                                <?php endif; ?>
+                                <button onclick="redirectToInventory(<?= $device['id'] ?>)"
+                                    class="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
+                                    title="Go to Device in Inventory">
+                                    <i class="fas fa-external-link-alt"></i> View in Inventory
+                                </button>
                                 <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
                                     class="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-lg text-sm font-medium hover:bg-purple-600 transition-all flex items-center justify-center gap-2"
                                     title="View Details">
@@ -1277,99 +1165,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
         </div>
 
     </main>
-
-    <!-- Assign Device Modal -->
-    <div id="assignModal" class="modal-container hidden">
-        <div class="modal-backdrop" onclick="closeAssignModal()"></div>
-        <div class="modal-content w-full max-w-md">
-            <div class="sticky top-0 bg-white border-b border-gray-200 p-6">
-                <button onclick="closeAssignModal()"
-                    class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 text-xl">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                        <i class="fas fa-user-plus text-blue-600 text-xl"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-900">Assign Device</h2>
-                        <p class="text-gray-500 text-sm mt-1" id="assignModalTitle">Assign device to a user</p>
-                    </div>
-                </div>
-            </div>
-
-            <form id="assignForm" method="POST" action="" class="p-6">
-                <input type="hidden" id="deviceId" name="device_id">
-                <input type="hidden" id="assetTag" name="asset_tag">
-                <input type="hidden" name="assign_device" value="1">
-
-                <!-- Device Info -->
-                <div class="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <h3 class="font-semibold text-gray-800 mb-2">Device Information</h3>
-                    <p class="text-sm text-gray-600" id="deviceInfo"></p>
-                </div>
-
-                <!-- User Selection -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select User *</label>
-                    <select id="userId" name="user_id" required
-                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Choose a user...</option>
-                        <?php foreach ($usersArr as $user): ?>
-                            <option value="<?= $user['id'] ?>">
-                                <?= htmlspecialchars($user['firstname'] . ' ' . $user['lastname'] . ' (' . $user['email'] . ')') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <!-- Status Update -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Update Device Status *</label>
-                    <select id="newStatus" name="new_status" required
-                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="in_use">In Use</option>
-                        <option value="active">Active</option>
-                        <option value="repairing">Repairing</option>
-                        <option value="faulty">Faulty</option>
-                    </select>
-                </div>
-
-                <!-- Condition Update -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Update Device Condition</label>
-                    <select id="newCondition" name="new_condition"
-                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="New">New</option>
-                        <option value="Good">Good</option>
-                        <option value="Fair">Fair</option>
-                        <option value="Poor">Poor</option>
-                        <option value="Faulty">Faulty</option>
-                    </select>
-                </div>
-
-                <!-- Notes -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
-                    <textarea id="assignRemarks" name="assign_remarks" rows="3"
-                        placeholder="Add any remarks about this assignment..."
-                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
-                </div>
-
-                <!-- Buttons -->
-                <div class="flex gap-3">
-                    <button type="button" onclick="closeAssignModal()"
-                        class="flex-1 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                        class="flex-1 px-4 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-all">
-                        Assign Device
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- Device Details Modal -->
     <div id="viewModal" class="modal-container hidden">
@@ -1529,6 +1324,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             }
         }
 
+        // Function to redirect to inventory page for specific device
+        function redirectToInventory(deviceId) {
+            // Redirect to the main inventory page with the device ID as parameter
+            window.location.href = `inventory.php?device_id=${deviceId}&highlight=true`;
+        }
+
         // Initialize on DOM ready
         $(document).ready(function () {
             // Show any PHP toasts
@@ -1538,11 +1339,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             $('.filter-select').select2({
                 placeholder: "Select option...",
                 allowClear: true
-            });
-
-            $('#userId').select2({
-                placeholder: "Select a user...",
-                dropdownParent: $('#assignModal')
             });
 
             // View toggle functionality
@@ -1655,53 +1451,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             window.location.href = `export_unassigned.php?${params.toString()}`;
         }
 
-        // Assign Modal Functions
-        function openAssignModal(device) {
-            // Populate device info
-            document.getElementById('deviceId').value = device.id;
-            document.getElementById('assetTag').value = device.asset_tag;
-            document.getElementById('assignForm').action = 'unassigned.php';
-
-            const deviceInfo = `${device.brand_name} ${device.model || ''} | ${device.asset_tag}`;
-            document.getElementById('deviceInfo').textContent = deviceInfo;
-            document.getElementById('assignModalTitle').textContent = `Assign: ${device.brand_name} ${device.model || ''}`;
-
-            // Set current condition as default
-            if (device.condition) {
-                document.getElementById('newCondition').value = device.condition;
-            }
-
-            // Set current status as default
-            if (device.status) {
-                document.getElementById('newStatus').value = device.status === 'in_storage' ? 'in_use' : device.status;
-            }
-
-            // Check if device is already assigned
-            if (device.assigned_user_id) {
-                Toast.showWarning('This device appears to be already assigned. Use Reassign in main inventory if needed.', 'Device Status');
-            }
-
-            // Open modal
-            document.getElementById('assignModal').classList.remove('hidden');
-
-            // Initialize Select2 for user dropdown
-            $('#userId').select2({
-                placeholder: "Select a user...",
-                dropdownParent: $('#assignModal')
-            });
-
-            // Focus on user select
-            setTimeout(() => {
-                $('#userId').select2('open');
-            }, 300);
-        }
-
-        function closeAssignModal() {
-            document.getElementById('assignModal').classList.add('hidden');
-            document.getElementById('assignForm').reset();
-            $('#userId').val(null).trigger('change');
-        }
-
         // View Modal Functions
         function viewDeviceDetails(device) {
             // Set title
@@ -1781,27 +1530,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_device'])) {
             return div.innerHTML;
         }
 
-        // Handle form submission
-        document.getElementById('assignForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            // Show loading state
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Assigning...';
-            submitBtn.disabled = true;
-
-            // Submit the form
-            this.submit();
-        });
-
         // Add keyboard shortcuts
         document.addEventListener('keydown', function (e) {
             // Escape key closes modals
             if (e.key === 'Escape') {
-                if (!document.getElementById('assignModal').classList.contains('hidden')) {
-                    closeAssignModal();
-                }
                 if (!document.getElementById('viewModal').classList.contains('hidden')) {
                     closeViewModal();
                 }

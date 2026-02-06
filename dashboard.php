@@ -74,13 +74,18 @@ $topCategories = [];
 $departmentsArr = [];
 
 try {
-    // Get inventory statistics
+    // Get inventory statistics - Fixed: Calculate faulty devices correctly and include storage/retired in unassigned
     $statsQuery = "
         SELECT 
             (SELECT COUNT(*) FROM inventory_items) as total_items,
             (SELECT COUNT(*) FROM users) as total_users,
-            (SELECT COUNT(*) FROM inventory_items WHERE assigned_user IS NULL OR assigned_user = 0) as unassigned_devices,
-            (SELECT COUNT(*) FROM inventory_items WHERE status='faulty') as faulty_devices,
+            -- Unassigned devices: those not assigned to any user OR in storage OR retired
+            (SELECT COUNT(*) FROM inventory_items 
+             WHERE (assigned_user IS NULL OR assigned_user = 0 
+                    OR status IN ('in_storage', 'retired'))) as unassigned_devices,
+            -- Faulty devices: those with status='faulty' OR condition='Faulty'
+            (SELECT COUNT(*) FROM inventory_items 
+             WHERE status='faulty' OR `condition`='Faulty') as faulty_devices,
             (SELECT COUNT(*) FROM users WHERE status='active') as active_users,
             (SELECT COUNT(*) FROM users WHERE role='admin') as admin_users,
             (SELECT COUNT(*) FROM inventory_items WHERE created_at >= CURDATE()) as today_changes,
@@ -828,12 +833,13 @@ foreach ($deviceConditionStats as $stat) {
                     'id' => 'inStorage'
                 ],
                 [
-                    'title' => 'Total Number of Unassigned Devices',
+                    'title' => 'Total Unassigned/Stored Devices',
                     'value' => $unassignedDevices,
                     'icon' => 'fa-user-slash',
                     'gradient' => 'from-cyan-500 to-cyan-600',
                     'change' => $unassignedDevices > 0 ? '+' . $unassignedDevices : '0',
-                    'id' => 'unassigned'
+                    'id' => 'unassigned',
+                    'subtitle' => 'Includes: Stored (' . $inStorageDevices . ') + Retired (' . $retiredDevices . ')'
                 ],
             ];
             ?>
@@ -863,6 +869,15 @@ foreach ($deviceConditionStats as $stat) {
                             <p class="text-3xl font-bold text-gray-800">
                                 <?= number_format($stat['value']) ?>
                             </p>
+
+                            <?php if (isset($stat['subtitle'])): ?>
+                                <div class="mt-2">
+                                    <p class="text-xs text-gray-500">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        <?= e($stat['subtitle']) ?>
+                                    </p>
+                                </div>
+                            <?php endif; ?>
 
                             <?php if ($stat['change'] !== '0'): ?>
                                 <div class="mt-3 flex items-center gap-1">
@@ -1112,7 +1127,7 @@ foreach ($deviceConditionStats as $stat) {
                                 </div>
                                 <p class="text-gray-400 font-medium">No recent activity</p>
                                 <p class="text-xs text-gray-400">Activity will appear here as inventory is updated</p>
-                            </div>
+                                </div>
                         </div>
                     <?php else:
                         foreach ($currentPageActivities as $index => $activity):

@@ -38,6 +38,66 @@ $conditionLabels = [
     'Faulty' => 'Faulty'
 ];
 
+/* ================== FETCH TOP DEVICES AND USERS ================== */
+
+// Top 5 most assigned devices
+$topDevicesQuery = mysqli_query($conn, "
+    SELECT 
+        i.id,
+        i.asset_tag,
+        i.device_type,
+        i.model,
+        i.status,
+        b.brand_name,
+        c.category_name,
+        COUNT(DISTINCT dua.id) as assignment_count,
+        COUNT(DISTINCT dua.user_id) as user_count,
+        DATEDIFF(NOW(), MIN(dua.assigned_at)) as days_in_service
+    FROM inventory_items i
+    LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
+    LEFT JOIN brands b ON i.brand_id = b.id
+    LEFT JOIN categories c ON i.category_id = c.id
+    GROUP BY i.id
+    HAVING assignment_count > 0
+    ORDER BY assignment_count DESC, user_count DESC
+    LIMIT 5
+");
+
+$topDevices = [];
+if ($topDevicesQuery) {
+    while ($row = mysqli_fetch_assoc($topDevicesQuery)) {
+        $topDevices[] = $row;
+    }
+}
+
+// Top 5 users with most assignments - FIXED: Removed department join since department_id doesn't exist in users table
+$topUsersQuery = mysqli_query($conn, "
+    SELECT 
+        u.id,
+        u.firstname,
+        u.lastname,
+        u.email,
+        u.role,
+        u.status as user_status,
+        COUNT(DISTINCT dua.id) as assignment_count,
+        COUNT(DISTINCT dua.inventory_id) as device_count,
+        AVG(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as avg_days_per_assignment,
+        SUM(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as total_days_assigned
+    FROM users u
+    LEFT JOIN device_user_assignments dua ON u.id = dua.user_id
+    GROUP BY u.id
+    HAVING assignment_count > 0
+    ORDER BY assignment_count DESC, total_days_assigned DESC
+    LIMIT 5
+");
+
+$topUsers = [];
+if ($topUsersQuery) {
+    while ($row = mysqli_fetch_assoc($topUsersQuery)) {
+        $topUsers[] = $row;
+    }
+}
+
 /* ================== FETCH DEVICE DETAILS FOR MODAL ================== */
 $device_details = null;
 $assignment_history = [];
@@ -490,6 +550,73 @@ if ($status_result) {
             color: white;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
+
+        .rank-badge {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: white;
+            margin-right: 12px;
+        }
+
+        .rank-1 {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #7c2d12;
+        }
+
+        .rank-2 {
+            background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%);
+            color: #374151;
+        }
+
+        .rank-3 {
+            background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%);
+            color: #7c2d12;
+        }
+
+        .rank-other {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            color: white;
+        }
+
+        .top-list-item {
+            transition: all 0.2s ease;
+            padding: 16px;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+
+        .top-list-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #3b82f6;
+        }
+
+        .device-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+
+        .user-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
     </style>
 </head>
 
@@ -531,7 +658,7 @@ if ($status_result) {
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="showExportConfirmation()"
-                        class="bg-gradient-to-r from-green-50 to-emerald-50  text-green-700 px-4 py-2 text-sm rounded-lg hover:bg-green-700">
+                        class="bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-4 py-2 text-sm rounded-lg hover:bg-green-700">
                         <i class="fas fa-download text-xs mr-1"></i> Export
                     </button>
                 </div>
@@ -601,6 +728,196 @@ if ($status_result) {
                         </div>
                     </div>
                 <?php endforeach; ?>
+            </div>
+
+            <!-- Top Devices and Users Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Top 5 Most Assigned Devices -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                    <div class="border-b border-gray-200 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-800">Top 5 Most Assigned Devices</h2>
+                                <p class="text-gray-500 text-sm">Devices with the highest assignment counts</p>
+                            </div>
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-trophy text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <?php if (empty($topDevices)): ?>
+                            <div class="text-center py-8">
+                                <div
+                                    class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-inbox text-gray-400 text-xl"></i>
+                                </div>
+                                <p class="text-gray-500">No device assignment data available</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="space-y-4">
+                                <?php foreach ($topDevices as $index => $device): ?>
+                                    <?php
+                                    $rank = $index + 1;
+                                    $rankClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : 'rank-other'));
+                                    $deviceIconColor = match ($device['device_type']) {
+                                        'Laptop' => 'bg-blue-100 text-blue-600',
+                                        'Desktop' => 'bg-purple-100 text-purple-600',
+                                        'Tablet' => 'bg-green-100 text-green-600',
+                                        'Mobile' => 'bg-red-100 text-red-600',
+                                        'Monitor' => 'bg-amber-100 text-amber-600',
+                                        default => 'bg-gray-100 text-gray-600'
+                                    };
+                                    ?>
+                                    <div class="top-list-item">
+                                        <div class="flex items-center">
+                                            <div class="rank-badge <?= $rankClass ?>">
+                                                <?= $rank ?>
+                                            </div>
+                                            <div class="device-icon <?= $deviceIconColor ?>">
+                                                <i class="fas fa-laptop"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <div class="font-medium text-gray-900">
+                                                            <?= htmlspecialchars($device['asset_tag']) ?>
+                                                        </div>
+                                                        <div class="text-sm text-gray-500">
+                                                            <?= htmlspecialchars($device['device_type']) ?> •
+                                                            <?= htmlspecialchars($device['model']) ?>
+                                                        </div>
+                                                        <div class="text-xs text-gray-400 mt-1">
+                                                            <?= htmlspecialchars($device['brand_name'] ?? 'N/A') ?> •
+                                                            <?= htmlspecialchars($device['category_name'] ?? 'N/A') ?>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-right">
+                                                        <div class="font-bold text-gray-900 text-xl">
+                                                            <?= $device['assignment_count'] ?>
+                                                        </div>
+                                                        <div class="text-xs text-gray-500">assignments</div>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-3">
+                                                    <div class="flex justify-between text-sm mb-1">
+                                                        <span class="text-gray-600">Unique Users:</span>
+                                                        <span class="font-medium"><?= $device['user_count'] ?></span>
+                                                    </div>
+                                                    <div class="flex justify-between text-sm">
+                                                        <span class="text-gray-600">Status:</span>
+                                                        <span
+                                                            class="status-badge <?= $device['status'] === 'in_use' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-gray-100 text-gray-700 border-gray-200' ?>">
+                                                            <?= htmlspecialchars($statusLabels[$device['status']] ?? ucfirst(str_replace('_', ' ', $device['status']))) ?>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Top 5 Users with Most Assignments -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
+                    <div class="border-b border-gray-200 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-800">Top 5 Active Users</h2>
+                                <p class="text-gray-500 text-sm">Users with the highest assignment counts</p>
+                            </div>
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-users text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <?php if (empty($topUsers)): ?>
+                            <div class="text-center py-8">
+                                <div
+                                    class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-users text-gray-400 text-xl"></i>
+                                </div>
+                                <p class="text-gray-500">No user assignment data available</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="space-y-4">
+                                <?php foreach ($topUsers as $index => $user): ?>
+                                    <?php
+                                    $rank = $index + 1;
+                                    $rankClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : 'rank-other'));
+                                    $userStatusColor = $user['user_status'] === 'active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200';
+                                    $roleColor = $user['role'] === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                                    ?>
+                                    <div class="top-list-item">
+                                        <div class="flex items-center">
+                                            <div class="rank-badge <?= $rankClass ?>">
+                                                <?= $rank ?>
+                                            </div>
+                                            <div class="user-icon bg-gradient-to-r from-blue-500 to-purple-600">
+                                                <span class="text-white font-semibold">
+                                                    <?= strtoupper(substr($user['firstname'] ?? '', 0, 1) . substr($user['lastname'] ?? '', 0, 1)) ?>
+                                                </span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <div class="font-medium text-gray-900">
+                                                            <?= htmlspecialchars($user['firstname'] . ' ' . $user['lastname']) ?>
+                                                        </div>
+                                                        <div class="text-sm text-gray-500">
+                                                            <i class="fas fa-envelope mr-1"></i>
+                                                            <?= htmlspecialchars($user['email']) ?>
+                                                        </div>
+                                                        <div class="flex items-center gap-2 mt-1">
+                                                            <span class="text-xs px-2 py-1 rounded-full <?= $roleColor ?>">
+                                                                <?= htmlspecialchars(ucfirst($user['role'])) ?>
+                                                            </span>
+                                                            <span
+                                                                class="text-xs px-2 py-1 rounded-full <?= $userStatusColor ?>">
+                                                                <?= htmlspecialchars(ucfirst($user['user_status'])) ?>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-right">
+                                                        <div class="font-bold text-gray-900 text-xl">
+                                                            <?= $user['assignment_count'] ?>
+                                                        </div>
+                                                        <div class="text-xs text-gray-500">assignments</div>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-3">
+                                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                                        <div>
+                                                            <div class="text-gray-600">Devices Assigned:</div>
+                                                            <div class="font-medium"><?= $user['device_count'] ?> devices</div>
+                                                        </div>
+                                                        <div>
+                                                            <div class="text-gray-600">Avg. Duration:</div>
+                                                            <div class="font-medium">
+                                                                <?= round($user['avg_days_per_assignment'] ?? 0, 1) ?> days
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <div class="text-sm text-gray-600">
+                                                            Total Days Assigned: <span
+                                                                class="font-medium"><?= round($user['total_days_assigned'] ?? 0) ?>
+                                                                days</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
 
             <!-- Search and Filters -->
@@ -799,9 +1116,11 @@ if ($status_result) {
                                         <td class="px-6 py-4">
                                             <?php if ($device['first_assigned']): ?>
                                                 <div class="text-gray-900">
-                                                    <?= date('M d, Y', strtotime($device['first_assigned'])) ?></div>
+                                                    <?= date('M d, Y', strtotime($device['first_assigned'])) ?>
+                                                </div>
                                                 <div class="text-xs text-gray-500">
-                                                    <?= date('h:i A', strtotime($device['first_assigned'])) ?></div>
+                                                    <?= date('h:i A', strtotime($device['first_assigned'])) ?>
+                                                </div>
                                             <?php else: ?>
                                                 <span class="text-gray-400 italic">Never assigned</span>
                                             <?php endif; ?>
@@ -811,9 +1130,11 @@ if ($status_result) {
                                         <td class="px-6 py-4">
                                             <?php if ($device['last_assigned']): ?>
                                                 <div class="text-gray-900">
-                                                    <?= date('M d, Y', strtotime($device['last_assigned'])) ?></div>
+                                                    <?= date('M d, Y', strtotime($device['last_assigned'])) ?>
+                                                </div>
                                                 <div class="text-xs text-gray-500">
-                                                    <?= date('h:i A', strtotime($device['last_assigned'])) ?></div>
+                                                    <?= date('h:i A', strtotime($device['last_assigned'])) ?>
+                                                </div>
                                             <?php else: ?>
                                                 <span class="text-gray-400 italic">Not applicable</span>
                                             <?php endif; ?>

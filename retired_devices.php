@@ -691,10 +691,313 @@ function displayRetiredDevicesPage()
                 background: linear-gradient(45deg, rgba(220, 38, 38, 0.05), rgba(239, 68, 68, 0.05));
                 pointer-events: none;
             }
+
+            /* Toast Notification Styles */
+            #toast-container {
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                max-width: 400px;
+                pointer-events: none;
+            }
+
+            .toast {
+                pointer-events: auto;
+                animation: slideInRight 0.3s ease-out forwards;
+                border-radius: 0.75rem;
+                padding: 1rem;
+                display: flex;
+                align-items: flex-start;
+                gap: 0.75rem;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                position: relative;
+                overflow: hidden;
+                transition: transform 0.3s ease, opacity 0.3s ease;
+            }
+
+            .toast.hiding {
+                animation: slideOutRight 0.3s ease-out forwards;
+            }
+
+            .toast-success {
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                border-left: 4px solid #047857;
+            }
+
+            .toast-error {
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                color: white;
+                border-left: 4px solid #b91c1c;
+            }
+
+            .toast-warning {
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+                color: white;
+                border-left: 4px solid #b45309;
+            }
+
+            .toast-info {
+                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                color: white;
+                border-left: 4px solid #1e40af;
+            }
+
+            .toast-icon {
+                font-size: 1.25rem;
+                flex-shrink: 0;
+            }
+
+            .toast-content {
+                flex: 1;
+                font-size: 0.875rem;
+                line-height: 1.4;
+            }
+
+            .toast-title {
+                font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+
+            .toast-message {
+                opacity: 0.9;
+            }
+
+            .toast-close {
+                background: none;
+                border: none;
+                color: rgba(255, 255, 255, 0.7);
+                cursor: pointer;
+                font-size: 1rem;
+                padding: 0;
+                margin-left: 0.5rem;
+                transition: color 0.2s;
+                flex-shrink: 0;
+            }
+
+            .toast-close:hover {
+                color: white;
+            }
+
+            .toast-progress {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                height: 3px;
+                background: rgba(255, 255, 255, 0.3);
+                width: 100%;
+                transform-origin: left;
+            }
+
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+
+            @keyframes progressBar {
+                from {
+                    transform: scaleX(1);
+                }
+
+                to {
+                    transform: scaleX(0);
+                }
+            }
+
+            /* Confirmation Modal Styles */
+            .confirmation-modal {
+                position: fixed;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                padding: 1rem;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s ease;
+            }
+
+            .confirmation-modal.active {
+                opacity: 1;
+                pointer-events: all;
+            }
+
+            .confirmation-backdrop {
+                position: absolute;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(4px);
+            }
+
+            .confirmation-content {
+                position: relative;
+                background: white;
+                border-radius: 1rem;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                width: 100%;
+                max-width: 400px;
+                animation: modalScaleIn 0.3s ease-out;
+                overflow: hidden;
+            }
+
+            @keyframes modalScaleIn {
+                from {
+                    transform: scale(0.9);
+                    opacity: 0;
+                }
+
+                to {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            .confirmation-header {
+                padding: 1.5rem 1.5rem 0.75rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+
+            .confirmation-icon {
+                width: 2.5rem;
+                height: 2.5rem;
+                border-radius: 0.75rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                font-size: 1.25rem;
+            }
+
+            .confirmation-title {
+                font-size: 1.125rem;
+                font-weight: 600;
+                color: #1f2937;
+            }
+
+            .confirmation-body {
+                padding: 0 1.5rem 1.5rem;
+            }
+
+            .confirmation-message {
+                color: #6b7280;
+                font-size: 0.875rem;
+                line-height: 1.5;
+                margin-bottom: 1.25rem;
+            }
+
+            .confirmation-footer {
+                display: flex;
+                gap: 0.75rem;
+                padding: 1rem 1.5rem;
+                background: #f9fafb;
+                border-top: 1px solid #e5e7eb;
+            }
+
+            .confirmation-btn {
+                flex: 1;
+                padding: 0.625rem 1rem;
+                border-radius: 0.5rem;
+                font-weight: 500;
+                font-size: 0.875rem;
+                cursor: pointer;
+                border: none;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+
+            .confirmation-btn-cancel {
+                background: white;
+                color: #4b5563;
+                border: 1px solid #d1d5db;
+            }
+
+            .confirmation-btn-cancel:hover {
+                background: #f9fafb;
+                border-color: #9ca3af;
+            }
+
+            .confirmation-btn-confirm {
+                background: #dc2626;
+                color: white;
+                border: 1px solid #dc2626;
+            }
+
+            .confirmation-btn-confirm:hover {
+                background: #b91c1c;
+                border-color: #b91c1c;
+            }
+
+            .confirmation-btn-success {
+                background: #10b981;
+                color: white;
+                border: 1px solid #10b981;
+            }
+
+            .confirmation-btn-success:hover {
+                background: #059669;
+                border-color: #059669;
+            }
         </style>
     </head>
 
     <body class="bg-gradient-to-br from-gray-50 via-red-50 to-orange-50 min-h-screen">
+        <!-- Toast Container -->
+        <div id="toast-container"></div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal" class="confirmation-modal">
+            <div class="confirmation-backdrop" onclick="closeConfirmationModal()"></div>
+            <div class="confirmation-content">
+                <div class="confirmation-header">
+                    <div class="confirmation-icon" id="confirmationIcon"></div>
+                    <h3 class="confirmation-title" id="confirmationTitle"></h3>
+                </div>
+                <div class="confirmation-body">
+                    <p class="confirmation-message" id="confirmationMessage"></p>
+                </div>
+                <div class="confirmation-footer">
+                    <button type="button" onclick="closeConfirmationModal()"
+                        class="confirmation-btn confirmation-btn-cancel">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button type="button" onclick="performConfirmedAction()" class="confirmation-btn"
+                        id="confirmationButton">
+                        <i class="fas fa-check"></i>
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Sidebar -->
         <?php
@@ -1108,7 +1411,8 @@ function displayRetiredDevicesPage()
                                                     title="View Details">
                                                     <i class="fas fa-eye text-xs"></i>
                                                 </button>
-                                                <button onclick="restoreDevice(<?= $device['id'] ?>)"
+                                                <button
+                                                    onclick="showRestoreConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
                                                     class="action-btn bg-green-500 text-white hover:bg-green-600"
                                                     title="Restore Device">
                                                     <i class="fas fa-undo text-xs"></i>
@@ -1288,7 +1592,8 @@ function displayRetiredDevicesPage()
                                         title="View Details">
                                         <i class="fas fa-eye"></i> View
                                     </button>
-                                    <button onclick="restoreDevice(<?= $device['id'] ?>)"
+                                    <button
+                                        onclick="showRestoreConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
                                         class="flex-1 px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2"
                                         title="Restore Device">
                                         <i class="fas fa-undo"></i> Restore
@@ -1333,46 +1638,198 @@ function displayRetiredDevicesPage()
             </div>
         </div>
 
-        <!-- Confirmation Modal -->
-        <div id="confirmModal" class="modal-container hidden">
-            <div class="modal-backdrop" onclick="closeConfirmModal()"></div>
-            <div class="modal-content w-full max-w-md">
-                <div class="sticky top-0 bg-white border-b border-gray-200 p-6">
-                    <button onclick="closeConfirmModal()"
-                        class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 text-xl">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <div class="flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
-                            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
-                        </div>
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-900" id="confirmTitle"></h2>
-                            <p class="text-gray-500 text-sm mt-1" id="confirmMessage"></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="p-6">
-                    <div id="confirmContent"></div>
-                    <div class="mt-6 flex gap-3">
-                        <button onclick="closeConfirmModal()"
-                            class="flex-1 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all">
-                            Cancel
-                        </button>
-                        <button id="confirmActionBtn" onclick="performConfirmedAction()"
-                            class="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all">
-                            Confirm
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
         <?php include __DIR__ . '/footer.php'; ?>
         <!-- JavaScript Libraries -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
         <script>
+            // Toast Notification System
+            class ToastNotification {
+                static show(message, type = 'success', duration = 5000) {
+                    const container = document.getElementById('toast-container');
+
+                    // Create toast element
+                    const toast = document.createElement('div');
+                    toast.className = `toast toast-${type}`;
+
+                    // Icons for different toast types
+                    const icons = {
+                        success: 'check-circle',
+                        error: 'exclamation-circle',
+                        warning: 'exclamation-triangle',
+                        info: 'info-circle'
+                    };
+
+                    const titles = {
+                        success: 'Success',
+                        error: 'Error',
+                        warning: 'Warning',
+                        info: 'Info'
+                    };
+
+                    // Create progress bar
+                    const progressBar = document.createElement('div');
+                    progressBar.className = 'toast-progress';
+                    progressBar.style.animation = `progressBar ${duration}ms linear forwards`;
+
+                    // Create toast content
+                    toast.innerHTML = `
+                        <div class="toast-icon">
+                            <i class="fas fa-${icons[type]}"></i>
+                        </div>
+                        <div class="toast-content">
+                            <div class="toast-title">${titles[type]}</div>
+                            <div class="toast-message">${message}</div>
+                        </div>
+                        <button class="toast-close" onclick="this.parentElement.remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+
+                    toast.appendChild(progressBar);
+                    container.appendChild(toast);
+
+                    // Auto remove after duration
+                    setTimeout(() => {
+                        if (toast.parentElement) {
+                            toast.classList.add('hiding');
+                            setTimeout(() => toast.remove(), 300);
+                        }
+                    }, duration);
+
+                    return toast;
+                }
+            }
+
+            // Confirmation Modal System
+            let currentAction = '';
+            let currentDeviceId = 0;
+            let currentDeviceTag = '';
+
+            function showConfirmationModal(title, message, type = 'warning', confirmText = 'Confirm', confirmClass = 'confirmation-btn-confirm') {
+                const modal = document.getElementById('confirmationModal');
+                const icon = document.getElementById('confirmationIcon');
+                const titleEl = document.getElementById('confirmationTitle');
+                const messageEl = document.getElementById('confirmationMessage');
+                const button = document.getElementById('confirmationButton');
+
+                // Set modal content based on type
+                const icons = {
+                    warning: '<i class="fas fa-exclamation-triangle text-yellow-600"></i>',
+                    danger: '<i class="fas fa-trash text-red-600"></i>',
+                    success: '<i class="fas fa-undo text-green-600"></i>',
+                    info: '<i class="fas fa-info-circle text-blue-600"></i>'
+                };
+
+                const iconClasses = {
+                    warning: 'bg-yellow-50 border border-yellow-200',
+                    danger: 'bg-red-50 border border-red-200',
+                    success: 'bg-green-50 border border-green-200',
+                    info: 'bg-blue-50 border border-blue-200'
+                };
+
+                icon.className = `confirmation-icon ${iconClasses[type]}`;
+                icon.innerHTML = icons[type];
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                button.textContent = confirmText;
+                button.className = `confirmation-btn ${confirmClass}`;
+
+                modal.classList.add('active');
+            }
+
+            function closeConfirmationModal() {
+                const modal = document.getElementById('confirmationModal');
+                modal.classList.remove('active');
+                currentAction = '';
+                currentDeviceId = 0;
+                currentDeviceTag = '';
+            }
+
+            function showDeleteConfirm(deviceId, assetTag) {
+                currentAction = 'delete';
+                currentDeviceId = deviceId;
+                currentDeviceTag = assetTag;
+
+                showConfirmationModal(
+                    'Delete Device Permanently',
+                    `Are you sure you want to delete device "${assetTag}"? This action cannot be undone and will permanently remove the device from the database.`,
+                    'danger',
+                    'Delete Permanently',
+                    'confirmation-btn-confirm'
+                );
+            }
+
+            function showRestoreConfirm(deviceId, assetTag) {
+                currentAction = 'restore';
+                currentDeviceId = deviceId;
+                currentDeviceTag = assetTag;
+
+                showConfirmationModal(
+                    'Restore Device',
+                    `Are you sure you want to restore device "${assetTag}" to active service? The device will be set to "in_storage" status and will be available for assignment.`,
+                    'success',
+                    'Restore Device',
+                    'confirmation-btn-success'
+                );
+            }
+
+            function performConfirmedAction() {
+                if (currentAction === 'delete') {
+                    deleteDevice(currentDeviceId);
+                } else if (currentAction === 'restore') {
+                    restoreDeviceAction(currentDeviceId);
+                }
+                closeConfirmationModal();
+            }
+
+            function deleteDevice(deviceId) {
+                fetch('retired_devices.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=delete_device&device_id=${deviceId}`
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            ToastNotification.show('Device deleted successfully!', 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            ToastNotification.show('Error: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        ToastNotification.show('An error occurred. Please try again.', 'error');
+                    });
+            }
+
+            function restoreDeviceAction(deviceId) {
+                fetch('retired_devices.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=restore_device&device_id=${deviceId}`
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            ToastNotification.show('Device restored successfully!', 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            ToastNotification.show('Error: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        ToastNotification.show('An error occurred. Please try again.', 'error');
+                    });
+            }
+
             // Initialize Select2
             $(document).ready(function () {
                 $('.filter-select').select2({
@@ -1560,144 +2017,6 @@ function displayRetiredDevicesPage()
 
             function closeViewModal() {
                 document.getElementById('viewModal').classList.add('hidden');
-            }
-
-            // Confirmation Modal
-            let currentAction = '';
-            let currentDeviceId = 0;
-            let currentDeviceTag = '';
-
-            function showDeleteConfirm(deviceId, assetTag) {
-                currentAction = 'delete';
-                currentDeviceId = deviceId;
-                currentDeviceTag = assetTag;
-
-                document.getElementById('confirmTitle').textContent = 'Delete Device';
-                document.getElementById('confirmMessage').textContent = 'This action cannot be undone';
-                document.getElementById('confirmContent').innerHTML = `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div class="flex items-start gap-3">
-                        <i class="fas fa-exclamation-circle text-red-500 text-xl mt-1"></i>
-                        <div>
-                            <p class="text-red-800 font-medium">Are you sure you want to delete this device permanently?</p>
-                            <p class="text-red-600 text-sm mt-2">
-                                Device: <span class="font-mono font-bold">${escapeHtml(assetTag)}</span><br>
-                                This will permanently remove the device from the database.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-                const confirmBtn = document.getElementById('confirmActionBtn');
-                confirmBtn.textContent = 'Delete Permanently';
-                confirmBtn.className = 'flex-1 px-4 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all';
-
-                document.getElementById('confirmModal').classList.remove('hidden');
-            }
-
-            function restoreDevice(deviceId) {
-                currentAction = 'restore';
-                currentDeviceId = deviceId;
-
-                document.getElementById('confirmTitle').textContent = 'Restore Device';
-                document.getElementById('confirmMessage').textContent = 'Return device to active service';
-                document.getElementById('confirmContent').innerHTML = `
-                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div class="flex items-start gap-3">
-                        <i class="fas fa-question-circle text-green-500 text-xl mt-1"></i>
-                        <div>
-                            <p class="text-green-800 font-medium">Restore this device to active service?</p>
-                            <p class="text-green-600 text-sm mt-2">
-                                The device will be set to "in_storage" status and will be available for assignment.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-                const confirmBtn = document.getElementById('confirmActionBtn');
-                confirmBtn.textContent = 'Restore Device';
-                confirmBtn.className = 'flex-1 px-4 py-3 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-all';
-
-                document.getElementById('confirmModal').classList.remove('hidden');
-            }
-
-            function closeConfirmModal() {
-                document.getElementById('confirmModal').classList.add('hidden');
-                currentAction = '';
-                currentDeviceId = 0;
-                currentDeviceTag = '';
-            }
-
-            function performConfirmedAction() {
-                if (currentAction === 'delete') {
-                    deleteDevice(currentDeviceId);
-                } else if (currentAction === 'restore') {
-                    restoreDeviceAction(currentDeviceId);
-                }
-            }
-
-            function deleteDevice(deviceId) {
-                console.log('Deleting device:', deviceId);
-
-                // Use AJAX to call the same file
-                fetch('retired_devices.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=delete_device&device_id=${deviceId}`
-                })
-                    .then(response => {
-                        console.log('Response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Response data:', data);
-                        if (data.success) {
-                            alert('Device deleted successfully!');
-                            closeConfirmModal();
-                            setTimeout(() => window.location.reload(), 500);
-                        } else {
-                            alert('Error: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
-                    });
-            }
-
-            function restoreDeviceAction(deviceId) {
-                console.log('Restoring device:', deviceId);
-
-                // Use AJAX to call the same file
-                fetch('retired_devices.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=restore_device&device_id=${deviceId}`
-                })
-                    .then(response => {
-                        console.log('Response status:', response.status);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Response data:', data);
-                        if (data.success) {
-                            alert('Device restored successfully!');
-                            closeConfirmModal();
-                            setTimeout(() => window.location.reload(), 500);
-                        } else {
-                            alert('Error: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
-                    });
             }
 
             // Utility function for escaping HTML
