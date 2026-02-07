@@ -74,16 +74,14 @@ $topCategories = [];
 $departmentsArr = [];
 
 try {
-    // Get inventory statistics - Fixed: Calculate faulty devices correctly and include storage/retired in unassigned
+    // Get inventory statistics
     $statsQuery = "
         SELECT 
             (SELECT COUNT(*) FROM inventory_items) as total_items,
             (SELECT COUNT(*) FROM users) as total_users,
-            -- Unassigned devices: those not assigned to any user OR in storage OR retired
             (SELECT COUNT(*) FROM inventory_items 
              WHERE (assigned_user IS NULL OR assigned_user = 0 
                     OR status IN ('in_storage', 'retired'))) as unassigned_devices,
-            -- Faulty devices: those with status='faulty' OR condition='Faulty'
             (SELECT COUNT(*) FROM inventory_items 
              WHERE status='faulty' OR `condition`='Faulty') as faulty_devices,
             (SELECT COUNT(*) FROM users WHERE status='active') as active_users,
@@ -243,7 +241,7 @@ $totalDepartments = $stats['total_departments'];
 $recentActivities = [];
 
 try {
-    // Get recent inventory changes with user assignments
+    // Get recent inventory changes with user assignments - SIMPLIFIED VERSION
     $activitiesQuery = "
         SELECT 
             i.*,
@@ -256,21 +254,7 @@ try {
             u.role as assigned_role,
             dua.assigned_at,
             dua.returned_at,
-            dua.status as assignment_status,
-            
-            CASE 
-                WHEN i.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'new_device'
-                WHEN dua.assigned_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) AND dua.status = 'assigned' THEN 'assigned'
-                WHEN dua.returned_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 'retrieved'
-                WHEN i.updated_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 
-                    CASE 
-                        WHEN i.status = 'retired' THEN 'retired'
-                        WHEN i.status = 'faulty' THEN 'faulty'
-                        WHEN i.status = 'repairing' THEN 'repairing'
-                        ELSE 'updated'
-                    END
-                ELSE 'updated'
-            END as activity_type
+            dua.status as assignment_status
             
         FROM inventory_items i
         LEFT JOIN brands b ON i.brand_id = b.id
@@ -309,7 +293,53 @@ function formatInventoryActivity($row)
 {
     global $statusLabels;
 
-    $activityType = $row['activity_type'] ?? 'updated';
+    // Determine activity type based on timestamps
+    $activityType = 'updated'; // default
+
+    // Check if this is a new device (created in last 24 hours)
+    if (strtotime($row['created_at']) >= strtotime('-24 hours')) {
+        $activityType = 'new_device';
+    }
+    // Check if assigned in last 24 hours
+    elseif (!empty($row['assigned_at']) && strtotime($row['assigned_at']) >= strtotime('-24 hours')) {
+        $activityType = 'assigned';
+    }
+    // Check if retrieved in last 24 hours
+    elseif (!empty($row['returned_at']) && strtotime($row['returned_at']) >= strtotime('-24 hours')) {
+        $activityType = 'retrieved';
+    }
+    // Check if updated in last 24 hours
+    elseif (strtotime($row['updated_at']) >= strtotime('-24 hours')) {
+        // Check the current status to determine specific update type
+        switch ($row['status']) {
+            case 'retired':
+                $activityType = 'retired';
+                break;
+            case 'faulty':
+                $activityType = 'faulty';
+                break;
+            case 'repairing':
+                $activityType = 'repairing';
+                break;
+            case 'in_storage':
+                $activityType = 'stored';
+                break;
+            case 'in_use':
+                // Check if it's an assignment or just status change
+                if (!empty($row['assigned_at']) && strtotime($row['assigned_at']) >= strtotime('-24 hours')) {
+                    $activityType = 'assigned';
+                } else {
+                    $activityType = 'put_in_use';
+                }
+                break;
+            default:
+                $activityType = 'updated';
+        }
+    }
+
+    // Device details
+    $deviceName = ($row['brand_name'] ?? '') . ' ' . ($row['model'] ?? '');
+    $assetTag = $row['asset_tag'] ?? 'N/A';
 
     // Determine activity details based on type
     switch ($activityType) {
@@ -317,44 +347,61 @@ function formatInventoryActivity($row)
             $title = 'New Device Added';
             $icon = 'fa-plus-circle';
             $color = 'from-emerald-500 to-emerald-600';
-            $description = 'New device has been added to inventory';
+            $description = "New device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") has been added to inventory";
             break;
 
         case 'assigned':
             $title = 'Device Assigned';
             $icon = 'fa-user-check';
             $color = 'from-green-500 to-green-600';
-            $description = !empty($row['assigned_firstname'])
-                ? "Device assigned to " . e($row['assigned_firstname'] . ' ' . $row['assigned_lastname'])
-                : "Device assigned to a user";
+            if (!empty($row['assigned_firstname'])) {
+                $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") assigned to " .
+                    e($row['assigned_firstname'] . ' ' . $row['assigned_lastname']);
+            } else {
+                $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") assigned to a user";
+            }
             break;
 
         case 'retrieved':
             $title = 'Device Retrieved';
             $icon = 'fa-undo';
             $color = 'from-red-500 to-red-600';
-            $description = 'Device retrieved from user';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") retrieved from user";
             break;
 
         case 'retired':
             $title = 'Device Retired';
             $icon = 'fa-archive';
             $color = 'from-red-500 to-red-600';
-            $description = 'Device has been retired';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") has been retired and decommissioned";
             break;
 
         case 'faulty':
             $title = 'Device Marked as Faulty';
             $icon = 'fa-exclamation-triangle';
             $color = 'from-red-400 to-red-500';
-            $description = 'Device marked as faulty';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") marked as faulty and requires attention";
             break;
 
         case 'repairing':
             $title = 'Device Sent for Repair';
             $icon = 'fa-tools';
             $color = 'from-orange-500 to-orange-600';
-            $description = 'Device sent for repair';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") sent for repair/maintenance";
+            break;
+
+        case 'stored':
+            $title = 'Device Placed in Storage';
+            $icon = 'fa-warehouse';
+            $color = 'from-yellow-500 to-yellow-600';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") placed in storage";
+            break;
+
+        case 'put_in_use':
+            $title = 'Device Put in Use';
+            $icon = 'fa-play-circle';
+            $color = 'from-blue-500 to-blue-600';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") marked as in use";
             break;
 
         case 'updated':
@@ -362,7 +409,7 @@ function formatInventoryActivity($row)
             $title = 'Device Updated';
             $icon = 'fa-edit';
             $color = 'from-blue-500 to-blue-600';
-            $description = 'Device information was updated';
+            $description = "Device <strong>" . e($deviceName) . "</strong> (Asset: " . e($assetTag) . ") information was updated";
             break;
     }
 
@@ -383,8 +430,8 @@ function formatInventoryActivity($row)
         'icon' => $icon,
         'color' => $color,
         'description' => $description,
-        'device_name' => ($row['brand_name'] ?? '') . ' ' . ($row['model'] ?? ''),
-        'asset_tag' => $row['asset_tag'] ?? 'N/A',
+        'device_name' => $deviceName,
+        'asset_tag' => $assetTag,
         'device_type' => $row['device_type'] ?? '',
         'model' => $row['model'] ?? '',
         'specifications' => $row['specifications'] ?? '',
@@ -425,7 +472,9 @@ $activitySummary = [
     'retired' => ['icon' => 'fa-archive', 'color' => 'bg-gray-100 text-gray-700', 'label' => 'Retired', 'count' => 0],
     'faulty' => ['icon' => 'fa-exclamation-triangle', 'color' => 'bg-red-100 text-red-700', 'label' => 'Faulty', 'count' => 0],
     'repairing' => ['icon' => 'fa-tools', 'color' => 'bg-orange-100 text-orange-700', 'label' => 'Repairing', 'count' => 0],
-    'updated' => ['icon' => 'fa-edit', 'color' => 'bg-blue-100 text-blue-700', 'label' => 'Updated', 'count' => 0],
+    'stored' => ['icon' => 'fa-warehouse', 'color' => 'bg-amber-100 text-amber-700', 'label' => 'Stored', 'count' => 0],
+    'put_in_use' => ['icon' => 'fa-play-circle', 'color' => 'bg-blue-100 text-blue-700', 'label' => 'Put in Use', 'count' => 0],
+    'updated' => ['icon' => 'fa-edit', 'color' => 'bg-indigo-100 text-indigo-700', 'label' => 'Updated', 'count' => 0],
 ];
 
 // Count each activity type
@@ -437,112 +486,7 @@ foreach ($recentActivities as $activity) {
         $activitySummary['updated']['count']++;
     }
 }
-
-// Prepare chart data
-$chartData = [];
-$chartLabels = [];
-$chartColors = [];
-
-foreach ($activitySummary as $type => $summary) {
-    if ($summary['count'] > 0) {
-        $chartData[] = $summary['count'];
-        $chartLabels[] = $summary['label'];
-
-        // Assign colors based on type
-        switch ($type) {
-            case 'new_device':
-                $chartColors[] = 'rgba(16, 185, 129, 0.8)';
-                break;
-            case 'assigned':
-                $chartColors[] = 'rgba(34, 197, 94, 0.8)';
-                break;
-            case 'retrieved':
-                $chartColors[] = 'rgba(245, 158, 11, 0.8)';
-                break;
-            case 'retired':
-                $chartColors[] = 'rgba(107, 114, 128, 0.8)';
-                break;
-            case 'faulty':
-                $chartColors[] = 'rgba(239, 68, 68, 0.8)';
-                break;
-            case 'repairing':
-                $chartColors[] = 'rgba(249, 115, 22, 0.8)';
-                break;
-            default:
-                $chartColors[] = 'rgba(59, 130, 246, 0.8)';
-        }
-    }
-}
-
-// Prepare chart data for JavaScript
-$deviceStatusChartData = [
-    'labels' => [],
-    'data' => [],
-    'colors' => []
-];
-
-foreach ($deviceStatusStats as $stat) {
-    $deviceStatusChartData['labels'][] = $stat['label']; // Use the label from getStatusLabel()
-    $deviceStatusChartData['data'][] = $stat['count'];
-
-    // Assign colors based on status
-    switch ($stat['status']) {
-        case 'in_use':
-            $deviceStatusChartData['colors'][] = 'rgba(34, 197, 94, 0.8)'; // Green
-            break;
-        case 'in_storage':
-            $deviceStatusChartData['colors'][] = 'rgba(245, 158, 11, 0.8)'; // Yellow
-            break;
-        case 'faulty':
-            $deviceStatusChartData['colors'][] = 'rgba(239, 68, 68, 0.8)'; // Red
-            break;
-        case 'repairing':
-            $deviceStatusChartData['colors'][] = 'rgba(249, 115, 22, 0.8)'; // Orange
-            break;
-        case 'retired':
-            $deviceStatusChartData['colors'][] = 'rgba(107, 114, 128, 0.8)'; // Gray
-            break;
-        case 'active':
-            $deviceStatusChartData['colors'][] = 'rgba(59, 130, 246, 0.8)'; // Blue
-            break;
-        default:
-            $deviceStatusChartData['colors'][] = 'rgba(156, 163, 175, 0.8)'; // Default gray
-    }
-}
-
-$deviceConditionChartData = [
-    'labels' => [],
-    'data' => [],
-    'colors' => []
-];
-
-foreach ($deviceConditionStats as $stat) {
-    $deviceConditionChartData['labels'][] = $stat['label'];
-    $deviceConditionChartData['data'][] = $stat['count'];
-
-    // Assign colors based on condition
-    switch ($stat['condition']) {
-        case 'New':
-            $deviceConditionChartData['colors'][] = 'rgba(59, 130, 246, 0.8)'; // Blue
-            break;
-        case 'Good':
-            $deviceConditionChartData['colors'][] = 'rgba(34, 197, 94, 0.8)'; // Green
-            break;
-        case 'Fair':
-            $deviceConditionChartData['colors'][] = 'rgba(245, 158, 11, 0.8)'; // Yellow
-            break;
-        case 'Poor':
-            $deviceConditionChartData['colors'][] = 'rgba(249, 115, 22, 0.8)'; // Orange
-            break;
-        case 'Faulty':
-            $deviceConditionChartData['colors'][] = 'rgba(239, 68, 68, 0.8)'; // Red
-            break;
-        default:
-            $deviceConditionChartData['colors'][] = 'rgba(156, 163, 175, 0.8)'; // Default gray
-    }
-}
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -619,14 +563,6 @@ foreach ($deviceConditionStats as $stat) {
         .glass-effect {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-        }
-
-        .user-status-active {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        }
-
-        .user-status-inactive {
-            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
         }
 
         .activity-item {
@@ -744,6 +680,10 @@ foreach ($deviceConditionStats as $stat) {
             height: 8px;
             border-radius: 4px;
             background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        }
+
+        .activity-description {
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -980,99 +920,6 @@ foreach ($deviceConditionStats as $stat) {
             </div>
         </div>
 
-        <!-- Charts & Overview Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- Device Status Distribution -->
-            <!--<div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <i class="fas fa-chart-pie text-blue-500"></i>
-                    Device Status Distribution
-                </h3>
-                <div class="chart-container">
-                    <canvas id="deviceStatusChart"></canvas>
-                </div>
-                <?php if (empty($deviceStatusChartData['data'])): ?>
-                    <div class="text-center py-4">
-                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
-                        <p class="text-gray-500">No device status data</p>
-                    </div>
-                <?php endif; ?>
-            </div>-->
-
-            <!-- Device Condition Distribution -->
-            <!--<div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <i class="fas fa-star-half-alt text-amber-500"></i>
-                    Device Condition Distribution
-                </h3>
-                <div class="chart-container">
-                    <canvas id="deviceConditionChart"></canvas>
-                </div>
-                <?php if (empty($deviceConditionChartData['data'])): ?>
-                    <div class="text-center py-4">
-                        <i class="fas fa-inbox text-3xl text-gray-300 mb-2"></i>
-                        <p class="text-gray-500">No device condition data</p>
-                    </div>
-                <?php endif; ?>
-            </div>--->
-
-            <!-- Top Brands & Categories -->
-            <!--<div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <i class="fas fa-crown text-purple-500"></i>
-                    Top Brands & Categories
-                </h3>--->
-
-            <!-- Top Brands -->
-            <!--<div class="mb-6">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Top Brands</h4>
-                    <div class="space-y-3">
-                        <?php if (empty($topBrands)): ?>
-                            <p class="text-gray-500 text-sm">No brand data available</p>
-                        <?php else: ?>
-                            <?php
-                            $maxBrandCount = !empty($topBrands) ? max(array_column($topBrands, 'device_count')) : 1;
-                            ?>
-                            <?php foreach ($topBrands as $brand): ?>
-                                <div>
-                                    <div class="flex justify-between text-sm mb-1">
-                                        <span class="font-medium text-gray-700"><?= e($brand['brand_name']) ?></span>
-                                        <span class="text-gray-600"><?= $brand['device_count'] ?> devices</span>
-                                    </div>
-                                    <div class="brand-progress"
-                                        style="width: <?= ($brand['device_count'] / $maxBrandCount) * 100 ?>%"></div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>-->
-
-            <!-- Top Categories -->
-            <!--<div>
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Top Categories</h4>
-                    <div class="space-y-3">
-                        <?php if (empty($topCategories)): ?>
-                            <p class="text-gray-500 text-sm">No category data available</p>
-                        <?php else: ?>
-                            <?php
-                            $maxCatCount = !empty($topCategories) ? max(array_column($topCategories, 'device_count')) : 1;
-                            ?>
-                            <?php foreach ($topCategories as $category): ?>
-                                <div>
-                                    <div class="flex justify-between text-sm mb-1">
-                                        <span class="font-medium text-gray-700"><?= e($category['category_name']) ?></span>
-                                        <span class="text-gray-600"><?= $category['device_count'] ?> devices</span>
-                                    </div>
-                                    <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full"
-                                        style="width: <?= ($category['device_count'] / $maxCatCount) * 100 ?>%"></div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>-->
-        </div>
-
         <!-- Activity Stream Header -->
         <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -1172,10 +1019,9 @@ foreach ($deviceConditionStats as $stat) {
                                             </div>
 
                                             <!-- Activity Description -->
-                                            <p class="text-gray-700 mb-3">
-                                                <i class="fas <?= $activity['icon'] ?> text-gray-400 mr-2"></i>
-                                                <?= e($activity['description']) ?>
-                                            </p>
+                                            <div class="activity-description text-gray-700 mb-3">
+                                                <?= $activity['description'] ?>
+                                            </div>
 
                                             <!-- Device Details -->
                                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
@@ -1268,6 +1114,53 @@ foreach ($deviceConditionStats as $stat) {
                                                         <p class="text-xs text-gray-600">No longer available</p>
                                                     </div>
                                                 </div>
+                                            <?php elseif ($activity['type'] === 'faulty'): ?>
+                                                <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-exclamation-triangle"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-red-800">Device marked as faulty</p>
+                                                        <p class="text-xs text-red-600">Requires attention</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($activity['type'] === 'repairing'): ?>
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-tools"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-orange-800">Device sent for repair</p>
+                                                        <p class="text-xs text-orange-600">Under maintenance</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($activity['type'] === 'stored'): ?>
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-warehouse"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-amber-800">Device placed in storage</p>
+                                                        <p class="text-xs text-amber-600">Available for assignment</p>
+                                                    </div>
+                                                </div>
+                                            <?php elseif ($activity['type'] === 'put_in_use'): ?>
+                                                <div
+                                                    class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                    <div
+                                                        class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shadow-sm">
+                                                        <i class="fas fa-play-circle"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-medium text-blue-800">Device marked as in use</p>
+                                                        <p class="text-xs text-blue-600">Currently active</p>
+                                                    </div>
+                                                </div>
                                             <?php endif; ?>
                                         </div>
 
@@ -1350,110 +1243,6 @@ foreach ($deviceConditionStats as $stat) {
 
     <!-- JavaScript -->
     <script>
-        // Device Status Chart Data
-        const deviceStatusData = {
-            labels: <?= json_encode($deviceStatusChartData['labels']) ?>,
-            data: <?= json_encode($deviceStatusChartData['data']) ?>,
-            colors: <?= json_encode($deviceStatusChartData['colors']) ?>
-        };
-
-        // Device Condition Chart Data
-        const deviceConditionData = {
-            labels: <?= json_encode($deviceConditionChartData['labels']) ?>,
-            data: <?= json_encode($deviceConditionChartData['data']) ?>,
-            colors: <?= json_encode($deviceConditionChartData['colors']) ?>
-        };
-
-        // Initialize Device Status Chart
-        if (deviceStatusData.data.length > 0) {
-            const statusCtx = document.getElementById('deviceStatusChart').getContext('2d');
-            const deviceStatusChart = new Chart(statusCtx, {
-                type: 'pie',
-                data: {
-                    labels: deviceStatusData.labels,
-                    datasets: [{
-                        data: deviceStatusData.data,
-                        backgroundColor: deviceStatusData.colors,
-                        borderColor: deviceStatusData.colors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 2,
-                        hoverOffset: 15
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 15,
-                                usePointStyle: true,
-                                font: {
-                                    size: 10
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${value} devices (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Initialize Device Condition Chart
-        if (deviceConditionData.data.length > 0) {
-            const conditionCtx = document.getElementById('deviceConditionChart').getContext('2d');
-            const deviceConditionChart = new Chart(conditionCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: deviceConditionData.labels,
-                    datasets: [{
-                        data: deviceConditionData.data,
-                        backgroundColor: deviceConditionData.colors,
-                        borderColor: deviceConditionData.colors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 2,
-                        hoverOffset: 15
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 15,
-                                usePointStyle: true,
-                                font: {
-                                    size: 10
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${value} devices (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
         // Live search with debounce
         const searchInput = document.getElementById('searchInput');
         let searchTimer;
