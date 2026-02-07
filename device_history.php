@@ -1159,13 +1159,13 @@ if ($status_result) {
                                                     onclick="openDeviceHistoryModal(<?= $device['id'] ?>, '<?= htmlspecialchars(addslashes($device['asset_tag'])) ?>')"
                                                     class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center">
                                                     <i class="fas fa-history text-xs mr-1"></i>
-                                                    View History
+                                                    View
                                                 </button>
-                                                <a href="inventory.php?edit=<?= $device['id'] ?>"
+                                                <!--<a href="inventory.php?edit=<?= $device['id'] ?>"
                                                     class="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center">
                                                     <i class="fas fa-edit text-xs mr-1"></i>
                                                     Edit
-                                                </a>
+                                                </a>-->
                                             </div>
                                         </td>
                                     </tr>
@@ -1359,7 +1359,7 @@ if ($status_result) {
         const statusLabels = {
             'active': 'Active',
             'in_use': 'In Use',
-            'in_storage': 'In Storage',
+            'in_storage': 'Store',
             'repairing': 'Repairing',
             'faulty': 'Faulty',
             'retired': 'Retired'
