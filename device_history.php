@@ -1040,7 +1040,14 @@ if ($status_result) {
                                     'faulty' => 'bg-red-100 text-red-700 border-red-200',
                                     'retired' => 'bg-gray-100 text-gray-700 border-gray-200'
                                 ];
-
+                                $statusLabels = [
+                                    'active' => 'Active',
+                                    'in_use' => 'In Use',
+                                    'in_storage' => 'Store',
+                                    'repairing' => 'Repairing',
+                                    'faulty' => 'Faulty',
+                                    'retired' => 'Retired'
+                                ];
                                 $conditionColors = [
                                     'New' => 'bg-green-100 text-green-700 border-green-200',
                                     'Good' => 'bg-blue-100 text-blue-700 border-blue-200',

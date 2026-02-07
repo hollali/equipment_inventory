@@ -5,14 +5,23 @@ require_once "./config/database.php";
 $db = new Database();
 $conn = $db->getConnection();
 
+// Toast messages
+$toast = ['type' => '', 'message' => ''];
+
 /* Add Department */
 if (isset($_POST['add_department'])) {
     $name = trim($_POST['department_name']);
     if ($name !== '') {
         $stmt = $conn->prepare("INSERT INTO departments (department_name) VALUES (?)");
         $stmt->bind_param("s", $name);
-        $stmt->execute();
+        if ($stmt->execute()) {
+            $_SESSION['toast'] = ['type' => 'success', 'message' => 'Department added successfully!'];
+        } else {
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to add department.'];
+        }
         $stmt->close();
+    } else {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Department name cannot be empty.'];
     }
     header("Location: departments.php");
     exit();
@@ -22,10 +31,19 @@ if (isset($_POST['add_department'])) {
 if (isset($_POST['update_department'])) {
     $id = (int) $_POST['department_id'];
     $name = trim($_POST['department_name']);
-    $stmt = $conn->prepare("UPDATE departments SET department_name = ? WHERE id = ?");
-    $stmt->bind_param("si", $name, $id);
-    $stmt->execute();
-    $stmt->close();
+
+    if ($name !== '') {
+        $stmt = $conn->prepare("UPDATE departments SET department_name = ? WHERE id = ?");
+        $stmt->bind_param("si", $name, $id);
+        if ($stmt->execute()) {
+            $_SESSION['toast'] = ['type' => 'success', 'message' => 'Department updated successfully!'];
+        } else {
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to update department.'];
+        }
+        $stmt->close();
+    } else {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Department name cannot be empty.'];
+    }
     header("Location: departments.php");
     exit();
 }
@@ -33,12 +51,35 @@ if (isset($_POST['update_department'])) {
 /* Delete Department */
 if (isset($_GET['delete'])) {
     $id = (int) $_GET['delete'];
-    $stmt = $conn->prepare("DELETE FROM departments WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $stmt->close();
+
+    // Check if department is used by employees
+    $checkStmt = $conn->prepare("SELECT COUNT(*) FROM employees WHERE department_id = ?");
+    $checkStmt->bind_param("i", $id);
+    $checkStmt->execute();
+    $checkStmt->bind_result($employeeCount);
+    $checkStmt->fetch();
+    $checkStmt->close();
+
+    if ($employeeCount > 0) {
+        $_SESSION['toast'] = ['type' => 'error', 'message' => 'Cannot delete department. It has ' . $employeeCount . ' employee(s).'];
+    } else {
+        $stmt = $conn->prepare("DELETE FROM departments WHERE id = ?");
+        $stmt->bind_param("i", $id);
+        if ($stmt->execute()) {
+            $_SESSION['toast'] = ['type' => 'success', 'message' => 'Department deleted successfully!'];
+        } else {
+            $_SESSION['toast'] = ['type' => 'error', 'message' => 'Failed to delete department.'];
+        }
+        $stmt->close();
+    }
     header("Location: departments.php");
     exit();
+}
+
+// Get toast message from session
+if (isset($_SESSION['toast'])) {
+    $toast = $_SESSION['toast'];
+    unset($_SESSION['toast']);
 }
 
 /* Search & Pagination */
@@ -87,6 +128,24 @@ $stmt->execute();
 $result = $stmt->get_result();
 $departments = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+// Get department statistics for view modal
+if (isset($_GET['view'])) {
+    $viewId = (int) $_GET['view'];
+    $statsStmt = $conn->prepare("
+        SELECT 
+            d.*,
+            COUNT(e.id) as employee_count
+        FROM departments d
+        LEFT JOIN employees e ON d.id = e.department_id
+        WHERE d.id = ?
+        GROUP BY d.id
+    ");
+    $statsStmt->bind_param("i", $viewId);
+    $statsStmt->execute();
+    $departmentDetails = $statsStmt->get_result()->fetch_assoc();
+    $statsStmt->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -144,12 +203,64 @@ $stmt->close();
         .scale-in {
             animation: scaleIn 0.2s ease-out;
         }
+
+        /* Toast Styles */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            min-width: 300px;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(400px);
+            transition: transform 0.3s ease-out;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-success {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+
+        .toast-error {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #7f1d1d;
+        }
+
+        .toast-info {
+            background-color: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+        }
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen">
 
     <?php include 'sidebar.php'; ?>
+
+    <!-- Toast Notification -->
+    <?php if ($toast['type'] && $toast['message']): ?>
+        <div id="toast" class="toast toast-<?= $toast['type'] ?>">
+            <i
+                class="toast-icon fas fa-<?= $toast['type'] == 'success' ? 'check-circle' : ($toast['type'] == 'error' ? 'exclamation-circle' : 'info-circle') ?>"></i>
+            <span><?= htmlspecialchars($toast['message']) ?></span>
+        </div>
+    <?php endif; ?>
 
     <main id="mainContent" class="p-4 md:p-8 max-w-7xl mx-auto">
 
@@ -158,8 +269,7 @@ $stmt->close();
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <div class="flex items-center gap-3 mb-2">
-                        <div
-                            class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow">
                             <i class="fas fa-sitemap text-white text-xl"></i>
                         </div>
                         <div>
@@ -169,7 +279,7 @@ $stmt->close();
                     </div>
                 </div>
                 <button onclick="openAddModal()"
-                    class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow hover:shadow-md">
                     <i class="fas fa-plus mr-2"></i>
                     Add Department
                 </button>
@@ -178,7 +288,7 @@ $stmt->close();
 
         <!-- Stats Card -->
         <div class="mb-8">
-            <div class="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100">
+            <div class="bg-white rounded-xl shadow-sm hover:shadow transition-shadow p-6 border border-gray-200">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-gray-600 mb-1">Total Departments</p>
@@ -187,8 +297,7 @@ $stmt->close();
                             <?= count($departments) ?> shown on this page
                         </p>
                     </div>
-                    <div
-                        class="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-100 rounded-2xl flex items-center justify-center">
+                    <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center">
                         <i class="fas fa-building text-3xl text-blue-600"></i>
                     </div>
                 </div>
@@ -196,21 +305,21 @@ $stmt->close();
         </div>
 
         <!-- Search Bar -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <form method="GET" class="flex gap-3">
                 <div class="flex-1 relative">
                     <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                         placeholder="Search departments by name..."
-                        class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                 </div>
                 <button type="submit"
-                    class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
+                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     <i class="fas fa-search mr-2"></i>Search
                 </button>
                 <?php if ($search): ?>
                     <a href="departments.php"
-                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors inline-flex items-center">
+                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors inline-flex items-center">
                         <i class="fas fa-times mr-2"></i>Clear
                     </a>
                 <?php endif; ?>
@@ -218,7 +327,7 @@ $stmt->close();
         </div>
 
         <!-- Departments Grid/Table -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 
             <!-- Mobile View: Cards -->
             <div class="md:hidden divide-y divide-gray-200">
@@ -228,7 +337,7 @@ $stmt->close();
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-3 flex-1">
                                     <div
-                                        class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
+                                        class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow">
                                         <?= strtoupper(substr($dep['department_name'], 0, 2)) ?>
                                     </div>
                                     <div>
@@ -241,18 +350,18 @@ $stmt->close();
                             </div>
                             <div class="flex gap-2">
                                 <button onclick='openViewModal(<?= json_encode($dep) ?>)'
-                                    class="flex-1 px-4 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors font-medium">
+                                    class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
                                     <i class="fas fa-eye mr-2"></i>View
                                 </button>
                                 <button onclick='openEditModal(<?= json_encode($dep) ?>)'
-                                    class="flex-1 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium">
+                                    class="flex-1 px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors font-medium">
                                     <i class="fas fa-edit mr-2"></i>Edit
                                 </button>
-                                <a href="?delete=<?= $dep['id'] ?>"
-                                    onclick="return confirm('Delete this department? This action cannot be undone.')"
-                                    class="flex-1 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium text-center">
+                                <button
+                                    onclick='confirmDelete(<?= $dep['id'] ?>, "<?= htmlspecialchars(addslashes($dep['department_name'])) ?>")'
+                                    class="flex-1 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors font-medium">
                                     <i class="fas fa-trash mr-2"></i>Delete
-                                </a>
+                                </button>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -293,7 +402,7 @@ $stmt->close();
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
                                             <div
-                                                class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
+                                                class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow">
                                                 <?= strtoupper(substr($dep['department_name'], 0, 2)) ?>
                                             </div>
                                             <span
@@ -303,7 +412,7 @@ $stmt->close();
                                     <td class="px-6 py-4">
                                         <div class="flex items-center justify-end gap-2">
                                             <button onclick='openViewModal(<?= json_encode($dep) ?>)'
-                                                class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                                class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                                                 title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </button>
@@ -312,12 +421,12 @@ $stmt->close();
                                                 title="Edit Department">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <a href="?delete=<?= $dep['id'] ?>"
-                                                onclick="return confirm('Delete this department? This action cannot be undone.')"
+                                            <button
+                                                onclick='confirmDelete(<?= $dep['id'] ?>, "<?= htmlspecialchars(addslashes($dep['department_name'])) ?>")'
                                                 class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="Delete Department">
                                                 <i class="fas fa-trash"></i>
-                                            </a>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -355,7 +464,7 @@ $stmt->close();
                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                     <?php if ($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
                         <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="px-4 py-2 rounded-lg transition-colors font-medium <?= $i == $page
-                                ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg'
+                                ? 'bg-blue-600 text-white shadow'
                                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
                             <?= $i ?>
                         </a>
@@ -380,18 +489,18 @@ $stmt->close();
     </main>
 
     <!-- Add/Edit Modal -->
-    <div id="modal"
+    <div id="addEditModal"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 fade-in">
-        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-blue-600 to-blue-600 px-8 py-6 text-white">
+            <div class="bg-blue-600 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 id="modalTitle" class="text-2xl font-bold mb-1"></h2>
                         <p class="text-blue-100 text-sm">Enter department information below</p>
                     </div>
-                    <button onclick="closeModal()" class="text-white/80 hover:text-white transition-colors">
+                    <button onclick="closeAddEditModal()" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-2xl"></i>
                     </button>
                 </div>
@@ -403,25 +512,25 @@ $stmt->close();
 
                 <div class="mb-6">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        Department Name <span class="text-blue-500">*</span>
+                        Department Name <span class="text-red-500">*</span>
                     </label>
                     <div class="relative">
                         <i class="fas fa-building absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                         <input type="text" name="department_name" id="department_name" required
                             placeholder="e.g., Human Resources, IT, Sales"
-                            class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                            class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                     </div>
                     <p class="text-xs text-gray-500 mt-2">Enter the official department name</p>
                 </div>
 
                 <!-- Modal Footer -->
                 <div class="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                    <button type="button" onclick="closeModal()"
-                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                    <button type="button" onclick="closeAddEditModal()"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
                         <i class="fas fa-times mr-2"></i>Cancel
                     </button>
                     <button id="modalBtn" type="submit"
-                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-xl hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg font-medium">
+                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow font-medium">
                         <i class="fas fa-save mr-2"></i>Save Department
                     </button>
                 </div>
@@ -431,16 +540,15 @@ $stmt->close();
 
     <!-- View Modal -->
     <div id="viewModal"
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 fade-in"
-        onclick="closeModalOnBackdrop(event, 'viewModal')">
-        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden slide-in"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 fade-in">
+        <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden slide-in"
             onclick="event.stopPropagation()">
             <!-- Modal Header -->
-            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6 text-white">
+            <div class="bg-gray-700 px-8 py-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="text-2xl font-bold mb-1">Department Details</h2>
-                        <p class="text-green-100 text-sm">View department information</p>
+                        <p class="text-gray-300 text-sm">View department information and statistics</p>
                     </div>
                     <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition-colors">
                         <i class="fas fa-times text-2xl"></i>
@@ -450,70 +558,177 @@ $stmt->close();
 
             <!-- Modal Body -->
             <div class="p-8">
-                <div class="space-y-4">
-                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department ID</p>
-                        <p class="text-lg font-bold text-gray-900" id="view_id"></p>
+                <div class="flex items-center gap-4 mb-6">
+                    <div id="viewDepartmentIcon"
+                        class="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow">
                     </div>
-
-                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Department Name</p>
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow"
-                                id="view_avatar">
-                            </div>
-                            <p class="text-lg font-bold text-gray-900" id="view_name"></p>
-                        </div>
+                    <div>
+                        <h3 id="viewDepartmentName" class="text-xl font-bold text-gray-900"></h3>
+                        <p id="viewDepartmentId" class="text-sm text-gray-500"></p>
                     </div>
                 </div>
 
+                <div class="mb-6">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <p class="text-sm font-medium text-blue-700 mb-1">Total Employees</p>
+                        <p id="viewEmployeeCount" class="text-2xl font-bold text-blue-900">0</p>
+                    </div>
+                </div>
+
+                <div class="text-sm text-gray-600">
+                    <p class="mb-2"><i class="fas fa-calendar-alt mr-2 text-gray-400"></i>Created: <span
+                            id="viewCreatedAt"></span></p>
+                    <p><i class="fas fa-history mr-2 text-gray-400"></i>Last Updated: <span id="viewUpdatedAt"></span>
+                    </p>
+                </div>
+
                 <!-- Modal Footer -->
-                <div class="flex justify-end mt-8 pt-6 border-t border-gray-200">
-                    <button onclick="closeViewModal()"
-                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-green-700 hover:to-emerald-800 transition-all shadow-lg font-medium">
-                        <i class="fas fa-check mr-2"></i>Close
+                <div class="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-6">
+                    <button type="button" onclick="closeViewModal()"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                        <i class="fas fa-times mr-2"></i>Close
+                    </button>
+                    <button id="editFromViewBtn" type="button"
+                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        <i class="fas fa-edit mr-2"></i>Edit Department
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        const modal = document.getElementById('modal');
-        const viewModal = document.getElementById('viewModal');
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 fade-in">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden slide-in"
+            onclick="event.stopPropagation()">
+            <!-- Modal Header -->
+            <div class="bg-red-600 px-8 py-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-1">Confirm Deletion</h2>
+                        <p class="text-red-100 text-sm">This action cannot be undone</p>
+                    </div>
+                    <button onclick="closeDeleteModal()" class="text-white/80 hover:text-white transition-colors">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
 
+            <!-- Modal Body -->
+            <div class="p-8">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">Delete Department</h3>
+                        <p class="text-sm text-gray-500">You are about to delete:</p>
+                    </div>
+                </div>
+
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p class="font-semibold text-red-800 text-lg" id="deleteDepartmentName"></p>
+                    <p class="text-sm text-red-600 mt-1" id="deleteDepartmentId"></p>
+                </div>
+
+                <p class="text-gray-600 mb-6">
+                    <i class="fas fa-info-circle mr-2 text-blue-500"></i>
+                    This action will remove all department associations. Employees will need to be reassigned to other
+                    departments.
+                </p>
+
+                <!-- Modal Footer -->
+                <div class="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                    <button type="button" onclick="closeDeleteModal()"
+                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </button>
+                    <a id="confirmDeleteBtn" href="#"
+                        class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                        <i class="fas fa-trash mr-2"></i>Delete Department
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <?php include __DIR__ . '/footer.php'; ?>
+    <script>
+        // Toast notification
+        <?php if ($toast['type'] && $toast['message']): ?>
+            document.addEventListener('DOMContentLoaded', function () {
+                const toast = document.getElementById('toast');
+                if (toast) {
+                    setTimeout(() => {
+                        toast.classList.add('show');
+                    }, 100);
+
+                    setTimeout(() => {
+                        toast.classList.remove('show');
+                        setTimeout(() => {
+                            toast.remove();
+                        }, 300);
+                    }, 5000);
+                }
+            });
+        <?php endif; ?>
+
+        // Modal elements
+        const addEditModal = document.getElementById('addEditModal');
+        const viewModal = document.getElementById('viewModal');
+        const deleteModal = document.getElementById('deleteModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBtn = document.getElementById('modalBtn');
+        const department_id = document.getElementById('department_id');
+        const department_name = document.getElementById('department_name');
+
+        // Add/Edit Modal Functions
         function openAddModal() {
-            document.getElementById('modalTitle').textContent = 'Add New Department';
-            const btn = document.getElementById('modalBtn');
-            btn.innerHTML = '<i class="fas fa-save mr-2"></i>Save Department';
-            btn.name = 'add_department';
-            document.getElementById('department_id').value = '';
-            document.getElementById('department_name').value = '';
-            document.getElementById('department_name').focus();
-            modal.classList.remove('hidden');
+            modalTitle.textContent = 'Add New Department';
+            modalBtn.name = 'add_department';
+            modalBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save Department';
+            department_id.value = '';
+            department_name.value = '';
+            department_name.focus();
+            addEditModal.classList.remove('hidden');
         }
 
         function openEditModal(data) {
-            document.getElementById('modalTitle').textContent = 'Edit Department';
-            const btn = document.getElementById('modalBtn');
-            btn.innerHTML = '<i class="fas fa-save mr-2"></i>Update Department';
-            btn.name = 'update_department';
-            document.getElementById('department_id').value = data.id;
-            document.getElementById('department_name').value = data.department_name;
-            const input = document.getElementById('department_name');
-            input.focus();
-            input.select();
-            modal.classList.remove('hidden');
+            closeViewModal();
+            modalTitle.textContent = 'Edit Department';
+            modalBtn.name = 'update_department';
+            modalBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Update Department';
+            department_id.value = data.id;
+            department_name.value = data.department_name;
+            department_name.focus();
+            department_name.select();
+            addEditModal.classList.remove('hidden');
         }
 
-        function closeModal() {
-            modal.classList.add('hidden');
+        function closeAddEditModal() {
+            addEditModal.classList.add('hidden');
         }
 
+        // View Modal Functions
         function openViewModal(data) {
-            document.getElementById('view_id').textContent = '#' + data.id;
-            document.getElementById('view_name').textContent = data.department_name;
-            document.getElementById('view_avatar').textContent = data.department_name.substring(0, 2).toUpperCase();
+            document.getElementById('viewDepartmentName').textContent = data.department_name;
+            document.getElementById('viewDepartmentId').textContent = 'ID: #' + data.id;
+            document.getElementById('viewDepartmentIcon').textContent = data.department_name.substring(0, 2).toUpperCase();
+
+            // Set dates (you might need to adjust based on your data structure)
+            document.getElementById('viewCreatedAt').textContent = 'N/A';
+            document.getElementById('viewUpdatedAt').textContent = 'N/A';
+
+            // Load additional stats via AJAX
+            loadDepartmentStats(data.id);
+
+            // Set edit button
+            document.getElementById('editFromViewBtn').onclick = function () {
+                openEditModal(data);
+            };
+
             viewModal.classList.remove('hidden');
         }
 
@@ -521,24 +736,50 @@ $stmt->close();
             viewModal.classList.add('hidden');
         }
 
-        function closeModalOnBackdrop(event, modalId) {
-            if (event.target === event.currentTarget) {
-                if (modalId === 'modal') closeModal();
-                else if (modalId === 'viewModal') closeViewModal();
-            }
+        // Delete Modal Functions
+        function confirmDelete(id, name) {
+            document.getElementById('deleteDepartmentName').textContent = name;
+            document.getElementById('deleteDepartmentId').textContent = 'ID: #' + id;
+            document.getElementById('confirmDeleteBtn').href = '?delete=' + id;
+            deleteModal.classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            deleteModal.classList.add('hidden');
+        }
+
+        // Load department statistics
+        function loadDepartmentStats(departmentId) {
+            // You can implement AJAX here to load real statistics
+            // For now, using placeholders
+            document.getElementById('viewEmployeeCount').textContent = 'Loading...';
+
+            // Simulate loading
+            setTimeout(() => {
+                document.getElementById('viewEmployeeCount').textContent = '0';
+            }, 300);
         }
 
         // Close modals with Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                closeModal();
+                closeAddEditModal();
                 closeViewModal();
+                closeDeleteModal();
             }
         });
 
-        // Close modal on backdrop click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
+        // Close modals on backdrop click
+        [addEditModal, viewModal, deleteModal].forEach(modal => {
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        if (modal === addEditModal) closeAddEditModal();
+                        if (modal === viewModal) closeViewModal();
+                        if (modal === deleteModal) closeDeleteModal();
+                    }
+                });
+            }
         });
     </script>
 
