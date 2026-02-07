@@ -754,7 +754,7 @@ foreach ($deviceConditionStats as $stat) {
     <?php include 'sidebar.php'; ?>
 
     <!-- Main Content -->
-    <main id="mainContent" class="flex-1 p-4 md:p-8 ml-0 md:ml-64">
+    <main id="mainContent" class="flex-1 p-4 md:p-8 ml-0 md:ml-64 transition-all duration-300 ease-in-out">
 
         <!-- Header -->
         <div class="mb-8 animate-fade-in-up">
@@ -805,7 +805,7 @@ foreach ($deviceConditionStats as $stat) {
         </div>
 
         <!-- Main Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <?php
             $mainStats = [
                 [
@@ -831,16 +831,7 @@ foreach ($deviceConditionStats as $stat) {
                     'gradient' => 'from-yellow-500 to-yellow-600',
                     'change' => '+3',
                     'id' => 'inStorage'
-                ],
-                [
-                    'title' => 'Total Unassigned/Stored Devices',
-                    'value' => $unassignedDevices,
-                    'icon' => 'fa-user-slash',
-                    'gradient' => 'from-cyan-500 to-cyan-600',
-                    'change' => $unassignedDevices > 0 ? '+' . $unassignedDevices : '0',
-                    'id' => 'unassigned',
-                    'subtitle' => 'Includes: Stored (' . $inStorageDevices . ') + Retired (' . $retiredDevices . ')'
-                ],
+                ]
             ];
             ?>
 

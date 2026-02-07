@@ -457,7 +457,13 @@ function isChecked($settings, $key) {
                     </div>
                 </div>
             </div>
+
+             <!-- Footer -->
+    <?php include __DIR__ . '/footer.php'; ?>
+
         </section>
+
+        
 
     </main>
 

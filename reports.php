@@ -773,10 +773,15 @@ function formatDateTime($dateString)
                         </div>
                     </div>
                 </div>
+                <!-- Footer -->
+                <?php include __DIR__ . '/footer.php'; ?>
+
             <?php endif; ?>
         </section>
 
+
     </main>
+
 
     <!-- JS -->
     <script>

@@ -1354,6 +1354,10 @@ if ($status_result) {
         </div>
     </div>
 
+
+    <!-- Footer -->
+    <?php include __DIR__ . '/footer.php'; ?>
+
     <script>
         // Status labels mapping
         const statusLabels = {

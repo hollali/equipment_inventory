@@ -29,8 +29,8 @@ foreach ($possibleLogos as $logo) {
 }
 ?>
 <!-- Footer -->
-<footer id="mainFooter" class="bg-white border-t border-gray-200 shadow-sm z-30 transition-all duration-300">
-    <div class="w-full px-6 py-6"> <!-- FIXED: replaced container with full-width wrapper -->
+<footer id="mainFooter" class="bg-white border-t border-gray-200 shadow-sm z-30">
+    <div class="w-full px-6 py-6">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
 
             <!-- Parliamentary Service Info -->
@@ -38,7 +38,7 @@ foreach ($possibleLogos as $logo) {
                 <div class="flex items-center gap-3">
                     <?php if ($logoFound): ?>
                         <img src="./images/<?php echo $logoFile; ?>" alt="Parliamentary Service of Ghana Logo"
-                            class="w-12 h-12 rounded object-contain transition-all duration-300">
+                            class="w-12 h-12 rounded object-contain">
                     <?php else: ?>
                         <div
                             class="w-12 h-12 rounded bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 flex items-center justify-center">
@@ -131,13 +131,13 @@ foreach ($possibleLogos as $logo) {
             <div>
                 <h4 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Quick Actions</h4>
                 <div class="space-y-3">
-                    <a href="quick_guide.pdf"
+                    <a href="#"
                         class="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors group">
                         <i class="fas fa-book text-gray-400 group-hover:text-blue-500"></i>
                         <span class="text-sm">User Guide</span>
                     </a>
 
-                    <a href="faq.php"
+                    <a href="#"
                         class="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors group">
                         <i class="fas fa-question-circle text-gray-400 group-hover:text-blue-500"></i>
                         <span class="text-sm">FAQ</span>
@@ -194,20 +194,29 @@ foreach ($possibleLogos as $logo) {
 </button>
 
 <style>
-    /* Footer default full width; JS and body class will adjust it */
+    /* Footer styling */
     #mainFooter {
         width: 100%;
         margin-left: 0;
-        transition: margin-left 0.3s ease, width 0.3s ease;
+        transition: all 0.3s ease;
     }
 
     @media (min-width: 768px) {
+
+        /* Default expanded state */
         #mainFooter {
             margin-left: 16rem;
             width: calc(100% - 16rem);
         }
 
+        /* Collapsed state - matches sidebar collapsed class */
         body.sidebar-collapsed #mainFooter {
+            margin-left: 5rem;
+            width: calc(100% - 5rem);
+        }
+
+        /* When mainContent has collapsed class, also adjust footer */
+        #mainContent.collapsed~#mainFooter {
             margin-left: 5rem;
             width: calc(100% - 5rem);
         }
@@ -215,15 +224,17 @@ foreach ($possibleLogos as $logo) {
 </style>
 
 <script>
+    // Scroll to top function
     function scrollToTop() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Print function
     function printPage() {
         window.print();
     }
 
-    /* Back to top visibility */
+    // Back to top button visibility
     window.addEventListener('scroll', () => {
         const button = document.querySelector('button[onclick="scrollToTop()"]');
         if (window.scrollY > 300) {
@@ -235,46 +246,81 @@ foreach ($possibleLogos as $logo) {
         }
     });
 
-    /* Footer width handler */
-    function updateFooterWidth() {
+    // Update footer position based on sidebar state
+    function updateFooterPosition() {
         const footer = document.getElementById('mainFooter');
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
 
         if (window.innerWidth >= 768) {
-            if (document.body.classList.contains('sidebar-collapsed')) {
+            // Check if sidebar is collapsed (either by class or localStorage)
+            const isSidebarCollapsed = sidebar ? sidebar.classList.contains('collapsed') :
+                (localStorage.getItem('sidebarCollapsed') === 'true' ||
+                    document.body.classList.contains('sidebar-collapsed'));
+
+            if (isSidebarCollapsed) {
                 footer.style.marginLeft = '5rem';
                 footer.style.width = 'calc(100% - 5rem)';
+                document.body.classList.add('sidebar-collapsed');
+
+                // Also ensure mainContent has collapsed class
+                if (mainContent && !mainContent.classList.contains('collapsed')) {
+                    mainContent.classList.add('collapsed');
+                }
             } else {
                 footer.style.marginLeft = '16rem';
                 footer.style.width = 'calc(100% - 16rem)';
+                document.body.classList.remove('sidebar-collapsed');
+
+                // Remove collapsed class from mainContent
+                if (mainContent && mainContent.classList.contains('collapsed')) {
+                    mainContent.classList.remove('collapsed');
+                }
             }
         } else {
+            // Mobile view - full width
             footer.style.marginLeft = '0';
             footer.style.width = '100%';
+            document.body.classList.remove('sidebar-collapsed');
         }
     }
 
+    // Initialize on DOM load
     document.addEventListener('DOMContentLoaded', () => {
-        /* Apply saved sidebar state */
-        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        // Apply saved sidebar state immediately
+        const savedState = localStorage.getItem('sidebarCollapsed');
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+
+        if (savedState === 'true') {
             document.body.classList.add('sidebar-collapsed');
+            if (sidebar) sidebar.classList.add('collapsed');
+            if (mainContent) mainContent.classList.add('collapsed');
         }
 
-        updateFooterWidth();
+        // Initial position update
+        updateFooterPosition();
 
-        /* Sidebar toggle support */
+        // Listen for sidebar toggle
         const sidebarToggle = document.getElementById('toggleSidebar');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
-                const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-                if (!collapsed) {
-                    document.body.classList.add('sidebar-collapsed');
-                } else {
-                    document.body.classList.remove('sidebar-collapsed');
-                }
-                setTimeout(updateFooterWidth, 350);
+                // Small delay to ensure sidebar classes are updated
+                setTimeout(updateFooterPosition, 50);
             });
         }
 
-        window.addEventListener('resize', updateFooterWidth);
+        // Listen for window resize
+        window.addEventListener('resize', updateFooterPosition);
+
+        // Also update on animation end (for smoother transition)
+        if (sidebar) {
+            sidebar.addEventListener('transitionend', updateFooterPosition);
+        }
+    });
+
+    // Additional safety: update on page load completion
+    window.addEventListener('load', () => {
+        setTimeout(updateFooterPosition, 100);
     });
 </script>
