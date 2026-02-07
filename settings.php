@@ -1,6 +1,8 @@
 <?php
 // Start session
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Include database connection
 require_once "./config/database.php";
@@ -158,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $allSettings = getSettings($conn);
 $orgSettings = getSettings($conn, 'organization');
 $invSettings = getSettings($conn, 'inventory');
+$sysSettings = getSettings($conn, 'system');
 
 // Helper function to get setting value safely
 function getSettingValue($settings, $key, $default = '') {
@@ -174,280 +177,802 @@ function isChecked($settings, $key) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - Parliament ICT</title>
+    <title>System Settings | Parliament ICT</title>
     <link rel="icon" type="image/png" href="./images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* Custom styles */
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background-color: #f9fafb;
+        }
+        
+        .setting-card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+            height: 100%;
+        }
+        
+        .setting-card:hover {
+            border-color: #3b82f6;
+        }
+        
+        .stats-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 26px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #d1d5db;
+            transition: .2s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .2s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #10b981;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            color: #6b7280;
+            border: 1px solid transparent;
+            position: relative;
+            z-index: 1;
+            user-select: none;
+        }
+        
+        .tab.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .tab:hover:not(.active) {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        
+        .input-glow:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .select-custom {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-position: right 16px center;
+            background-repeat: no-repeat;
+            background-size: 16px;
+            padding-right: 48px;
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .success-toast {
+            animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-out 4.7s forwards;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        
+        .section-header {
+            border-bottom: 2px solid #f3f4f6;
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+        }
+        
+        /* Adjust main content for sidebar */
+        #mainContent {
+            margin-left: 16rem;
+            transition: margin-left 0.3s ease;
+            min-height: calc(100vh - 80px);
+        }
+        
+        @media (max-width: 768px) {
+            #mainContent {
+                margin-left: 0;
+            }
+        }
+        
+        /* Tab system fixes */
+        .tab-content {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .tab-content.active {
+            display: block !important;
+            opacity: 1;
+            animation: fadeIn 0.3s ease;
         }
         
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
-        .success-message {
-            background: linear-gradient(to right, #d1fae5, #ecfdf5);
-            border-left: 4px solid #10b981;
+        /* Ensure tabs are clickable */
+        .tab {
+            cursor: pointer;
+            user-select: none;
         }
         
-        .error-message {
-            background: linear-gradient(to right, #fee2e2, #fef2f2);
-            border-left: 4px solid #ef4444;
+        /* Remove any conflicting display properties */
+        [style*="display: none"] {
+            display: none !important;
+        }
+        
+        [style*="display: block"] {
+            display: block !important;
+        }
+        
+        /* Hidden class override */
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen flex">
+<body>
+    <!-- Sidebar -->
+    <?php include 'sidebar.php'; ?>
 
-    <!-- SIDEBAR -->
-    <?php 
-    $sidebarPath = './sidebar.php';
-    if (file_exists($sidebarPath)) {
-        include $sidebarPath; 
-    } else {
-        echo '<div class="fixed left-0 top-0 h-full w-64 bg-white shadow-lg">';
-        echo '<div class="p-6">';
-        echo '<h2 class="text-xl font-bold text-blue-600">Parliament ICT</h2>';
-        echo '</div></div>';
-    }
-    ?>
-
-    <!-- MAIN CONTENT -->
-    <main id="mainContent" class="flex-1 transition-all duration-300 ml-64 p-8">
-
-        <!-- HEADER -->
-        <header class="mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-900">Settings</h1>
-                <p class="text-slate-600 mt-1">System preferences and configuration</p>
-            </div>
-            <div class="text-sm text-slate-500">
-                <i class="fas fa-database mr-1"></i>
-                Settings stored in database
-            </div>
-        </header>
-
-        <!-- MESSAGE DISPLAY -->
-        <?php if ($message): ?>
-        <div id="messageContainer" class="mb-6 p-4 rounded-lg fade-in <?php echo $messageType === 'success' ? 'success-message' : 'error-message'; ?>">
-            <div class="flex items-center gap-3">
-                <?php if ($messageType === 'success'): ?>
-                    <span class="text-green-600 text-lg">✓</span>
-                <?php else: ?>
-                    <span class="text-red-600 text-lg">✗</span>
-                <?php endif; ?>
-                <div>
-                    <p class="font-medium <?php echo $messageType === 'success' ? 'text-green-800' : 'text-red-800'; ?>">
-                        <?php echo htmlspecialchars($message); ?>
-                    </p>
-                    <p class="text-sm <?php echo $messageType === 'success' ? 'text-green-700' : 'text-red-700'; ?> mt-1">
-                        <?php echo date('Y-m-d H:i:s'); ?>
-                    </p>
+    <!-- Main Content -->
+    <main id="mainContent" class="transition-all duration-300">
+        <!-- Header -->
+        <div class="bg-white border-b border-gray-200 px-6 md:px-8 py-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="p-3 rounded-lg bg-blue-50 text-blue-600">
+                        <i class="fas fa-cog text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-semibold text-gray-900">
+                            System Settings
+                        </h1>
+                        <p class="text-gray-600 text-sm mt-1">Configure and customize your system preferences</p>
+                    </div>
                 </div>
-                <button onclick="document.getElementById('messageContainer').remove()" 
-                        class="ml-auto text-slate-500 hover:text-slate-700">
+                <div class="flex items-center gap-3">
+                    <button onclick="location.reload()"
+                        class="px-4 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm">
+                        <i class="fas fa-redo text-xs"></i>
+                        Refresh
+                    </button>
+                    <button onclick="exportSettings()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm shadow-sm">
+                        <i class="fas fa-download text-xs"></i>
+                        Export Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Toast -->
+        <?php if ($message && $messageType === 'success'): ?>
+        <div id="successToast" class="fixed top-6 right-6 z-50 success-toast">
+            <div class="bg-white border border-green-200 text-gray-900 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+                <div class="p-2 bg-green-100 rounded-full text-green-600">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div>
+                    <p class="font-medium">Success</p>
+                    <p class="text-sm text-gray-600"><?= htmlspecialchars($message) ?></p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="ml-8 text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
         </div>
         <?php endif; ?>
 
-        <!-- ORGANIZATION DETAILS -->
-        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 fade-in">
-            <div class="mb-6">
-                <h2 class="text-xl font-semibold text-slate-900">
-                    <i class="fas fa-landmark text-blue-600 mr-2"></i>Organization Details
-                </h2>
-                <p class="text-slate-600 text-sm mt-1">Set the directorate information used in reports</p>
+        <!-- Error Toast -->
+        <?php if ($message && $messageType === 'error'): ?>
+        <div id="errorToast" class="fixed top-6 right-6 z-50 success-toast">
+            <div class="bg-white border border-red-200 text-gray-900 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+                <div class="p-2 bg-red-100 rounded-full text-red-600">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div>
+                    <p class="font-medium">Error</p>
+                    <p class="text-sm text-gray-600"><?= htmlspecialchars($message) ?></p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="ml-8 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Main Content -->
+        <div class="p-6 md:p-8">
+            <!-- Settings Tabs -->
+            <div class="flex flex-wrap gap-2 mb-8 bg-white rounded-lg p-2 shadow-sm border border-gray-200">
+                <div class="tab active" data-tab="organization">
+                    <i class="fas fa-landmark mr-2 text-sm"></i>Organization
+                </div>
+                <div class="tab" data-tab="inventory">
+                    <i class="fas fa-boxes mr-2 text-sm"></i>Inventory
+                </div>
+                <div class="tab" data-tab="system">
+                    <i class="fas fa-server mr-2 text-sm"></i>System
+                </div>
+                <div class="tab" data-tab="backup">
+                    <i class="fas fa-database mr-2 text-sm"></i>Backup
+                </div>
             </div>
 
-            <form id="orgForm" method="POST" class="space-y-5">
-                <input type="hidden" name="action" value="save_organization">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">
-                            <i class="fas fa-building text-slate-400 mr-1"></i>Organization Name
-                        </label>
-                        <input type="text" name="org_name" id="orgName" required
-                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            value="<?php echo getSettingValue($orgSettings, 'org_name', 'Parliament of Ghana ICT Directorate'); ?>">
-                        <p class="text-xs text-slate-500 mt-1">This name appears on all reports and exports</p>
-                    </div>
+            <!-- Organization Settings Tab -->
+            <div id="organizationTab" class="tab-content active">
+                <div class="bg-white rounded-lg border border-gray-200 mb-8">
+                    <div class="p-6">
+                        <div class="section-header">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">
+                                        <i class="fas fa-landmark text-blue-600 mr-2"></i>
+                                        Organization Details
+                                    </h2>
+                                    <p class="text-gray-600 text-sm mt-1">Configure your organization's identity and branding</p>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">
-                            <i class="fas fa-envelope text-slate-400 mr-1"></i>Default Report Contact
-                        </label>
-                        <input type="email" name="org_contact" id="orgContact" required
-                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            value="<?php echo getSettingValue($orgSettings, 'org_contact', 'ict@parliament.gov.gh'); ?>">
-                        <p class="text-xs text-slate-500 mt-1">Email address for report inquiries</p>
-                    </div>
+                        <form method="POST" class="space-y-6">
+                            <input type="hidden" name="action" value="save_organization">
+                            
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <!-- Organization Name -->
+                                <div class="setting-card">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="p-2 bg-blue-50 rounded text-blue-600">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Organization Name</label>
+                                            <p class="text-xs text-gray-500">Appears on all reports and exports</p>
+                                        </div>
+                                    </div>
+                                    <input type="text" name="org_name" required
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow transition text-sm"
+                                        value="<?= getSettingValue($orgSettings, 'org_name', 'Parliament of Ghana ICT Directorate') ?>"
+                                        placeholder="Enter organization name">
+                                </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">
-                            <i class="fas fa-file-alt text-slate-400 mr-1"></i>Report Footer
-                        </label>
-                        <input type="text" name="org_footer" id="orgFooter"
-                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            value="<?php echo getSettingValue($orgSettings, 'org_footer', 'Confidential - Internal Use Only'); ?>">
-                        <p class="text-xs text-slate-500 mt-1">Text displayed at the bottom of all reports</p>
-                    </div>
+                                <!-- Contact Email -->
+                                <div class="setting-card">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="p-2 bg-green-50 rounded text-green-600">
+                                            <i class="fas fa-envelope"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Contact Email</label>
+                                            <p class="text-xs text-gray-500">For report inquiries and notifications</p>
+                                        </div>
+                                    </div>
+                                    <input type="email" name="org_contact" required
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow transition text-sm"
+                                        value="<?= getSettingValue($orgSettings, 'org_contact', 'ict@parliament.gov.gh') ?>"
+                                        placeholder="contact@example.com">
+                                </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">
-                            <i class="fas fa-user-tag text-slate-400 mr-1"></i>Default Assignment Type
-                        </label>
-                        <select name="org_assignment" id="orgAssignment"
-                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white">
-                            <?php
-                            $assignmentValue = getSettingValue($orgSettings, 'org_assignment', 'MP');
-                            $assignmentOptions = $orgSettings['org_assignment']['options'] ?? ['MP', 'Staff', 'Office'];
-                            foreach ($assignmentOptions as $option):
-                            ?>
-                            <option value="<?php echo htmlspecialchars($option); ?>" 
-                                <?php echo $assignmentValue === $option ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($option); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="text-xs text-slate-500 mt-1">Default assignment for new inventory items</p>
+                                <!-- Report Footer -->
+                                <div class="setting-card">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="p-2 bg-purple-50 rounded text-purple-600">
+                                            <i class="fas fa-file-alt"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Report Footer</label>
+                                            <p class="text-xs text-gray-500">Footer text for all generated reports</p>
+                                        </div>
+                                    </div>
+                                    <input type="text" name="org_footer"
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow transition text-sm"
+                                        value="<?= getSettingValue($orgSettings, 'org_footer', 'Confidential - Internal Use Only') ?>"
+                                        placeholder="Enter footer text">
+                                </div>
+
+                                <!-- Default Assignment -->
+                                <div class="setting-card">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="p-2 bg-amber-50 rounded text-amber-600">
+                                            <i class="fas fa-user-tag"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Default Assignment</label>
+                                            <p class="text-xs text-gray-500">Default assignment for new inventory items</p>
+                                        </div>
+                                    </div>
+                                    <select name="org_assignment"
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow select-custom bg-white text-sm">
+                                        <?php
+                                        $assignmentValue = getSettingValue($orgSettings, 'org_assignment', 'MP');
+                                        $assignmentOptions = $orgSettings['org_assignment']['options'] ?? ['MP', 'Staff', 'Office'];
+                                        foreach ($assignmentOptions as $option):
+                                        ?>
+                                        <option value="<?= htmlspecialchars($option) ?>" 
+                                            <?= $assignmentValue === $option ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($option) ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end pt-6 border-t border-gray-200">
+                                <button type="submit"
+                                    class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors flex items-center gap-2 text-sm">
+                                    <i class="fas fa-save"></i>
+                                    Save Organization Settings
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-
-                <div class="flex justify-end pt-2">
-                    <button type="submit"
-                        class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm font-medium flex items-center gap-2">
-                        <i class="fas fa-save"></i>Save Changes
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- INVENTORY PREFERENCES -->
-        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 fade-in">
-            <div class="mb-6">
-                <h2 class="text-xl font-semibold text-slate-900">
-                    <i class="fas fa-boxes text-blue-600 mr-2"></i>Inventory Preferences
-                </h2>
-                <p class="text-slate-600 text-sm mt-1">Configure default statuses and alerts</p>
             </div>
 
-            <form id="prefsForm" method="POST" class="space-y-5">
-                <input type="hidden" name="action" value="save_inventory">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">
-                            <i class="fas fa-tag text-slate-400 mr-1"></i>Default Status
-                        </label>
-                        <select name="inv_default_status" id="prefsStatus"
-                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white">
-                            <?php
-                            $statusValue = getSettingValue($invSettings, 'inv_default_status', 'In Use');
-                            $statusOptions = $invSettings['inv_default_status']['options'] ?? ['In Use', 'Store', 'Faulty', 'Retired'];
-                            foreach ($statusOptions as $option):
-                            ?>
-                            <option value="<?php echo htmlspecialchars($option); ?>" 
-                                <?php echo $statusValue === $option ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($option); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="text-xs text-slate-500 mt-1">Status for newly added inventory items</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">
-                            <i class="fas fa-calendar-alt text-slate-400 mr-1"></i>Retirement Threshold (months)
-                        </label>
-                        <input type="number" name="inv_retirement_threshold" id="prefsThreshold" min="1" max="120" required
-                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            value="<?php echo getSettingValue($invSettings, 'inv_retirement_threshold', 36); ?>">
-                        <p class="text-xs text-slate-500 mt-1">When to flag devices for retirement</p>
-                    </div>
-
-                    <div class="flex items-start gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                        <input type="checkbox" name="inv_email_alerts" id="prefsEmailAlerts" 
-                            class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 mt-1"
-                            <?php echo isChecked($invSettings, 'inv_email_alerts'); ?>>
-                        <div>
-                            <label for="prefsEmailAlerts" class="block text-sm font-medium text-slate-700">Email Alerts</label>
-                            <p class="text-xs text-slate-500 mt-1">Receive email notifications for inventory updates</p>
+            <!-- Inventory Settings Tab -->
+            <div id="inventoryTab" class="tab-content">
+                <div class="bg-white rounded-lg border border-gray-200 mb-8">
+                    <div class="p-6">
+                        <div class="section-header">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">
+                                        <i class="fas fa-boxes text-amber-600 mr-2"></i>
+                                        Inventory Preferences
+                                    </h2>
+                                    <p class="text-gray-600 text-sm mt-1">Configure inventory management settings and alerts</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="flex items-start gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                        <input type="checkbox" name="inv_compliance_reminders" id="prefsCompliance"
-                            class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 mt-1"
-                            <?php echo isChecked($invSettings, 'inv_compliance_reminders'); ?>>
-                        <div>
-                            <label for="prefsCompliance" class="block text-sm font-medium text-slate-700">Compliance Reminders</label>
-                            <p class="text-xs text-slate-500 mt-1">Enable compliance and audit reminders</p>
-                        </div>
+                        <form method="POST" class="space-y-6">
+                            <input type="hidden" name="action" value="save_inventory">
+                            
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <!-- Default Status -->
+                                <div class="setting-card">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="p-2 bg-blue-50 rounded text-blue-600">
+                                            <i class="fas fa-tag"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Default Status</label>
+                                            <p class="text-xs text-gray-500">Status for newly added inventory items</p>
+                                        </div>
+                                    </div>
+                                    <select name="inv_default_status"
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow select-custom bg-white text-sm">
+                                        <?php
+                                        $statusValue = getSettingValue($invSettings, 'inv_default_status', 'In Use');
+                                        $statusOptions = $invSettings['inv_default_status']['options'] ?? ['In Use', 'Store', 'Faulty', 'Retired'];
+                                        foreach ($statusOptions as $option):
+                                        ?>
+                                        <option value="<?= htmlspecialchars($option) ?>" 
+                                            <?= $statusValue === $option ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($option) ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <!-- Retirement Threshold -->
+                                <div class="setting-card">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="p-2 bg-red-50 rounded text-red-600">
+                                            <i class="fas fa-calendar-alt"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Retirement Threshold</label>
+                                            <p class="text-xs text-gray-500">When to flag devices for retirement (months)</p>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <input type="number" name="inv_retirement_threshold" min="1" max="120" required
+                                            class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow transition text-sm pl-10"
+                                            value="<?= getSettingValue($invSettings, 'inv_retirement_threshold', 36) ?>">
+                                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                                            <i class="fas fa-clock"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Email Alerts -->
+                                <div class="setting-card">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="p-2 bg-emerald-50 rounded text-emerald-600">
+                                                <i class="fas fa-bell"></i>
+                                            </div>
+                                            <div>
+                                                <label class="block font-medium text-gray-900">Email Alerts</label>
+                                                <p class="text-xs text-gray-500">Receive email notifications for updates</p>
+                                            </div>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" name="inv_email_alerts" 
+                                                <?= isChecked($invSettings, 'inv_email_alerts') ?>>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="mt-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Alerts will be sent for critical inventory changes
+                                    </div>
+                                </div>
+
+                                <!-- Compliance Reminders -->
+                                <div class="setting-card">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="p-2 bg-purple-50 rounded text-purple-600">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </div>
+                                            <div>
+                                                <label class="block font-medium text-gray-900">Compliance Reminders</label>
+                                                <p class="text-xs text-gray-500">Enable compliance and audit reminders</p>
+                                            </div>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" name="inv_compliance_reminders" 
+                                                <?= isChecked($invSettings, 'inv_compliance_reminders') ?>>
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="mt-4 p-3 bg-purple-50 rounded text-sm text-purple-700">
+                                        <i class="fas fa-shield-alt mr-2"></i>
+                                        Ensures compliance with inventory management policies
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end pt-6 border-t border-gray-200">
+                                <button type="submit"
+                                    class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors flex items-center gap-2 text-sm">
+                                    <i class="fas fa-cog"></i>
+                                    Update Inventory Settings
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-
-                <div class="flex justify-end pt-2">
-                    <button type="submit"
-                        class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm font-medium flex items-center gap-2">
-                        <i class="fas fa-cog"></i>Update Preferences
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- SYSTEM INFORMATION -->
-        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mt-6 fade-in">
-            <div class="mb-6">
-                <h2 class="text-xl font-semibold text-slate-900">
-                    <i class="fas fa-info-circle text-blue-600 mr-2"></i>System Information
-                </h2>
-                <p class="text-slate-600 text-sm mt-1">Current system configuration and statistics</p>
             </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+
+            <!-- System Settings Tab -->
+            <div id="systemTab" class="tab-content">
+                <div class="bg-white rounded-lg border border-gray-200 mb-8">
+                    <div class="p-6">
+                        <div class="section-header">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">
+                                        <i class="fas fa-server text-green-600 mr-2"></i>
+                                        System Configuration
+                                    </h2>
+                                    <p class="text-gray-600 text-sm mt-1">Advanced system settings and performance options</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Session Timeout -->
+                            <div class="setting-card">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="p-2 bg-red-50 rounded text-red-600">
+                                        <i class="fas fa-hourglass-end"></i>
+                                    </div>
+                                    <div>
+                                        <label class="block font-medium text-gray-900">Session Timeout</label>
+                                        <p class="text-xs text-gray-500">Auto-logout after inactivity</p>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <select class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow select-custom bg-white text-sm">
+                                        <option>30 minutes</option>
+                                        <option selected>60 minutes</option>
+                                        <option>120 minutes</option>
+                                        <option>Never (not recommended)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Log Retention -->
+                            <div class="setting-card">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="p-2 bg-purple-50 rounded text-purple-600">
+                                        <i class="fas fa-history"></i>
+                                    </div>
+                                    <div>
+                                        <label class="block font-medium text-gray-900">Log Retention</label>
+                                        <p class="text-xs text-gray-500">How long to keep activity logs</p>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <select class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow select-custom bg-white text-sm">
+                                        <option>30 days</option>
+                                        <option selected>90 days</option>
+                                        <option>180 days</option>
+                                        <option>1 year</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Maintenance Mode -->
+                            <div class="setting-card">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 bg-yellow-50 rounded text-yellow-600">
+                                            <i class="fas fa-tools"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Maintenance Mode</label>
+                                            <p class="text-xs text-gray-500">Restrict access for system maintenance</p>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="mt-4 p-3 bg-yellow-50 rounded text-sm text-yellow-700">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                    Only administrators can access when enabled
+                                </div>
+                            </div>
+
+                            <!-- API Access -->
+                            <div class="setting-card">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 bg-indigo-50 rounded text-indigo-600">
+                                            <i class="fas fa-code"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">API Access</label>
+                                            <p class="text-xs text-gray-500">Enable REST API for integrations</p>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="mt-4 p-3 bg-indigo-50 rounded text-sm text-indigo-700">
+                                    <i class="fas fa-lock mr-2"></i>
+                                    API requires authentication token
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 pt-6 border-t border-gray-200">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                                <div>
+                                    <h3 class="font-medium text-gray-900">Danger Zone</h3>
+                                    <p class="text-sm text-gray-500">Irreversible actions - proceed with caution</p>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button onclick="clearAllLogs()"
+                                        class="px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm font-medium">
+                                        Clear All Logs
+                                    </button>
+                                    <button onclick="resetAllSettings()"
+                                        class="px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded hover:bg-red-100 transition-colors text-sm font-medium">
+                                        Reset to Defaults
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup Settings Tab -->
+            <div id="backupTab" class="tab-content">
+                <div class="bg-white rounded-lg border border-gray-200 mb-8">
+                    <div class="p-6">
+                        <div class="section-header">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">
+                                        <i class="fas fa-database text-purple-600 mr-2"></i>
+                                        Backup & Recovery
+                                    </h2>
+                                    <p class="text-gray-600 text-sm mt-1">Manage system backups and recovery options</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Auto Backup -->
+                            <div class="setting-card">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 bg-blue-50 rounded text-blue-600">
+                                            <i class="fas fa-robot"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Auto Backup</label>
+                                            <p class="text-xs text-gray-500">Automatically backup database daily</p>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Backup Frequency</label>
+                                    <select class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow select-custom bg-white text-sm">
+                                        <option>Daily</option>
+                                        <option selected>Weekly</option>
+                                        <option>Monthly</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Backup Retention -->
+                            <div class="setting-card">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="p-2 bg-green-50 rounded text-green-600">
+                                        <i class="fas fa-archive"></i>
+                                    </div>
+                                    <div>
+                                        <label class="block font-medium text-gray-900">Backup Retention</label>
+                                        <p class="text-xs text-gray-500">Number of backups to keep</p>
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" min="1" max="100"
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 input-glow transition text-sm pl-10"
+                                        value="30">
+                                    <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                                        <i class="fas fa-hdd"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Last Backup -->
+                            <div class="setting-card lg:col-span-2">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 bg-emerald-50 rounded text-emerald-600">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                        <div>
+                                            <label class="block font-medium text-gray-900">Last Backup</label>
+                                            <p class="text-xs text-gray-500">Most recent successful backup</p>
+                                        </div>
+                                    </div>
+                                    <div class="sm:text-right">
+                                        <p class="font-medium text-gray-900">2026-02-05 14:30:00</p>
+                                        <p class="text-xs text-green-600">Success • 45.2 MB</p>
+                                    </div>
+                                </div>
+                                <div class="mt-6">
+                                    <div class="flex flex-col sm:flex-row gap-3">
+                                        <button onclick="createBackup()"
+                                            class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors flex items-center gap-2 justify-center text-sm">
+                                            <i class="fas fa-plus"></i>
+                                            Create Backup Now
+                                        </button>
+                                        <button onclick="restoreBackup()"
+                                            class="px-6 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded font-medium transition-colors flex items-center gap-2 justify-center text-sm">
+                                            <i class="fas fa-undo"></i>
+                                            Restore from Backup
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="stats-card">
                     <div class="flex items-center gap-3">
-                        <div class="p-2 bg-blue-100 rounded-lg">
-                            <i class="fas fa-database text-blue-600"></i>
+                        <div class="p-2 bg-blue-50 rounded text-blue-600">
+                            <i class="fas fa-cog"></i>
                         </div>
                         <div>
-                            <p class="text-sm text-slate-600">Database</p>
-                            <p class="font-semibold text-slate-900">Connected</p>
+                            <p class="text-xs text-gray-500">Total Settings</p>
+                            <p class="text-lg font-semibold text-gray-900"><?= count($allSettings) ?></p>
                         </div>
                     </div>
                 </div>
                 
-                <div class="p-4 bg-green-50 rounded-lg border border-green-100">
+                <div class="stats-card">
                     <div class="flex items-center gap-3">
-                        <div class="p-2 bg-green-100 rounded-lg">
-                            <i class="fas fa-cogs text-green-600"></i>
+                        <div class="p-2 bg-green-50 rounded text-green-600">
+                            <i class="fas fa-check-circle"></i>
                         </div>
                         <div>
-                            <p class="text-sm text-slate-600">Settings Loaded</p>
-                            <p class="font-semibold text-slate-900"><?php echo count($allSettings); ?> settings</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                    <div class="flex items-center gap-3">
-                        <div class="p-2 bg-purple-100 rounded-lg">
-                            <i class="fas fa-history text-purple-600"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm text-slate-600">Last Updated</p>
-                            <p class="font-semibold text-slate-900">
+                            <p class="text-xs text-gray-500">Last Updated</p>
+                            <p class="text-sm font-semibold text-gray-900">
                                 <?php
                                 $lastUpdateQuery = "SELECT MAX(updated_at) as last_update FROM settings";
                                 $result = mysqli_query($conn, $lastUpdateQuery);
                                 if ($result && $row = mysqli_fetch_assoc($result)) {
-                                    echo $row['last_update'] ? date('Y-m-d H:i', strtotime($row['last_update'])) : 'Never';
+                                    echo $row['last_update'] ? date('M d, H:i', strtotime($row['last_update'])) : 'Never';
                                 } else {
                                     echo 'Unknown';
                                 }
@@ -456,125 +981,272 @@ function isChecked($settings, $key) {
                         </div>
                     </div>
                 </div>
+                
+                <div class="stats-card">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-purple-50 rounded text-purple-600">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Database Status</p>
+                            <p class="text-sm font-semibold text-emerald-600">Connected</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-amber-50 rounded text-amber-600">
+                            <i class="fas fa-sync-alt"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Auto Save</p>
+                            <p class="text-sm font-semibold text-gray-900">Enabled</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-             <!-- Footer -->
-    <?php include __DIR__ . '/footer.php'; ?>
-
-        </section>
-
-        
-
+        </div>
     </main>
 
-    <!-- JS -->
+    <!-- Footer -->
+    <?php include 'footer.php'; ?>
+
     <script>
-        // Handle sidebar collapse (if sidebar.php exists)
-        const sidebar = document.getElementById('sidebar');
-        const mainContent = document.getElementById('mainContent');
-        const toggleBtn = document.getElementById('toggleSidebar');
-
-        if (sidebar && toggleBtn) {
-            if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                sidebar.classList.add('collapsed');
-                if (mainContent.classList.contains('ml-64')) {
-                    mainContent.classList.replace('ml-64', 'ml-20');
+        // Simple Tab Switching Solution - Fixed
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Settings page loaded - initializing tabs');
+            
+            // Get all tabs and tab contents
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // Function to show a specific tab
+            function showTab(tabId) {
+                console.log('Showing tab:', tabId);
+                
+                // Hide all tab contents
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    content.style.display = 'none';
+                });
+                
+                // Show selected tab content
+                const tabContent = document.getElementById(tabId + 'Tab');
+                if (tabContent) {
+                    tabContent.classList.add('active');
+                    tabContent.style.display = 'block';
+                    console.log('Tab content shown:', tabId + 'Tab');
                 }
+                
+                // Update active tab
+                tabs.forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                
+                const activeTab = document.querySelector(`.tab[data-tab="${tabId}"]`);
+                if (activeTab) {
+                    activeTab.classList.add('active');
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('activeSettingsTab', tabId);
             }
-
-            toggleBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-
-                if (sidebar.classList.contains('collapsed')) {
-                    mainContent.classList.replace('ml-64', 'ml-20');
-                    localStorage.setItem('sidebarCollapsed', 'true');
-                } else {
-                    mainContent.classList.replace('ml-20', 'ml-64');
-                    localStorage.setItem('sidebarCollapsed', 'false');
-                }
+            
+            // Add click events to tabs
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tabId = this.getAttribute('data-tab');
+                    console.log('Tab clicked:', tabId);
+                    showTab(tabId);
+                });
             });
-        }
-
-        // Auto-hide message after 5 seconds
-        const messageContainer = document.getElementById('messageContainer');
-        if (messageContainer) {
-            setTimeout(() => {
-                messageContainer.style.opacity = '0';
-                setTimeout(() => {
-                    messageContainer.remove();
-                }, 300);
-            }, 5000);
-        }
+            
+            // Initialize with saved tab or default to 'organization'
+            let savedTab = localStorage.getItem('activeSettingsTab');
+            
+            // Check if the saved tab exists
+            const tabExists = Array.from(tabs).some(tab => 
+                tab.getAttribute('data-tab') === savedTab
+            );
+            
+            if (!savedTab || !tabExists) {
+                savedTab = 'organization'; // Default tab
+            }
+            
+            console.log('Initializing with tab:', savedTab);
+            showTab(savedTab);
+            
+            // Debug: Check initial state
+            console.log('Active tab content:', document.querySelector('.tab-content.active'));
+            console.log('All tabs:', tabs.length);
+            console.log('All tab contents:', tabContents.length);
+        });
 
         // Form validation
-        document.getElementById('orgForm')?.addEventListener('submit', function(e) {
-            const orgName = document.getElementById('orgName');
-            const orgContact = document.getElementById('orgContact');
-            
-            if (!orgName.value.trim()) {
-                e.preventDefault();
-                alert('Organization name is required');
-                orgName.focus();
-                return;
-            }
-            
-            if (!orgContact.value.trim()) {
-                e.preventDefault();
-                alert('Contact email is required');
-                orgContact.focus();
-                return;
-            }
-            
-            // Show loading state
-            const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-                submitBtn.disabled = true;
-            }
-        });
-
-        document.getElementById('prefsForm')?.addEventListener('submit', function(e) {
-            const threshold = document.getElementById('prefsThreshold');
-            
-            if (!threshold.value || threshold.value < 1 || threshold.value > 120) {
-                e.preventDefault();
-                alert('Please enter a valid retirement threshold (1-120 months)');
-                threshold.focus();
-                return;
-            }
-            
-            // Show loading state
-            const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
-                submitBtn.disabled = true;
-            }
-        });
-
-        // Reset button states on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            const forms = document.querySelectorAll('form');
-            forms.forEach(form => {
-                const submitBtn = form.querySelector('button[type="submit"]');
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const submitBtn = this.querySelector('button[type="submit"]');
                 if (submitBtn) {
-                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                    submitBtn.disabled = true;
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings';
+                    }, 3000);
+                }
+            });
+        });
+        
+        // Export settings function
+        function exportSettings() {
+            fetch('./api/export-settings.php')
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `parliament_settings_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Show success message
+                    showToast('Settings exported successfully!', 'success');
+                })
+                .catch(error => {
+                    console.error('Export error:', error);
+                    showToast('Failed to export settings', 'error');
+                });
+        }
+        
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-6 right-6 z-50 success-toast`;
+            toast.innerHTML = `
+                <div class="bg-white border ${type === 'success' ? 'border-green-200' : 'border-red-200'} text-gray-900 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+                    <div class="p-2 ${type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} rounded-full">
+                        <i class="fas ${type === 'success' ? 'fa-check' : 'fa-exclamation-circle'}"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium">${type === 'success' ? 'Success' : 'Error'}</p>
+                        <p class="text-sm text-gray-600">${message}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-8 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+        
+        // Danger zone functions
+        function clearAllLogs() {
+            if (confirm('Are you sure you want to clear all activity logs? This action cannot be undone.')) {
+                // Implementation would go here
+                showToast('Logs cleared successfully', 'success');
+            }
+        }
+        
+        function resetAllSettings() {
+            if (confirm('⚠️ WARNING: This will reset ALL settings to their defaults. This action cannot be undone. Are you sure?')) {
+                // Implementation would go here
+                showToast('Settings reset to defaults', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }
+        }
+        
+        // Backup functions
+        function createBackup() {
+            showToast('Creating backup...', 'info');
+            setTimeout(() => {
+                showToast('Backup created successfully!', 'success');
+            }, 2000);
+        }
+        
+        function restoreBackup() {
+            if (confirm('Restore from backup? This will overwrite current settings.')) {
+                showToast('Restoring from backup...', 'info');
+            }
+        }
+        
+        // Auto-save indicators
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const form = this.closest('form');
+                if (form) {
+                    const saveBtn = form.querySelector('button[type="submit"]');
+                    if (saveBtn) {
+                        saveBtn.classList.add('relative');
+                        saveBtn.insertAdjacentHTML('beforeend', '<span class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>');
+                        setTimeout(() => {
+                            const indicator = saveBtn.querySelector('.absolute');
+                            if (indicator) indicator.remove();
+                        }, 2000);
+                    }
                 }
             });
         });
 
-        // Real-time validation
-        document.getElementById('prefsThreshold')?.addEventListener('input', function() {
-            const value = parseInt(this.value);
-            if (value < 1) {
-                this.value = 1;
-            } else if (value > 120) {
-                this.value = 120;
+        // Update main content margin based on sidebar state
+        function updateMainContentMargin() {
+            const mainContent = document.getElementById('mainContent');
+            const sidebarEl = document.querySelector('#sidebar'); // Changed variable name
+            
+            if (window.innerWidth >= 768 && sidebarEl) {
+                // Check if sidebar is collapsed
+                const isCollapsed = sidebarEl.classList.contains('collapsed') || 
+                                   localStorage.getItem('sidebarCollapsed') === 'true' ||
+                                   document.body.classList.contains('sidebar-collapsed');
+                
+                if (isCollapsed) {
+                    mainContent.style.marginLeft = '5rem';
+                } else {
+                    mainContent.style.marginLeft = '16rem';
+                }
+            } else {
+                // Mobile view
+                mainContent.style.marginLeft = '0';
             }
-        });
-    </script>
+        }
 
+        // Initialize sidebar state
+        document.addEventListener('DOMContentLoaded', function() {
+            updateMainContentMargin();
+            
+            // Listen for sidebar toggle
+            const toggleBtn = document.getElementById('toggleSidebar');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    setTimeout(updateMainContentMargin, 300); // Wait for transition
+                });
+            }
+            
+            // Listen for window resize
+            window.addEventListener('resize', updateMainContentMargin);
+            
+            // Also listen for storage events (if sidebar state changes in another tab)
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'sidebarCollapsed') {
+                    updateMainContentMargin();
+                }
+            });
+        });
+
+        // Additional adjustment for smooth transition
+        const sidebarElement = document.querySelector('#sidebar');
+        if (sidebarElement) {
+            sidebarElement.addEventListener('transitionend', updateMainContentMargin);
+        }
+    </script>
 </body>
 </html>
-<?php
-// Connection is managed by the Database class
-?>

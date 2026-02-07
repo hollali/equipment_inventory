@@ -486,6 +486,19 @@ $deviceFaultyRate = $userStats['totalDevices'] > 0 ? round(($userStats['devicesF
         .bg-light {
             background-color: #f8fafc;
         }
+
+        /* Adjust main content for sidebar */
+        #mainContent {
+            margin-left: 16rem;
+            transition: margin-left 0.3s ease;
+            min-height: calc(100vh - 80px);
+        }
+
+        @media (max-width: 768px) {
+            #mainContent {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 
@@ -495,7 +508,7 @@ $deviceFaultyRate = $userStats['totalDevices'] > 0 ? round(($userStats['devicesF
     <?php include 'sidebar.php'; ?>
 
     <!-- Main Content -->
-    <main class="ml-0 md:ml-64 transition-all duration-300">
+    <main id="mainContent" class="transition-all duration-300">
         <!-- Header -->
         <div class="bg-white border-b border-gray-200 px-6 md:px-8 py-6">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -991,7 +1004,7 @@ $deviceFaultyRate = $userStats['totalDevices'] > 0 ? round(($userStats['devicesF
     </main>
 
     <!-- Footer -->
-    <?php include __DIR__ . '/footer.php'; ?>
+    <?php include 'footer.php'; ?>
 
     <script>
         // Search functionality
@@ -1078,6 +1091,57 @@ $deviceFaultyRate = $userStats['totalDevices'] > 0 ? round(($userStats['devicesF
                 });
             });
         });
+
+        // Update main content margin based on sidebar state
+        function updateMainContentMargin() {
+            const mainContent = document.getElementById('mainContent');
+            const sidebar = document.querySelector('#sidebar');
+            
+            if (window.innerWidth >= 768 && sidebar) {
+                // Check if sidebar is collapsed
+                const isCollapsed = sidebar.classList.contains('collapsed') || 
+                                   localStorage.getItem('sidebarCollapsed') === 'true' ||
+                                   document.body.classList.contains('sidebar-collapsed');
+                
+                if (isCollapsed) {
+                    mainContent.style.marginLeft = '5rem';
+                } else {
+                    mainContent.style.marginLeft = '16rem';
+                }
+            } else {
+                // Mobile view
+                mainContent.style.marginLeft = '0';
+            }
+        }
+
+        // Initialize sidebar state
+        document.addEventListener('DOMContentLoaded', function() {
+            updateMainContentMargin();
+            
+            // Listen for sidebar toggle
+            const toggleBtn = document.getElementById('toggleSidebar');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    setTimeout(updateMainContentMargin, 300); // Wait for transition
+                });
+            }
+            
+            // Listen for window resize
+            window.addEventListener('resize', updateMainContentMargin);
+            
+            // Also listen for storage events (if sidebar state changes in another tab)
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'sidebarCollapsed') {
+                    updateMainContentMargin();
+                }
+            });
+        });
+
+        // Additional adjustment for smooth transition
+        const sidebarElement = document.querySelector('#sidebar');
+        if (sidebarElement) {
+            sidebarElement.addEventListener('transitionend', updateMainContentMargin);
+        }
     </script>
 </body>
 
