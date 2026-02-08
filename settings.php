@@ -418,7 +418,7 @@ function isChecked($settings, $key) {
                     <button onclick="exportSettings()"
                         class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm shadow-sm">
                         <i class="fas fa-download text-xs"></i>
-                        Export Settings
+                        Export
                     </button>
                 </div>
             </div>

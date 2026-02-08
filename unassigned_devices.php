@@ -190,7 +190,7 @@ $conditionLabels = [
 
 // Filter options for dropdowns - Updated to match your statuses
 $statusOptions = [
-    'in_storage' => 'In Storage',
+    'in_storage' => 'Store',
     'active' => 'Active',
     'faulty' => 'Faulty',
     'repairing' => 'Repairing'
@@ -1190,6 +1190,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
             </div>
         </div>
     </div>
+    <!--footer-->
     <?php include __DIR__ . '/footer.php'; ?>
     <!-- JavaScript Libraries -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
