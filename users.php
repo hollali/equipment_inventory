@@ -387,7 +387,7 @@ $stmt->close();
                     <p class="text-gray-600">Manage system users, roles, and permissions efficiently</p>
                 </div>
                 <button onclick="openAddModal()"
-                    class="inline-flex items-center justify-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md">
+                    class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md">
                     <i class="fas fa-user-plus mr-2"></i>
                     Add New User
                 </button>
@@ -402,7 +402,7 @@ $stmt->close();
                             <p class="text-2xl font-semibold text-gray-900"><?= $totalUsers ?></p>
                         </div>
                         <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-users text-lg text-primary-600"></i>
+                            <i class="fas fa-users text-lg text-blue-600"></i>
                         </div>
                     </div>
                 </div>
@@ -511,7 +511,7 @@ $stmt->close();
                 <!-- Action Buttons -->
                 <div class="md:col-span-2 flex gap-2">
                     <button type="submit"
-                        class="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
+                        class="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                         <i class="fas fa-filter mr-2"></i>Filter
                     </button>
                     <a href="users.php"
