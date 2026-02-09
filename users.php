@@ -230,7 +230,7 @@ $stmt->close();
             theme: {
                 extend: {
                     colors: {
-                        primary: {
+                        blue: {
                             50: '#f0f9ff',
                             100: '#e0f2fe',
                             500: '#0ea5e9',
@@ -481,7 +481,7 @@ $stmt->close();
                         </div>
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                             placeholder="Search users..."
-                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     </div>
                 </div>
 
@@ -489,7 +489,7 @@ $stmt->close();
                 <div class="md:col-span-3">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
                     <select name="role"
-                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                         <option value="">All Roles</option>
                         <option value="admin" <?= $filterRole === 'admin' ? 'selected' : '' ?>>Admin</option>
                         <option value="staff" <?= $filterRole === 'staff' ? 'selected' : '' ?>>Staff</option>
@@ -501,7 +501,7 @@ $stmt->close();
                 <div class="md:col-span-3">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                     <select name="status"
-                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                         <option value="">All Status</option>
                         <option value="active" <?= $filterStatus === 'active' ? 'selected' : '' ?>>Active</option>
                         <option value="inactive" <?= $filterStatus === 'inactive' ? 'selected' : '' ?>>Inactive</option>
@@ -511,7 +511,7 @@ $stmt->close();
                 <!-- Action Buttons -->
                 <div class="md:col-span-2 flex gap-2">
                     <button type="submit"
-                        class="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                         <i class="fas fa-filter mr-2"></i>Filter
                     </button>
                     <a href="users.php"
@@ -557,7 +557,7 @@ $stmt->close();
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center">
                                             <div
-                                                class="flex-shrink-0 h-10 w-10 bg-primary-100 text-primary-700 rounded-lg flex items-center justify-center font-medium">
+                                                class="flex-shrink-0 h-10 w-10 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center font-medium">
                                                 <?= strtoupper(substr($user['firstname'], 0, 1) . substr($user['lastname'], 0, 1)) ?>
                                             </div>
                                             <div class="ml-4">
@@ -675,7 +675,7 @@ $stmt->close();
                             <div class="flex items-center space-x-2">
                                 <span class="text-sm text-gray-700">Show:</span>
                                 <select onchange="changeItemsPerPage(this)"
-                                    class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                    class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
                                     <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
                                     <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
@@ -699,7 +699,7 @@ $stmt->close();
                                 for ($i = $startPage; $i <= $endPage; $i++):
                                     ?>
                                     <a href="<?= $baseUrl ?>page=<?= $i ?>"
-                                        class="px-3 py-1.5 border <?= $i == $page ? 'bg-primary-50 border-primary-500 text-primary-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50' ?> rounded-lg transition-colors">
+                                        class="px-3 py-1.5 border <?= $i == $page ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50' ?> rounded-lg transition-colors">
                                         <?= $i ?>
                                     </a>
                                 <?php endfor; ?>
@@ -739,25 +739,25 @@ $stmt->close();
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">First Name *</label>
                         <input type="text" name="firstname" id="firstname" required placeholder="Enter first name"
-                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name *</label>
                         <input type="text" name="lastname" id="lastname" required placeholder="Enter last name"
-                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
                         <input type="email" name="email" id="email" required placeholder="Enter email address"
-                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Role *</label>
                         <select name="role" id="role" required
-                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                             <option value="">Select Role</option>
                             <option value="admin">Admin</option>
                             <option value="staff">Staff</option>
@@ -768,7 +768,7 @@ $stmt->close();
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Status *</label>
                         <select name="status" id="status" required
-                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                             <option value="">Select Status</option>
                             <option value="active">Active</option>
                             <option value="inactive">Inactive</option>
@@ -782,7 +782,7 @@ $stmt->close();
                         Cancel
                     </button>
                     <button id="modalBtn" type="submit"
-                        class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
+                        class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                         Save User
                     </button>
                 </div>
@@ -806,7 +806,7 @@ $stmt->close();
             <div class="p-6">
                 <div class="flex justify-center mb-6">
                     <div
-                        class="w-20 h-20 bg-primary-100 text-primary-700 rounded-xl flex items-center justify-center text-2xl font-semibold">
+                        class="w-20 h-20 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center text-2xl font-semibold">
                         <span id="view_avatar"></span>
                     </div>
                 </div>
@@ -835,7 +835,7 @@ $stmt->close();
 
                 <div class="flex justify-end pt-6 mt-6 border-t border-gray-200">
                     <button onclick="closeViewModal()"
-                        class="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
+                        class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                         Close
                     </button>
                 </div>
