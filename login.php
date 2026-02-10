@@ -166,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div>
                 <p class="text-xs uppercase tracking-widest text-gray-500 font-medium">Parliament of Ghana</p>
                 <h1 class="mt-1 text-2xl font-bold text-gray-900">ICT Directorate</h1>
-                <p class="mt-2 text-sm text-gray-600">Equipment Inventory Management System</p>
+                <p class="mt-2 text-sm text-gray-600">Device Inventory Management System</p>
             </div>
         </div>
 
@@ -263,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <p class="text-xs font-medium text-blue-800">System Access Information</p>
                         <p class="text-xs text-blue-600 mt-1">
                             • Use your Parliament email credentials<br>
-                            • Contact ICT Helpdesk for account issues<br>
+                            • Contact ICT Help desk for account issues<br>
                             • Ensure your account is active
                         </p>
                     </div>

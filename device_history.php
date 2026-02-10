@@ -25,7 +25,7 @@ if (!$conn) {
 $statusLabels = [
     'active' => 'Active',
     'in_use' => 'In Use',
-    'in_storage' => 'In Storage',
+    'in_storage' => 'Store',
     'repairing' => 'Repairing',
     'faulty' => 'Faulty',
     'retired' => 'Retired'
@@ -620,7 +620,7 @@ if ($status_result) {
     </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
 
@@ -1664,7 +1664,7 @@ if ($status_result) {
                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <i class="fas fa-user-slash text-gray-400 text-2xl"></i>
                         </div>
-                        <p class="text-gray-500">No assignment history available</p>
+                        <p class="text-gray-5000">No assignment history available</p>
                     </div>
                 `;
                 return;
@@ -1857,20 +1857,20 @@ if ($status_result) {
                         <div class="text-gray-500 text-sm">${activeAssignments} active, ${completedAssignments} completed</div>
                     </div>
                     
-                    <div class="bg-green-50 rounded-lg p-4">
-                        <div class="text-green-600 text-sm font-medium mb-1">Unique Users</div>
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="text-blue-600 text-sm font-medium mb-1">Unique Users</div>
                         <div class="text-2xl font-bold text-gray-800">${uniqueUserIds.length}</div>
                         <div class="text-gray-500 text-sm">Distinct users assigned</div>
                     </div>
                     
-                    <div class="bg-purple-50 rounded-lg p-4">
-                        <div class="text-purple-600 text-sm font-medium mb-1">Avg. Duration</div>
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="text-blue-600 text-sm font-medium mb-1">Avg. Duration</div>
                         <div class="text-2xl font-bold text-gray-800">${avgDays} days</div>
                         <div class="text-gray-500 text-sm">Average per assignment</div>
                     </div>
                     
-                    <div class="bg-amber-50 rounded-lg p-4">
-                        <div class="text-amber-600 text-sm font-medium mb-1">Longest Assignment</div>
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="text-blue-600 text-sm font-medium mb-1">Longest Assignment</div>
                         <div class="text-2xl font-bold text-gray-800">${longestAssignment} days</div>
                         <div class="text-gray-500 text-sm">Shortest: ${shortestAssignment} days</div>
                     </div>

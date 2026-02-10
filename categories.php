@@ -257,7 +257,7 @@ if (isset($_GET['view'])) {
     </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
 
     <?php include 'sidebar.php'; ?>
 

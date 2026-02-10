@@ -502,7 +502,7 @@ $deviceFaultyRate = $userStats['totalDevices'] > 0 ? round(($userStats['devicesF
     </style>
 </head>
 
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
 
     <!-- Sidebar -->
     <?php include 'sidebar.php'; ?>
