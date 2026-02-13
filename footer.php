@@ -2,9 +2,35 @@
 /**
  * Footer Component - Parliamentary Service of Ghana
  * Updated to correctly adapt width based on sidebar state
+ * Integrated with Settings System (no styling changes)
  */
 
 $currentYear = date('Y');
+
+// Try to load settings if available
+$orgName = 'Parliamentary Service of Ghana';
+$orgContact = 'itsupport@parliament.gh';
+$orgFooter = 'Confidential - Internal Use Only';
+
+// Check if we have access to settings
+if (isset($conn) && function_exists('getSettings')) {
+    // Get organization settings
+    $footerOrgSettings = getSettings($conn, 'organization');
+
+    if (!empty($footerOrgSettings)) {
+        $orgName = getSettingValue($footerOrgSettings, 'org_name', 'Parliamentary Service of Ghana');
+        $orgContact = getSettingValue($footerOrgSettings, 'org_contact', 'itsupport@parliament.gh');
+        $orgFooter = getSettingValue($footerOrgSettings, 'org_footer', 'Confidential - Internal Use Only');
+    }
+}
+
+// Helper function if not already defined
+if (!function_exists('getSettingValue')) {
+    function getSettingValue($settings, $key, $default = '')
+    {
+        return isset($settings[$key]) ? $settings[$key]['value'] : $default;
+    }
+}
 
 // Detect logo
 $logoPath = __DIR__ . '/images/';
@@ -46,14 +72,14 @@ foreach ($possibleLogos as $logo) {
                         </div>
                     <?php endif; ?>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-800">Parliamentary Service</h3>
+                        <h3 class="text-lg font-semibold text-gray-800"><?php echo htmlspecialchars($orgName); ?></h3>
                         <p class="text-sm text-gray-500">IT Asset Management System</p>
-                        <p class="text-xs text-gray-400 mt-1">Internal Use Only</p>
+                        <p class="text-xs text-gray-400 mt-1"><?php echo htmlspecialchars($orgFooter); ?></p>
                     </div>
                 </div>
 
                 <p class="text-gray-600 text-sm">
-                    Official IT asset tracking and management system for the Parliamentary Service of Ghana.
+                    Official IT asset tracking and management system for the <?php echo htmlspecialchars($orgName); ?>.
                 </p>
 
                 <div class="flex items-center gap-2 text-sm">
@@ -119,8 +145,9 @@ foreach ($possibleLogos as $logo) {
                         <i class="fas fa-envelope text-gray-400 text-sm"></i>
                         <div>
                             <span class="text-gray-700 text-sm font-medium">Email Support</span>
-                            <a href="mailto:itsupport@parliament.gh" class="text-blue-500 text-xs hover:underline">
-                                itsupport@parliament.gh
+                            <a href="mailto:<?php echo htmlspecialchars($orgContact); ?>"
+                                class="text-blue-500 text-xs hover:underline">
+                                <?php echo htmlspecialchars($orgContact); ?>
                             </a>
                         </div>
                     </li>
@@ -157,7 +184,7 @@ foreach ($possibleLogos as $logo) {
         <div class="border-t border-gray-200 mt-8 pt-6">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div class="text-gray-500 text-xs">
-                    <p>&copy; <?php echo $currentYear; ?> Parliamentary Service of Ghana - IT Department</p>
+                    <p>&copy; <?php echo $currentYear; ?> <?php echo htmlspecialchars($orgName); ?> - IT Department</p>
                     <div class="mt-1 flex flex-wrap items-center gap-3">
                         <span class="inline-flex items-center gap-1">
                             <i class="fas fa-shield-alt text-emerald-400"></i> Secure Network
@@ -194,7 +221,7 @@ foreach ($possibleLogos as $logo) {
 </button>
 
 <style>
-    /* Footer styling */
+    /* Footer styling - ORIGINAL - NO CHANGES */
     #mainFooter {
         width: 100%;
         margin-left: 0;

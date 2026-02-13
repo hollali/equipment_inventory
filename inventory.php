@@ -739,81 +739,58 @@ if (!empty($_GET['department'])) {
 
 <head>
     <meta charset="UTF-8">
-    <title>Inventory Management</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <link rel="icon" type="image/png" href="./images/logo.png">
-    <!-- Tailwind -->
+    <!-- Tailwind via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome -->
+    <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        * {
+            font-family: 'Inter', sans-serif;
         }
 
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        /* Clean color palette - no gradients */
+        :root {
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --primary-50: #eff6ff;
+            --primary-100: #dbeafe;
+            --primary-200: #bfdbfe;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --warning: #f59e0b;
+            --warning-light: #fed7aa;
+            --error: #ef4444;
+            --error-light: #fee2e2;
+            --info: #3b82f6;
+            --info-light: #dbeafe;
         }
 
-        @keyframes slideOutRight {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
+        body {
+            background-color: var(--gray-50);
+            color: var(--gray-800);
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        .animate-slide-down {
-            animation: slideDown 0.3s ease-out;
-        }
-
-        .animate-slide-in-right {
-            animation: slideInRight 0.3s ease-out;
-        }
-
-        .animate-slide-out-right {
-            animation: slideOutRight 0.3s ease-out;
-        }
-
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        /* Toast Notification Styles */
+        /* Toast notifications */
         #toast-container {
             position: fixed;
-            top: 1rem;
-            right: 1rem;
+            top: 1.5rem;
+            right: 1.5rem;
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -825,15 +802,15 @@ if (!empty($_GET['department'])) {
         .toast {
             position: relative;
             padding: 1rem 1.25rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 1rem;
             transform: translateX(100%);
             opacity: 0;
             transition: all 0.3s ease;
-            overflow: hidden;
+            border-left: 4px solid transparent;
         }
 
         .toast.show {
@@ -841,72 +818,28 @@ if (!empty($_GET['department'])) {
             opacity: 1;
         }
 
-        .toast.hide {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-
         .toast-success {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            border-left: 4px solid #065f46;
+            background-color: var(--success-light);
+            border-left-color: var(--success);
+            color: #065f46;
         }
 
         .toast-error {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-            border-left: 4px solid #7f1d1d;
+            background-color: var(--error-light);
+            border-left-color: var(--error);
+            color: #991b1b;
         }
 
         .toast-warning {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            border-left: 4px solid #92400e;
+            background-color: var(--warning-light);
+            border-left-color: var(--warning);
+            color: #92400e;
         }
 
         .toast-info {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            color: white;
-            border-left: 4px solid #1e40af;
-        }
-
-        .toast-icon {
-            font-size: 1.25rem;
-            flex-shrink: 0;
-        }
-
-        .toast-content {
-            flex: 1;
-            font-size: 0.875rem;
-        }
-
-        .toast-title {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .toast-message {
-            opacity: 0.9;
-        }
-
-        .toast-close {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            width: 1.75rem;
-            height: 1.75rem;
-            border-radius: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            flex-shrink: 0;
-            transition: all 0.2s ease;
-        }
-
-        .toast-close:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.1);
+            background-color: var(--info-light);
+            border-left-color: var(--info);
+            color: #1e40af;
         }
 
         .toast-progress {
@@ -914,7 +847,7 @@ if (!empty($_GET['department'])) {
             bottom: 0;
             left: 0;
             height: 3px;
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(0, 0, 0, 0.1);
             width: 100%;
             transform-origin: left;
             animation: progress 5s linear forwards;
@@ -930,324 +863,595 @@ if (!empty($_GET['department'])) {
             }
         }
 
-        /* Improved Table Styling */
+        /* Filter section */
+        .filter-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--gray-200);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Table styles - FIXED COLUMN WIDTHS */
         .table-container {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            overflow-x: auto;
+            overflow-y: visible;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             width: 100%;
-            overflow: visible;
-            position: relative;
         }
 
         .data-table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
+            border-collapse: collapse;
+            min-width: 1200px;
+            /* Prevents column compression */
         }
 
         .data-table thead th {
-            position: sticky;
-            top: 0;
-            background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
-            padding: 1rem 1rem;
+            background-color: var(--gray-50);
+            padding: 0.875rem 1rem;
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #4b5563;
+            color: var(--gray-600);
             text-align: left;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 1px solid var(--gray-200);
             white-space: nowrap;
-            z-index: 10;
+        }
+
+        /* FIXED COLUMN WIDTHS - Asset Tag column specifically */
+        .data-table th:nth-child(1),
+        .data-table td:nth-child(1) {
+            width: 110px;
+            min-width: 110px;
+            max-width: 110px;
+        }
+
+        .data-table th:nth-child(2),
+        .data-table td:nth-child(2) {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        .data-table th:nth-child(3),
+        .data-table td:nth-child(3) {
+            width: 100px;
+            min-width: 100px;
+            max-width: 100px;
+        }
+
+        .data-table th:nth-child(4),
+        .data-table td:nth-child(4) {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        .data-table th:nth-child(5),
+        .data-table td:nth-child(5) {
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+        }
+
+        .data-table th:nth-child(6),
+        .data-table td:nth-child(6) {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        .data-table th:nth-child(7),
+        .data-table td:nth-child(7) {
+            width: 100px;
+            min-width: 100px;
+            max-width: 100px;
+        }
+
+        .data-table th:nth-child(8),
+        .data-table td:nth-child(8) {
+            width: 120px;
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        .data-table th:nth-child(9),
+        .data-table td:nth-child(9) {
+            width: 140px;
+            min-width: 140px;
+            max-width: 140px;
         }
 
         .data-table tbody tr {
-            transition: all 0.15s ease;
-            position: relative;
+            border-bottom: 1px solid var(--gray-100);
+            transition: background-color 0.15s ease;
+        }
+
+        .data-table tbody tr:last-child {
+            border-bottom: none;
         }
 
         .data-table tbody tr:hover {
-            background-color: #f9fafb;
+            background-color: var(--gray-50);
         }
 
         .data-table tbody td {
             padding: 1rem 1rem;
             font-size: 0.875rem;
-            color: #374151;
-            border-bottom: 1px solid #f3f4f6;
+            color: var(--gray-700);
             vertical-align: middle;
         }
 
-        .data-table tbody tr:last-child td {
-            border-bottom: none;
-        }
-
-        .compact-column {
-            max-width: 120px;
-            min-width: 120px;
-        }
-
-        .compact-column-sm {
-            max-width: 100px;
-            min-width: 100px;
-        }
-
-        .compact-column-xs {
-            max-width: 90px;
-            min-width: 90px;
-        }
-
-        .actions-column {
-            max-width: 140px;
-            min-width: 140px;
+        /* Asset tag badge - FIXED DISPLAY */
+        .asset-tag-badge {
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            background-color: var(--primary-50);
+            color: var(--primary-dark);
+            border-radius: 4px;
+            border: 1px solid var(--primary-200);
+            display: inline-block;
             white-space: nowrap;
-        }
-
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .text-ellipsis {
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+            border: 1px solid transparent;
             white-space: nowrap;
         }
 
+        .status-active {
+            background-color: var(--success-light);
+            color: #065f46;
+            border-color: #a7f3d0;
+        }
+
+        .status-in_use {
+            background-color: var(--primary-100);
+            color: #1e40af;
+            border-color: var(--primary-200);
+        }
+
+        .status-in_storage {
+            background-color: #fef3c7;
+            color: #92400e;
+            border-color: #fde68a;
+        }
+
+        .status-repairing {
+            background-color: #fff1f2;
+            color: #9f1239;
+            border-color: #ffe4e6;
+        }
+
+        .status-faulty {
+            background-color: #fce7f3;
+            color: #9d174d;
+            border-color: #fbcfe8;
+        }
+
+        .status-retired {
+            background-color: var(--gray-100);
+            color: var(--gray-700);
+            border-color: var(--gray-300);
+        }
+
+        /* Action buttons */
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            flex-shrink: 0;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-btn-view {
+            background-color: var(--primary);
+        }
+
+        .action-btn-edit {
+            background-color: var(--success);
+        }
+
+        .action-btn-settings {
+            background-color: var(--gray-600);
+        }
+
+        .action-btn-delete {
+            background-color: var(--error);
+        }
+
+        /* User avatar */
         .user-avatar {
             width: 32px;
             height: 32px;
-            border-radius: 50%;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 0.75rem;
             font-weight: 600;
             color: white;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: var(--primary);
+            flex-shrink: 0;
         }
 
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-            display: inline-block;
-            border: 1px solid;
-            white-space: nowrap;
+        .user-avatar.unassigned {
+            background-color: var(--gray-400);
         }
 
-        .action-btn {
-            width: 32px;
-            height: 32px;
+        /* Form inputs */
+        .form-input {
+            border: 1px solid var(--gray-300);
             border-radius: 8px;
-            display: inline-flex;
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            background-color: white;
+            width: 100%;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-100);
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.375rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        /* Modal styles - FIXED BUTTON VISIBILITY */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            border: none;
-            outline: none;
-        }
-
-        .action-btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .asset-tag-badge {
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-weight: 600;
-            font-size: 0.8rem;
-            padding: 4px 8px;
-            border-radius: 6px;
-            display: inline-block;
-            background-color: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #dbeafe;
-        }
-
-        .search-glow:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .filter-tag {
-            transition: all 0.2s ease;
-        }
-
-        .filter-tag:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Horizontal Tab Styling */
-        .tab-active {
-            background-color: #f3f4f6;
-            color: #1f2937;
-            border-bottom: 3px solid #3b82f6;
-            font-weight: 600;
-        }
-
-        .tab-inactive {
-            background-color: white;
-            color: #6b7280;
-            border-bottom: 3px solid transparent;
-        }
-
-        .tab-inactive:hover {
-            background-color: #f9fafb;
-            color: #4b5563;
-        }
-
-        .tab-disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            background-color: #f9fafb;
-            color: #9ca3af;
-        }
-
-        .tab-disabled:hover {
-            background-color: #f9fafb;
-            color: #9ca3af;
-        }
-
-        .action-tab-content {
-            animation: fadeIn 0.3s ease;
-        }
-
-        /* Tab icon colors */
-        #assignTab.tab-active i {
-            color: #10b981;
-        }
-
-        #reassignTab.tab-active i {
-            color: #3b82f6;
-        }
-
-        #retrieveTab.tab-active i {
-            color: #f59e0b;
-        }
-
-        #retireTab.tab-active i {
-            color: #6b7280;
-        }
-
-        /* Read-only input styling */
-        .readonly-input {
-            background-color: #f3f4f6;
-            color: #6b7280;
-            cursor: not-allowed;
-        }
-
-        /* Disabled option styling */
-        .action-option.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            background-color: #f9fafb;
-        }
-
-        .action-option.disabled:hover {
-            background-color: #f9fafb;
-            border-left-color: transparent;
-            padding-left: 16px;
-        }
-
-        /* Confirmation Modal */
-        .confirmation-modal {
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-        }
-
-        .confirmation-content {
-            animation: slideDown 0.3s ease-out;
-        }
-
-        /* Modal z-index adjustments */
-        .modal-backdrop {
-            z-index: 50;
+            z-index: 9999;
+            padding: 1rem;
+            overflow-y: auto;
         }
 
         .modal-content {
-            z-index: 60;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 64rem;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin: auto;
         }
 
-        /* Quick Actions Modal */
-        .quick-action-modal {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
+        .modal-header {
+            background-color: var(--primary-dark);
+            color: white;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
         }
 
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+        .modal-header-default {
+            background-color: var(--gray-800);
         }
 
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            background-color: var(--gray-50);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            border-top: 1px solid var(--gray-200);
+            flex-shrink: 0;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+        }
+
+        /* Button styles */
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--gray-700);
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: 1px solid var(--gray-300);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #0f9e6a;
+        }
+
+        .btn-error {
+            background-color: var(--error);
+            color: white;
+        }
+
+        .btn-error:hover {
+            background-color: #dc2626;
+        }
+
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #d97706;
+        }
+
+        /* Tabs */
+        .action-tab {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            text-align: center;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+            color: var(--gray-600);
+            background: transparent;
+            cursor: pointer;
+            border: none;
+        }
+
+        .action-tab:hover {
+            background-color: var(--gray-50);
+            color: var(--gray-900);
+        }
+
+        .action-tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary-dark);
+            font-weight: 600;
+            background-color: var(--primary-50);
+        }
+
+        .action-tab.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: var(--gray-50);
+            color: var(--gray-500);
+        }
+
+        .action-tab.disabled:hover {
+            background-color: var(--gray-50);
+            color: var(--gray-500);
+        }
+
+        /* Pagination */
+        .pagination-item {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 0.5rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: 1px solid var(--gray-300);
+            background: white;
+            color: var(--gray-700);
+        }
+
+        .pagination-item:hover {
+            background-color: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .pagination-item.active {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Filter tags */
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            background-color: var(--primary-50);
+            color: var(--primary-dark);
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid var(--primary-200);
+        }
+
+        /* Quick action buttons */
+        .quick-action-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
             border-radius: 10px;
+            border: 1px solid var(--gray-200);
+            background: white;
+            transition: all 0.2s ease;
+            cursor: pointer;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
+        .quick-action-btn:hover {
+            background-color: var(--gray-50);
+            border-color: var(--gray-300);
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+        /* Text utilities */
+        .text-ellipsis {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Divider */
+        .divider {
+            border-top: 1px solid var(--gray-200);
+            margin: 1rem 0;
+        }
+
+        /* Sidebar adjustment */
+        .ml-64 {
+            margin-left: 16rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .ml-64 {
+                margin-left: 0;
+                padding: 1rem;
+            }
         }
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+<body class="antialiased">
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <div class="flex">
+    <div class="flex min-h-screen">
         <?php include "sidebar.php"; ?>
-        <main id="mainContent" class="w-full p-6">
-            <!-- ================= HEADER ================= -->
-            <div class="flex justify-between items-center mb-6">
+
+        <!-- Main Content -->
+        <main id="mainContent" class="flex-1 p-8 ml-64">
+            <!-- Header Section -->
+            <div class="flex justify-between items-center mb-8">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Device Inventory</h1>
-                    <p class="text-gray-500">Manage all inventory items</p>
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center shadow-sm">
+                            <i class="fas fa-cubes text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Device Inventory</h1>
+                            <p class="text-gray-500 mt-1 flex items-center gap-2">
+                                <i class="fas fa-database text-gray-400"></i>
+                                <span>Manage and track all IT assets</span>
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <button onclick="openModal('addModal')"
-                    class="bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                    <i class="fa fa-plus text-xs mr-1"></i> Add Item
-                </button>
+
+                <div class="flex items-center gap-3">
+                    <!-- Quick Actions Button -->
+                    <button onclick="openQuickActionsModal()" class="btn-secondary flex items-center gap-2">
+                        <i class="fas fa-bolt text-amber-500"></i>
+                        <span>Quick Actions</span>
+                    </button>
+
+                    <!-- Add Item Button -->
+                    <button onclick="openModal('addModal')" class="btn-primary flex items-center gap-2">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Add Device</span>
+                    </button>
+                </div>
             </div>
 
-            <!-- Display Success/Error Messages (Hidden - will be converted to toasts) -->
+            <!-- Display PHP Session Messages as Toasts -->
             <?php if (isset($_SESSION['success_message'])): ?>
-                <div id="success-toast" class="hidden">
-                    <?= htmlspecialchars($_SESSION['success_message']) ?>
-                </div>
+                <div id="success-toast" class="hidden"><?= htmlspecialchars($_SESSION['success_message']) ?></div>
                 <?php unset($_SESSION['success_message']); ?>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error_message'])): ?>
-                <div id="error-toast" class="hidden">
-                    <?= htmlspecialchars($_SESSION['error_message']) ?>
-                </div>
+                <div id="error-toast" class="hidden"><?= htmlspecialchars($_SESSION['error_message']) ?></div>
                 <?php unset($_SESSION['error_message']); ?>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['form_errors']) && !empty($_SESSION['form_errors'])): ?>
                 <div id="warning-toast" class="hidden">
-                    Please fix the following errors:<br>
+                    <div class="font-semibold mb-1">Please fix the following errors:</div>
                     <?php foreach ($_SESSION['form_errors'] as $error): ?>
                         • <?= htmlspecialchars($error) ?><br>
                     <?php endforeach; ?>
@@ -1255,31 +1459,31 @@ if (!empty($_GET['department'])) {
                 <?php unset($_SESSION['form_errors']); ?>
             <?php endif; ?>
 
-            <!-- Filters and Search -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <!-- Filters Section -->
+            <div class="filter-section">
                 <form method="GET" class="w-full">
-                    <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-end">
-                        <!-- Search Bar -->
+                    <div class="flex flex-col lg:flex-row gap-4">
+                        <!-- Search -->
                         <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Search</label>
+                            <label class="form-label">
+                                <i class="fas fa-search text-gray-400 mr-1"></i> Search
+                            </label>
                             <div class="relative">
-                                <i
-                                    class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                                 <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
                                     value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
-                                    placeholder="Search by asset, type, brand, model, or user..." autocomplete="off"
-                                    class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white">
+                                    placeholder="Search by asset, type, brand, user..." class="form-input pl-10">
+                                <i
+                                    class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             </div>
                         </div>
 
                         <!-- Department Filter -->
                         <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Department</label>
+                            <label class="form-label">
+                                <i class="fas fa-building text-gray-400 mr-1"></i> Department
+                            </label>
                             <div class="relative">
-                                <i
-                                    class="fas fa-building absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <select name="department"
-                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                <select name="department" class="form-input appearance-none">
                                     <option value="">All Departments</option>
                                     <?php foreach ($departmentsArr as $d): ?>
                                         <option value="<?= $d['id'] ?>" <?= ($_GET['department'] ?? '') == $d['id'] ? 'selected' : '' ?>>
@@ -1288,18 +1492,17 @@ if (!empty($_GET['department'])) {
                                     <?php endforeach; ?>
                                 </select>
                                 <i
-                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                                    class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             </div>
                         </div>
 
                         <!-- Category Filter -->
                         <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Category</label>
+                            <label class="form-label">
+                                <i class="fas fa-tag text-gray-400 mr-1"></i> Category
+                            </label>
                             <div class="relative">
-                                <i
-                                    class="fas fa-tag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <select name="category"
-                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                <select name="category" class="form-input appearance-none">
                                     <option value="">All Categories</option>
                                     <?php foreach ($categoriesArr as $c): ?>
                                         <option value="<?= $c['id'] ?>" <?= ($_GET['category'] ?? '') == $c['id'] ? 'selected' : '' ?>>
@@ -1308,18 +1511,17 @@ if (!empty($_GET['department'])) {
                                     <?php endforeach; ?>
                                 </select>
                                 <i
-                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                                    class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             </div>
                         </div>
 
                         <!-- Status Filter -->
                         <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
+                            <label class="form-label">
+                                <i class="fas fa-flag text-gray-400 mr-1"></i> Status
+                            </label>
                             <div class="relative">
-                                <i
-                                    class="fas fa-flag absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <select name="status" id="statusFilter"
-                                    class="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white cursor-pointer hover:border-gray-300">
+                                <select name="status" id="statusFilter" class="form-input appearance-none">
                                     <option value="">All Status</option>
                                     <?php foreach ($statuses as $status): ?>
                                         <option value="<?= htmlspecialchars($status) ?>" <?= ($_GET['status'] ?? '') === $status ? 'selected' : '' ?>>
@@ -1328,333 +1530,304 @@ if (!empty($_GET['department'])) {
                                     <?php endforeach; ?>
                                 </select>
                                 <i
-                                    class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                                    class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             </div>
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="flex gap-2">
-                            <button type="submit"
-                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow-md whitespace-nowrap">
-                                <i class="fas fa-filter mr-2"></i>
+                        <div class="flex items-end gap-2">
+                            <button type="submit" class="btn-primary flex items-center gap-2">
+                                <i class="fas fa-filter"></i>
                                 <span>Apply</span>
                             </button>
-                            <a href="<?= $_SERVER['PHP_SELF'] ?>"
-                                class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 inline-flex items-center font-medium shadow-sm hover:shadow whitespace-nowrap">
-                                <i class="fas fa-redo mr-2"></i>
+                            <a href="<?= $_SERVER['PHP_SELF'] ?>" class="btn-secondary flex items-center gap-2">
+                                <i class="fas fa-redo-alt"></i>
                                 <span>Reset</span>
                             </a>
-                            <!-- Export Button (inline) -->
                             <button type="button" onclick="window.location.href='export_assignments.php'"
-                                class="px-6 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-green-700 rounded-xl hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200 inline-flex items-center gap-2 shadow-sm hover:shadow font-medium whitespace-nowrap">
+                                class="btn-secondary flex items-center gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                                 <i class="fas fa-download"></i>
                                 <span>Export</span>
                             </button>
                         </div>
                     </div>
                 </form>
+
+                <!-- Active Filters -->
+                <?php if (!empty($activeFilters)): ?>
+                    <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+                        <span class="text-xs font-medium text-gray-500 mr-1">Active Filters:</span>
+                        <?php foreach ($activeFilters as $filter): ?>
+                            <div class="filter-tag">
+                                <i class="fas fa-check-circle text-primary-500 text-xs"></i>
+                                <span><?= $filter['label'] ?></span>
+                                <a href="?<?= http_build_query(array_diff_key($_GET, [$filter['param'] => ''])) ?>"
+                                    class="ml-1 hover:text-primary-900 transition-colors">
+                                    <i class="fas fa-times"></i>
+                                </a>
+                            </div>
+                        <?php endforeach; ?>
+                        <a href="<?= $_SERVER['PHP_SELF'] ?>"
+                            class="text-xs text-gray-500 hover:text-gray-700 ml-2 underline underline-offset-2">
+                            Clear all
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
 
-            <!-- ================= TABLE ================= -->
-            <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden relative">
-                <div class="table-container">
-                    <table class="data-table">
-                        <!-- Table Header -->
-                        <thead>
+            <!-- Table Section - FIXED COLUMN WIDTHS -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Device Type</th>
+                            <th>Brand</th>
+                            <th>Model</th>
+                            <th>Assigned To</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                        <?php
+                        $statusColors = [
+                            'active' => 'status-active',
+                            'in_use' => 'status-in_use',
+                            'in_storage' => 'status-in_storage',
+                            'repairing' => 'status-repairing',
+                            'faulty' => 'status-faulty',
+                            'retired' => 'status-retired'
+                        ];
+                        ?>
+
+                        <?php if (!$list || mysqli_num_rows($list) === 0): ?>
                             <tr>
-                                <th class="compact-column-xs">Asset</th>
-                                <th class="compact-column-sm">Type</th>
-                                <th class="compact-column-sm">Brand</th>
-                                <th class="compact-column-sm">Model</th>
-                                <th class="compact-column">User</th>
-                                <th class="compact-column-sm">Department</th>
-                                <th class="compact-column-xs">Status</th>
-                                <th class="compact-column-sm">Category</th>
-                                <th class="actions-column">Actions</th>
-                            </tr>
-                        </thead>
-
-                        <!-- Table Body -->
-                        <tbody id="inventoryTableBody" class="divide-y divide-gray-100">
-                            <?php
-                            $statusColors = [
-                                'active' => 'bg-green-100 text-green-700 border-green-200',
-                                'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
-                                'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                                'repairing' => 'bg-orange-100 text-orange-700 border-orange-200',
-                                'faulty' => 'bg-pink-100 text-pink-700 border-pink-200',
-                                'retired' => 'bg-red-100 text-red-700 border-red-200'
-                            ];
-
-                            $statusLabels = [
-                                'active' => 'Active',
-                                'in_use' => 'In Use',
-                                'in_storage' => 'Store',
-                                'repairing' => 'Repairing',
-                                'faulty' => 'Faulty',
-                                'retired' => 'Retired'
-                            ];
-                            ?>
-
-                            <?php if (!$list || mysqli_num_rows($list) === 0): ?>
-                                <tr>
-                                    <td colspan="9" class="py-12 text-center">
-                                        <div class="flex flex-col items-center gap-3">
-                                            <div
-                                                class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
-                                                <i class="fas fa-search text-4xl text-gray-400"></i>
-                                            </div>
-                                            <p class="text-gray-400 font-medium">No inventory items found</p>
-                                            <p class="text-xs text-gray-400">Try different search criteria or add new items
+                                <td colspan="9" class="py-16 text-center">
+                                    <div class="flex flex-col items-center gap-4">
+                                        <div class="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center">
+                                            <i class="fas fa-search text-3xl text-gray-400"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-gray-700 mb-1">No devices found</h3>
+                                            <p class="text-sm text-gray-500">Try adjusting your filters or add a new device
                                             </p>
+                                        </div>
+                                        <button onclick="openModal('addModal')" class="mt-2 btn-primary text-sm">
+                                            <i class="fas fa-plus mr-2"></i>Add New Device
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php while ($row = mysqli_fetch_assoc($list)): ?>
+                                <?php
+                                $fullName = '';
+                                $isAssigned = false;
+                                if (!empty($row['firstname']) && !empty($row['lastname'])) {
+                                    $fullName = $row['firstname'] . ' ' . $row['lastname'];
+                                    $isAssigned = true;
+                                }
+                                ?>
+                                <tr>
+                                    <!-- ASSET TAG - FIXED WIDTH -->
+                                    <td>
+                                        <span class="asset-tag-badge" title="<?= htmlspecialchars($row['asset_tag']) ?>">
+                                            <?= htmlspecialchars($row['asset_tag']) ?>
+                                        </span>
+                                    </td>
+
+                                    <!-- DEVICE TYPE -->
+                                    <td>
+                                        <div class="font-medium text-gray-800 text-ellipsis"
+                                            title="<?= htmlspecialchars($row['device_type']) ?>">
+                                            <?= htmlspecialchars($row['device_type']) ?>
+                                        </div>
+                                    </td>
+
+                                    <!-- BRAND -->
+                                    <td>
+                                        <div class="text-gray-600 text-ellipsis"
+                                            title="<?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>">
+                                            <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
+                                        </div>
+                                    </td>
+
+                                    <!-- MODEL -->
+                                    <td>
+                                        <div class="text-gray-600 text-ellipsis" title="<?= htmlspecialchars($row['model']) ?>">
+                                            <?= htmlspecialchars($row['model']) ?>
+                                        </div>
+                                    </td>
+
+                                    <!-- ASSIGNED USER -->
+                                    <td>
+                                        <?php if ($isAssigned): ?>
+                                            <div class="flex items-center gap-2">
+                                                <div class="user-avatar flex-shrink-0">
+                                                    <?= strtoupper(substr($fullName, 0, 1)) ?>
+                                                </div>
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="font-medium text-gray-800 text-sm text-ellipsis"
+                                                        title="<?= htmlspecialchars($fullName) ?>">
+                                                        <?= htmlspecialchars($fullName) ?>
+                                                    </div>
+                                                    <?php if (!empty($row['assigned_at'])): ?>
+                                                        <div class="text-xs text-gray-500">
+                                                            <?= date('M d, Y', strtotime($row['assigned_at'])) ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="flex items-center gap-2">
+                                                <div class="user-avatar unassigned">
+                                                    <i class="fas fa-user-slash text-white text-xs"></i>
+                                                </div>
+                                                <span class="text-gray-500 text-sm">Unassigned</span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <!-- DEPARTMENT -->
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-building text-gray-400 text-xs"></i>
+                                            <span class="text-gray-600 text-sm text-ellipsis"
+                                                title="<?= htmlspecialchars($row['department_name'] ?? 'N/A') ?>">
+                                                <?= htmlspecialchars($row['department_name'] ?? 'N/A') ?>
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- STATUS -->
+                                    <td>
+                                        <?php
+                                        $statusClass = $statusColors[$row['status']] ?? 'status-active';
+                                        ?>
+                                        <span class="status-badge <?= $statusClass ?>"
+                                            title="Status: <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>">
+                                            <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
+                                        </span>
+                                    </td>
+
+                                    <!-- CATEGORY -->
+                                    <td>
+                                        <span class="text-gray-600 text-sm text-ellipsis"
+                                            title="<?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>">
+                                            <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
+                                        </span>
+                                    </td>
+
+                                    <!-- ACTIONS -->
+                                    <td>
+                                        <div class="flex gap-1.5">
+                                            <!-- View -->
+                                            <button
+                                                onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
+                                                class="action-btn action-btn-view" title="View Details">
+                                                <i class="fas fa-eye text-xs"></i>
+                                            </button>
+
+                                            <!-- Edit -->
+                                            <button onclick="openModal('editModal<?= $row['id'] ?>')"
+                                                class="action-btn action-btn-edit" title="Edit Device">
+                                                <i class="fas fa-edit text-xs"></i>
+                                            </button>
+
+                                            <!-- Device Actions -->
+                                            <button
+                                                onclick="openDeviceActionsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>', '<?= $row['status'] ?>', '<?= htmlspecialchars($row['department_name'] ?? '') ?>', '<?= $row['department_id'] ?? '' ?>')"
+                                                class="action-btn action-btn-settings" title="Device Actions">
+                                                <i class="fas fa-cog text-xs"></i>
+                                            </button>
+
+                                            <!-- Delete -->
+                                            <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
+                                                class="action-btn action-btn-delete" title="Delete Device">
+                                                <i class="fas fa-trash-alt text-xs"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
-                            <?php else: ?>
-                                <?php while ($row = mysqli_fetch_assoc($list)): ?>
-                                    <?php
-                                    $fullName = '';
-                                    $isAssigned = false;
-                                    if (!empty($row['firstname']) && !empty($row['lastname'])) {
-                                        $fullName = $row['firstname'] . ' ' . $row['lastname'];
-                                        $isAssigned = true;
-                                    }
-                                    ?>
-                                    <tr>
-                                        <!-- ASSET TAG -->
-                                        <td>
-                                            <span class="asset-tag-badge"
-                                                title="Asset Tag: <?= htmlspecialchars($row['asset_tag']) ?>">
-                                                <?= htmlspecialchars($row['asset_tag']) ?>
-                                            </span>
-                                        </td>
-
-                                        <!-- TYPE -->
-                                        <td>
-                                            <div class="text-gray-700 text-sm text-ellipsis"
-                                                title="<?= htmlspecialchars($row['device_type']) ?>">
-                                                <?= htmlspecialchars($row['device_type']) ?>
-                                            </div>
-                                        </td>
-
-                                        <!-- BRAND -->
-                                        <td>
-                                            <div class="text-gray-700 text-sm text-ellipsis"
-                                                title="<?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>">
-                                                <?= htmlspecialchars($row['brand_name'] ?? 'N/A') ?>
-                                            </div>
-                                        </td>
-
-                                        <!-- MODEL -->
-                                        <td>
-                                            <div class="text-gray-700 text-sm text-ellipsis"
-                                                title="<?= htmlspecialchars($row['model']) ?>">
-                                                <?= htmlspecialchars($row['model']) ?>
-                                            </div>
-                                        </td>
-
-                                        <!-- USER -->
-                                        <td>
-                                            <div class="flex items-center gap-2">
-                                                <?php if ($isAssigned): ?>
-                                                    <div class="user-avatar" title="<?= htmlspecialchars($fullName) ?>">
-                                                        <?= strtoupper(substr($fullName, 0, 1)) ?>
-                                                    </div>
-                                                    <div class="min-w-0">
-                                                        <p class="text-gray-700 text-sm font-medium text-ellipsis"
-                                                            title="<?= htmlspecialchars($fullName) ?>">
-                                                            <?= htmlspecialchars($fullName) ?>
-                                                        </p>
-                                                        <?php if (!empty($row['assigned_at'])): ?>
-                                                            <p class="text-xs text-gray-500">
-                                                                <?= date('M d', strtotime($row['assigned_at'])) ?>
-                                                            </p>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php else: ?>
-                                                    <div class="user-avatar bg-blue-400 text-gray-500">
-                                                        <i class="fas fa-user-slash text-white text-xs"></i>
-                                                    </div>
-                                                    <span class="text-gray-500 text-sm">Unassigned</span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-
-                                        <!-- DEPARTMENT -->
-                                        <td>
-                                            <div class="flex items-center gap-2">
-                                                <i class="fas fa-building text-gray-400 text-xs"></i>
-                                                <span class="text-gray-600 text-sm text-ellipsis"
-                                                    title="<?= htmlspecialchars($row['department_name'] ?? 'N/A') ?>">
-                                                    <?= htmlspecialchars($row['department_name'] ?? 'N/A') ?>
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        <!-- STATUS -->
-                                        <td>
-                                            <?php
-                                            $statusClass = $statusColors[$row['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
-                                            ?>
-                                            <span class="status-badge <?= $statusClass ?>"
-                                                title="Status: <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>">
-                                                <?= htmlspecialchars($statusLabels[$row['status']] ?? ucfirst($row['status'])) ?>
-                                            </span>
-                                        </td>
-
-                                        <!-- CATEGORY -->
-                                        <td>
-                                            <div class="text-gray-600 text-sm text-ellipsis"
-                                                title="<?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>">
-                                                <?= htmlspecialchars($row['category_name'] ?? 'N/A') ?>
-                                            </div>
-                                        </td>
-
-                                        <!-- ACTIONS -->
-                                        <td>
-                                            <div class="flex gap-1 relative">
-                                                <!-- VIEW -->
-                                                <button
-                                                    onclick='openViewModal(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)'
-                                                    class="action-btn bg-blue-500 text-white hover:bg-blue-600"
-                                                    title="View Details">
-                                                    <i class="fas fa-eye text-xs"></i>
-                                                </button>
-
-                                                <!-- EDIT -->
-                                                <button onclick="openModal('editModal<?= $row['id'] ?>')"
-                                                    class="action-btn bg-green-500 text-white hover:bg-green-600"
-                                                    title="Edit Device">
-                                                    <i class="fas fa-edit text-xs"></i>
-                                                </button>
-
-                                                <!-- DEVICE ACTIONS BUTTON -->
-                                                <button
-                                                    onclick="openDeviceActionsModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['asset_tag']) ?>', '<?= htmlspecialchars($fullName) ?>', '<?= $row['status'] ?>', '<?= htmlspecialchars($row['department_name'] ?? '') ?>', '<?= $row['department_id'] ?? '' ?>')"
-                                                    class="action-btn bg-gray-500 text-white hover:bg-gray-600"
-                                                    title="Device Actions">
-                                                    <i class="fas fa-cog text-xs"></i>
-                                                </button>
-
-                                                <!-- DELETE -->
-                                                <button onclick="openDeleteModal(<?= (int) $row['id'] ?>)"
-                                                    class="action-btn bg-red-500 text-white hover:bg-red-600"
-                                                    title="Delete Device">
-                                                    <i class="fas fa-trash text-xs"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endwhile; ?>
-                                <?php mysqli_stmt_close($listQuery); ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                            <?php endwhile; ?>
+                            <?php mysqli_stmt_close($listQuery); ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
 
-            <!-- ================= PAGINATION ================= -->
+            <!-- Pagination Section -->
             <?php if ($totalPages > 1): ?>
                 <?php
-                // Build query string with all current filters
                 $queryParams = $_GET;
-                unset($queryParams['page']); // Remove page from params to rebuild
-            
-                // Build the base URL with all parameters
+                unset($queryParams['page']);
                 $baseUrl = '?' . (!empty($queryParams) ? http_build_query($queryParams) . '&' : '');
                 ?>
 
-                <div class="mt-8 pt-6 border-t border-gray-200">
-                    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <!-- Results Count -->
-                        <div class="text-sm text-gray-600">
-                            Showing <span
-                                class="font-medium"><?= min($limit, $totalRecords - (($page - 1) * $limit)) ?></span> of
-                            <span class="font-medium"><?= $totalRecords ?></span> inventory items
-                        </div>
+                <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="text-sm text-gray-600">
+                        Showing <span
+                            class="font-semibold text-gray-900"><?= min($limit, $totalRecords - (($page - 1) * $limit)) ?></span>
+                        of <span class="font-semibold text-gray-900"><?= $totalRecords ?></span> devices
+                    </div>
 
-                        <!-- Pagination Controls -->
-                        <div class="flex flex-col items-center gap-4">
-                            <!-- Page Numbers -->
-                            <div class="flex flex-wrap items-center justify-center gap-1">
-                                <?php if ($page > 1): ?>
-                                    <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>"
-                                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm hover:shadow">
-                                        <i class="fas fa-chevron-left text-sm"></i>
-                                    </a>
-                                <?php endif; ?>
-
-                                <?php
-                                // Smart pagination: Show first page, last page, and pages around current
-                                $showDotsStart = false;
-                                $showDotsEnd = false;
-
-                                for ($i = 1; $i <= $totalPages; $i++):
-                                    // Show first page, last page, and pages around current (within 2 pages)
-                                    $shouldShow = false;
-
-                                    if ($i == 1 || $i == $totalPages) {
-                                        $shouldShow = true;
-                                    } elseif ($i >= $page - 2 && $i <= $page + 2) {
-                                        $shouldShow = true;
-                                    }
-
-                                    if ($shouldShow):
-                                        if ($i == 1 && $page > 4):
-                                            $showDotsStart = true;
-                                            ?>
-                                            <a href="<?= $baseUrl ?>page=1"
-                                                class="px-3 py-2 rounded-lg transition-colors font-medium text-sm bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
-                                                1
-                                            </a>
-                                            <?php if ($showDotsStart): ?>
-                                                <span class="px-2 text-gray-400">...</span>
-                                            <?php endif; ?>
-                                        <?php elseif ($i == $totalPages && $page < $totalPages - 3):
-                                            $showDotsEnd = true;
-                                            if ($showDotsEnd): ?>
-                                                <span class="px-2 text-gray-400">...</span>
-                                            <?php endif; ?>
-                                            <a href="<?= $baseUrl ?>page=<?= $totalPages ?>"
-                                                class="px-3 py-2 rounded-lg transition-colors font-medium text-sm bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
-                                                <?= $totalPages ?>
-                                            </a>
-                                        <?php else: ?>
-                                            <a href="<?= $baseUrl ?>page=<?= $i ?>"
-                                                class="px-3 py-2 rounded-lg transition-colors font-medium text-sm <?= $i == $page
-                                                    ? 'bg-gradient-to-r from-blue-600 to-blue-600 text-white shadow-lg'
-                                                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm hover:shadow' ?>">
-                                                <?= $i ?>
-                                            </a>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                <?php endfor; ?>
-
-                                <?php if ($page < $totalPages): ?>
-                                    <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>"
-                                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm hover:shadow">
-                                        <i class="fas fa-chevron-right text-sm"></i>
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-
-                            <!-- Page Info -->
-                            <p class="text-center text-sm text-gray-500">
-                                Page <?= $page ?> of <?= $totalPages ?>
-                            </p>
-                        </div>
-
-                        <!-- Items per page selector -->
+                    <div class="flex items-center gap-4">
+                        <!-- Items per page -->
                         <div class="flex items-center gap-2">
-                            <span class="text-sm text-gray-600">Show:</span>
-                            <select onchange="changeItemsPerPage(this)"
-                                class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <span class="text-sm text-gray-600">Show</span>
+                            <select onchange="changeItemsPerPage(this)" class="form-input !py-1.5 !w-auto text-sm">
                                 <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
                                 <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
                                 <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
                                 <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
                             </select>
                             <span class="text-sm text-gray-600">per page</span>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="flex items-center gap-2">
+                            <?php if ($page > 1): ?>
+                                <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="pagination-item">
+                                    <i class="fas fa-chevron-left text-xs"></i>
+                                </a>
+                            <?php endif; ?>
+
+                            <?php
+                            $startPage = max(1, $page - 2);
+                            $endPage = min($totalPages, $page + 2);
+
+                            if ($startPage > 1) {
+                                echo '<a href="' . $baseUrl . 'page=1" class="pagination-item">1</a>';
+                                if ($startPage > 2) {
+                                    echo '<span class="px-2 text-gray-400">...</span>';
+                                }
+                            }
+
+                            for ($i = $startPage; $i <= $endPage; $i++):
+                                ?>
+                                <a href="<?= $baseUrl ?>page=<?= $i ?>"
+                                    class="pagination-item <?= $i == $page ? 'active' : '' ?>">
+                                    <?= $i ?>
+                                </a>
+                            <?php endfor; ?>
+
+                            <?php if ($endPage < $totalPages): ?>
+                                <?php if ($endPage < $totalPages - 1): ?>
+                                    <span class="px-2 text-gray-400">...</span>
+                                <?php endif; ?>
+                                <a href="<?= $baseUrl ?>page=<?= $totalPages ?>" class="pagination-item">
+                                    <?= $totalPages ?>
+                                </a>
+                            <?php endif; ?>
+
+                            <?php if ($page < $totalPages): ?>
+                                <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="pagination-item">
+                                    <i class="fas fa-chevron-right text-xs"></i>
+                                </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -1663,8 +1836,8 @@ if (!empty($_GET['department'])) {
             <!-- ================= EDIT MODALS ================= -->
             <?php
             if ($list && mysqli_num_rows($list) > 0) {
-                mysqli_data_seek($list, 0); // Reset pointer
-            
+                mysqli_data_seek($list, 0);
+
                 while ($row = mysqli_fetch_assoc($list)) {
                     // Fetch assignment for this device
                     $assignStmt = mysqli_prepare($conn, "
@@ -1683,64 +1856,60 @@ if (!empty($_GET['department'])) {
 
                     $currentUserId = $assignment['user_id'] ?? '';
                     ?>
-                    <div id="editModal<?= $row['id'] ?>"
-                        class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4 modal-backdrop"
+                    <!-- Edit Modal - FIXED BUTTON VISIBILITY -->
+                    <div id="editModal<?= $row['id'] ?>" class="fixed inset-0 bg-black/50 hidden z-50 modal-backdrop"
                         onclick="closeModalOnBackdrop(event, 'editModal<?= $row['id'] ?>')">
 
-                        <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden modal-content"
+                        <div class="bg-white w-full max-w-4xl rounded-xl shadow-xl modal-content"
                             onclick="event.stopPropagation()">
 
-                            <!-- Modal Header -->
-                            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+                            <!-- Header -->
+                            <div class="modal-header">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                                         <i class="fas fa-edit text-white"></i>
                                     </div>
                                     <div>
-                                        <h2 class="text-xl font-bold text-white">Edit Inventory Item</h2>
-                                        <p class="text-blue-100 text-sm">
-                                            <?= htmlspecialchars($row['asset_tag']) ?>
-                                        </p>
+                                        <h2 class="text-lg font-bold text-white">Edit Device</h2>
+                                        <p class="text-white/80 text-sm">Asset: <?= htmlspecialchars($row['asset_tag']) ?></p>
                                     </div>
                                 </div>
                                 <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                    class="text-white/80 hover:text-white transition">
+                                    class="text-white/80 hover:text-white transition-colors">
                                     <i class="fas fa-times text-xl"></i>
                                 </button>
                             </div>
 
-                            <!-- Modal Body -->
-                            <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                            <!-- Body -->
+                            <div class="modal-body">
                                 <form method="POST" action="inventory.php" id="editForm<?= $row['id'] ?>">
                                     <input type="hidden" name="id" value="<?= $row['id'] ?>">
 
-                                    <!-- BASIC INFO -->
-                                    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <!-- Basic Information -->
+                                    <div class="bg-gray-50 rounded-lg p-5 mb-5">
                                         <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                            <i class="fas fa-info-circle text-blue-600"></i>
+                                            <i class="fas fa-info-circle text-primary"></i>
                                             Basic Information
                                         </h3>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div class="md:col-span-2">
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
+                                                <label class="form-label">Asset Tag</label>
                                                 <input readonly name="asset_tag"
                                                     value="<?= htmlspecialchars($row['asset_tag']) ?>"
-                                                    class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
+                                                    class="form-input bg-gray-100 cursor-not-allowed">
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Device Name
-                                                    *</label>
+                                                <label class="form-label">Device Name <span
+                                                        class="text-red-500">*</span></label>
                                                 <input name="device_type" required
-                                                    value="<?= htmlspecialchars($row['device_type']) ?>"
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    value="<?= htmlspecialchars($row['device_type']) ?>" class="form-input">
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Brand *</label>
-                                                <select name="brand_id" required
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <label class="form-label">Brand <span class="text-red-500">*</span></label>
+                                                <select name="brand_id" required class="form-input">
                                                     <option value="">Select Brand</option>
                                                     <?php foreach ($brandsArr as $b): ?>
                                                         <option value="<?= $b['id'] ?>" <?= $row['brand_id'] == $b['id'] ? 'selected' : '' ?>>
@@ -1751,42 +1920,37 @@ if (!empty($_GET['department'])) {
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                                                <label class="form-label">Model</label>
                                                 <input name="model" value="<?= htmlspecialchars($row['model']) ?>"
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    class="form-input">
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Serial
-                                                    Number</label>
+                                                <label class="form-label">Serial Number</label>
                                                 <input name="serial_number"
-                                                    value="<?= htmlspecialchars($row['serial_number']) ?>"
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    value="<?= htmlspecialchars($row['serial_number']) ?>" class="form-input">
                                             </div>
 
                                             <div class="md:col-span-2">
-                                                <label
-                                                    class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
+                                                <label class="form-label">Specifications</label>
                                                 <input name="specifications"
-                                                    value="<?= htmlspecialchars($row['specifications']) ?>"
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                    value="<?= htmlspecialchars($row['specifications']) ?>" class="form-input">
                                             </div>
                                         </div>
                                     </div>
 
-                                    <!-- ASSIGNMENT -->
-                                    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <!-- Assignment Details -->
+                                    <div class="bg-gray-50 rounded-lg p-5 mb-5">
                                         <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                            <i class="fas fa-user-tag text-blue-600"></i>
+                                            <i class="fas fa-user-tag text-primary"></i>
                                             Assignment Details
                                         </h3>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
+                                        <div class="grid grid-cols-1 gap-5">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                                <select name="department_id"
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
-                                                    <option value="">Select Department</option>
+                                                <label class="form-label">Department</label>
+                                                <select name="department_id" class="form-input">
+                                                    <option value="">No Department</option>
                                                     <?php foreach ($departmentsArr as $d): ?>
                                                         <option value="<?= $d['id'] ?>" <?= $row['department_id'] == $d['id'] ? 'selected' : '' ?>>
                                                             <?= htmlspecialchars($d['department_name']) ?>
@@ -1797,19 +1961,17 @@ if (!empty($_GET['department'])) {
                                         </div>
                                     </div>
 
-                                    <!-- CONDITION & STATUS -->
-                                    <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <!-- Status & Category -->
+                                    <div class="bg-gray-50 rounded-lg p-5 mb-5">
                                         <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                            <i class="fas fa-cog text-blue-600"></i>
+                                            <i class="fas fa-cog text-primary"></i>
                                             Status & Category
                                         </h3>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Condition *</label>
-                                                <select name="condition" required
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <label class="form-label">Condition <span class="text-red-500">*</span></label>
+                                                <select name="condition" required class="form-input">
                                                     <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
                                                         <option value="<?= $c ?>" <?= $row['condition'] === $c ? 'selected' : '' ?>>
                                                             <?= $c ?>
@@ -1819,31 +1981,19 @@ if (!empty($_GET['department'])) {
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
-                                                <select name="status" required
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
-                                                    <?php
-                                                    $allowedStatuses = [
-                                                        'active' => 'Active',
-                                                        'in_storage' => 'In Storage',
-                                                        'in_use' => 'In Use',
-                                                        'repairing' => 'Repairing',
-                                                        'faulty' => 'Faulty',
-                                                        'retired' => 'Retired'
-                                                    ];
-                                                    foreach ($allowedStatuses as $value => $label):
-                                                        ?>
+                                                <label class="form-label">Status <span class="text-red-500">*</span></label>
+                                                <select name="status" required class="form-input">
+                                                    <?php foreach ($allowedStatuses as $value): ?>
                                                         <option value="<?= $value ?>" <?= $row['status'] === $value ? 'selected' : '' ?>>
-                                                            <?= $label ?>
+                                                            <?= $statusLabels[$value] ?? ucfirst($value) ?>
                                                         </option>
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
 
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-                                                <select name="category_id" required
-                                                    class="w-full border border-gray-300 p-3 rounded-lg">
+                                                <label class="form-label">Category <span class="text-red-500">*</span></label>
+                                                <select name="category_id" required class="form-input">
                                                     <option value="">Select Category</option>
                                                     <?php foreach ($categoriesArr as $c): ?>
                                                         <option value="<?= $c['id'] ?>" <?= $row['category_id'] == $c['id'] ? 'selected' : '' ?>>
@@ -1852,138 +2002,130 @@ if (!empty($_GET['department'])) {
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
-
                                         </div>
                                     </div>
 
-                                    <!-- REMARKS -->
-                                    <div class="bg-gray-50 rounded-xl p-4">
+                                    <!-- Remarks -->
+                                    <div class="bg-gray-50 rounded-lg p-5">
                                         <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                            <i class="fas fa-sticky-note text-blue-600"></i>
+                                            <i class="fas fa-sticky-note text-primary"></i>
                                             Additional Notes
                                         </h3>
                                         <textarea name="remarks" rows="4"
-                                            class="w-full border border-gray-300 p-3 rounded-lg"><?= htmlspecialchars($row['remarks']) ?></textarea>
+                                            class="form-input resize-none"><?= htmlspecialchars($row['remarks']) ?></textarea>
                                     </div>
-
                                 </form>
                             </div>
 
-                            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                                <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')"
-                                    class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100">
+                            <!-- Footer - FIXED VISIBILITY -->
+                            <div class="modal-footer">
+                                <button type="button" onclick="closeModal('editModal<?= $row['id'] ?>')" class="btn-secondary">
                                     Cancel
                                 </button>
                                 <button type="submit" form="editForm<?= $row['id'] ?>" name="update_inventory"
-                                    class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    class="btn-primary flex items-center gap-2">
+                                    <i class="fas fa-save"></i>
                                     Save Changes
                                 </button>
                             </div>
-
                         </div>
                     </div>
-
-                    <?php
-                } // END WHILE LOOP
-            } // END IF CHECK
-            ?>
+                <?php }
+            } ?>
 
             <!-- ================= ADD MODAL ================= -->
-            <div id="addModal"
-                class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4 modal-backdrop"
+            <div id="addModal" class="fixed inset-0 bg-black/50 hidden z-50 modal-backdrop"
                 onclick="closeModalOnBackdrop(event, 'addModal')">
-                <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden modal-content"
+
+                <div class="bg-white w-full max-w-4xl rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
-                    <!-- Modal Header -->
-                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+
+                    <!-- Header -->
+                    <div class="modal-header">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                                 <i class="fas fa-plus text-white"></i>
                             </div>
                             <div>
-                                <h2 class="text-xl font-bold text-white">Add New Inventory Item</h2>
-                                <p class="text-green-100 text-sm">Fill in the details below</p>
+                                <h2 class="text-lg font-bold text-white">Add New Device</h2>
+                                <p class="text-white/80 text-sm">Fill in the device details below</p>
                             </div>
                         </div>
                         <button type="button" onclick="closeModal('addModal')"
-                            class="text-white/80 hover:text-white transition">
+                            class="text-white/80 hover:text-white transition-colors">
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
 
-                    <!-- Modal Body -->
-                    <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                    <!-- Body -->
+                    <div class="modal-body">
                         <form method="POST" id="addForm" autocomplete="off">
                             <!-- Basic Information -->
-                            <div class="bg-gray-50 rounded-xl p-5 mb-6">
+                            <div class="bg-gray-50 rounded-lg p-5 mb-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-info-circle text-blue-600"></i>
+                                    <i class="fas fa-info-circle text-primary"></i>
                                     Basic Information
                                 </h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <div class="md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Asset Tag</label>
+                                        <label class="form-label">Asset Tag (Auto-generated)</label>
                                         <input readonly name="asset_tag"
                                             value="<?= htmlspecialchars($asset_tag_preview) ?>"
-                                            class="w-full border border-gray-300 p-3 rounded-lg bg-gray-100 text-gray-600">
+                                            class="form-input bg-gray-100 cursor-not-allowed">
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Device Name<span
+                                        <label class="form-label">Device Name <span
                                                 class="text-red-500">*</span></label>
-                                        <input name="device_type" value="<?= $item['device_type'] ?? '' ?>" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            placeholder="e.g., Laptop, Desktop, Monitor">
+                                        <input name="device_type" required class="form-input"
+                                            placeholder="e.g., Laptop, Desktop">
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand <span
-                                                class="text-red-500">*</span></label>
-                                        <select name="brand_id" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <label class="form-label">Brand <span class="text-red-500">*</span></label>
+                                        <select name="brand_id" required class="form-input">
                                             <option value="">Select Brand</option>
                                             <?php foreach ($brandsArr as $b): ?>
-                                                <option value="<?= $b['id'] ?>" <?= isset($item['brand_id']) && $item['brand_id'] == $b['id'] ? 'selected' : '' ?>>
+                                                <option value="<?= $b['id'] ?>">
                                                     <?= htmlspecialchars($b['brand_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                                        <input name="model" value="<?= $item['model'] ?? '' ?>"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            placeholder="e.g., XPS 15, ThinkPad X1">
+                                        <label class="form-label">Model</label>
+                                        <input name="model" class="form-input" placeholder="e.g., XPS 15, ThinkPad X1">
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Serial
-                                            Number</label>
-                                        <input name="serial_number" value="<?= $item['serial_number'] ?? '' ?>"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            placeholder="e.g., SN123456789">
+                                        <label class="form-label">Serial Number</label>
+                                        <input name="serial_number" class="form-input" placeholder="e.g., SN123456789">
                                     </div>
+
                                     <div class="md:col-span-2">
-                                        <label
-                                            class="block text-sm font-medium text-gray-700 mb-2">Specifications</label>
-                                        <input name="specifications" value="<?= $item['specifications'] ?? '' ?>"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        <label class="form-label">Specifications</label>
+                                        <input name="specifications" class="form-input"
                                             placeholder="e.g., Intel i7, 16GB RAM, 512GB SSD">
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Assignment Details -->
-                            <div class="bg-gray-50 rounded-xl p-5 mb-6">
+                            <div class="bg-gray-50 rounded-lg p-5 mb-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-user-tag text-blue-600"></i>
-                                    Assignment Details
+                                    <i class="fas fa-user-tag text-primary"></i>
+                                    Assignment Details (Optional)
                                 </h3>
-                                <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
+
+                                <div class="grid grid-cols-1 gap-5">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                                        <select name="department_id"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="">Select Department</option>
+                                        <label class="form-label">Department</label>
+                                        <select name="department_id" class="form-input">
+                                            <option value="">No Department</option>
                                             <?php foreach ($departmentsArr as $d): ?>
-                                                <option value="<?= $d['id'] ?>" <?= isset($item['department_id']) && $item['department_id'] == $d['id'] ? 'selected' : '' ?>>
+                                                <option value="<?= $d['id'] ?>">
                                                     <?= htmlspecialchars($d['department_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
@@ -1993,45 +2135,42 @@ if (!empty($_GET['department'])) {
                             </div>
 
                             <!-- Status & Category -->
-                            <div class="bg-gray-50 rounded-xl p-5 mb-6">
+                            <div class="bg-gray-50 rounded-lg p-5 mb-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-cog text-blue-600"></i>
+                                    <i class="fas fa-cog text-primary"></i>
                                     Status & Category
                                 </h3>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Condition <span
-                                                class="text-red-500">*</span></label>
-                                        <select name="condition" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <label class="form-label">Condition <span class="text-red-500">*</span></label>
+                                        <select name="condition" required class="form-input">
                                             <option value="">Select Condition</option>
-                                            <?php foreach (['Excellent', 'Good', 'Fair', 'Poor', 'New', 'Faulty'] as $c): ?>
-                                                <option value="<?= $c ?>" <?= (isset($item['condition']) && $item['condition'] == $c) ? 'selected' : '' ?>><?= $c ?></option>
+                                            <?php foreach (['New', 'Excellent', 'Good', 'Fair', 'Poor', 'Faulty'] as $c): ?>
+                                                <option value="<?= $c ?>"><?= $c ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span
-                                                class="text-red-500">*</span></label>
-                                        <select name="status" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <label class="form-label">Status <span class="text-red-500">*</span></label>
+                                        <select name="status" required class="form-input">
                                             <option value="">Select Status</option>
-                                            <option value="active" <?= (isset($item['status']) && $item['status'] == 'active') ? 'selected' : '' ?>>Active</option>
-                                            <option value="in_storage" <?= (isset($item['status']) && $item['status'] == 'in_storage') ? 'selected' : '' ?>>In Storage</option>
-                                            <option value="in_use" <?= (isset($item['status']) && $item['status'] == 'in_use') ? 'selected' : '' ?>>In Use</option>
-                                            <option value="repairing" <?= (isset($item['status']) && $item['status'] == 'repairing') ? 'selected' : '' ?>>Repairing</option>
-                                            <option value="faulty" <?= (isset($item['status']) && $item['status'] == 'faulty') ? 'selected' : '' ?>>Faulty</option>
-                                            <option value="retired" <?= (isset($item['status']) && $item['status'] == 'retired') ? 'selected' : '' ?>>Retired</option>
+                                            <option value="active">Active</option>
+                                            <option value="in_storage">In Storage</option>
+                                            <option value="in_use">In Use</option>
+                                            <option value="repairing">Repairing</option>
+                                            <option value="faulty">Faulty</option>
+                                            <option value="retired">Retired</option>
                                         </select>
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Category <span
-                                                class="text-red-500">*</span></label>
-                                        <select name="category_id" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <label class="form-label">Category <span class="text-red-500">*</span></label>
+                                        <select name="category_id" required class="form-input">
                                             <option value="">Select Category</option>
                                             <?php foreach ($categoriesArr as $c): ?>
-                                                <option value="<?= $c['id'] ?>" <?= isset($item['category_id']) && $item['category_id'] == $c['id'] ? 'selected' : '' ?>>
+                                                <option value="<?= $c['id'] ?>">
                                                     <?= htmlspecialchars($c['category_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
@@ -2040,89 +2179,89 @@ if (!empty($_GET['department'])) {
                                 </div>
                             </div>
 
-                            <!-- Additional Notes -->
-                            <div class="bg-gray-50 rounded-xl p-5">
+                            <!-- Remarks -->
+                            <div class="bg-gray-50 rounded-lg p-5">
                                 <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <i class="fas fa-sticky-note text-blue-600"></i>
+                                    <i class="fas fa-sticky-note text-primary"></i>
                                     Remarks
                                 </h3>
-                                <textarea name="remarks" rows="4"
-                                    class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                                    placeholder="Add any additional notes or remarks..."><?= $item['remarks'] ?? '' ?></textarea>
+                                <textarea name="remarks" rows="4" class="form-input resize-none"
+                                    placeholder="Add any additional notes or remarks..."></textarea>
                             </div>
                         </form>
                     </div>
 
-                    <!-- Modal Footer -->
-                    <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                        <button type="button" onclick="closeModal('addModal')"
-                            class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium">
-                            <i class="fas fa-times mr-2"></i>Cancel
+                    <!-- Footer - FIXED VISIBILITY -->
+                    <div class="modal-footer">
+                        <button type="button" onclick="closeModal('addModal')" class="btn-secondary">
+                            Cancel
                         </button>
-                        <button type="submit" form="addForm" name="save"
-                            class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-                            <i class="fas fa-plus mr-2"></i>Add Item
+                        <button type="submit" form="addForm" name="save" class="btn-primary flex items-center gap-2">
+                            <i class="fas fa-plus-circle"></i>
+                            Add Device
                         </button>
                     </div>
                 </div>
             </div>
 
             <!-- ================= VIEW MODAL ================= -->
-            <div id="viewModal"
-                class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 p-4 modal-backdrop"
+            <div id="viewModal" class="fixed inset-0 bg-black/50 hidden z-50 modal-backdrop"
                 onclick="closeModalOnBackdrop(event, 'viewModal')">
-                <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[95vh] overflow-hidden modal-content"
+
+                <div class="bg-white w-full max-w-3xl rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
-                    <!-- Modal Header -->
-                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+
+                    <!-- Header -->
+                    <div class="modal-header">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                                 <i class="fas fa-eye text-white"></i>
                             </div>
                             <div>
-                                <h2 class="text-xl font-bold text-white">Inventory Details</h2>
-                                <p class="text-purple-100 text-sm">View complete item information</p>
+                                <h2 class="text-lg font-bold text-white">Device Details</h2>
+                                <p class="text-white/80 text-sm" id="view_asset_tag_subtitle"></p>
                             </div>
                         </div>
-                        <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition">
+                        <button onclick="closeViewModal()" class="text-white/80 hover:text-white transition-colors">
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
 
-                    <!-- Modal Body -->
-                    <div class="p-6 overflow-y-auto" style="max-height: calc(95vh - 140px);">
+                    <!-- Body -->
+                    <div class="modal-body">
                         <!-- Basic Information -->
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-50 rounded-xl p-5 mb-5">
+                        <div class="bg-primary-50/30 rounded-lg p-5 mb-5 border border-primary-100">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-info-circle text-blue-600"></i>
+                                <i class="fas fa-info-circle text-primary"></i>
                                 Basic Information
                             </h3>
+
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Asset Tag</p>
                                     <p class="font-semibold text-gray-800" id="view_asset_tag"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Device Type</p>
                                     <p class="font-semibold text-gray-800" id="view_device_type"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Brand</p>
                                     <p class="font-semibold text-gray-800" id="view_brand"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Model</p>
                                     <p class="font-semibold text-gray-800" id="view_model"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Serial Number</p>
                                     <p class="font-semibold text-gray-800" id="view_serial_number"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Category</p>
                                     <p class="font-semibold text-gray-800" id="view_category"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3 md:col-span-2">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200 md:col-span-2">
                                     <p class="text-xs text-gray-500 mb-1">Specifications</p>
                                     <p class="font-semibold text-gray-800" id="view_specifications"></p>
                                 </div>
@@ -2130,25 +2269,26 @@ if (!empty($_GET['department'])) {
                         </div>
 
                         <!-- Assignment Details -->
-                        <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-5 mb-5">
+                        <div class="bg-green-50/30 rounded-lg p-5 mb-5 border border-green-100">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-user-tag text-blue-600"></i>
+                                <i class="fas fa-user-tag text-green-600"></i>
                                 Assignment Details
                             </h3>
+
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Department</p>
                                     <p class="font-semibold text-gray-800" id="view_department"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Assigned User</p>
                                     <p class="font-semibold text-gray-800" id="view_assigned_user"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">User ID</p>
                                     <p class="font-semibold text-gray-800" id="view_assigned_user_id"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Assigned Since</p>
                                     <p class="font-semibold text-gray-800" id="view_assigned_at"></p>
                                 </div>
@@ -2156,178 +2296,154 @@ if (!empty($_GET['department'])) {
                         </div>
 
                         <!-- Status & Condition -->
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-50 rounded-xl p-5 mb-5">
+                        <div class="bg-amber-50/30 rounded-lg p-5 mb-5 border border-amber-100">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-cog text-blue-600"></i>
+                                <i class="fas fa-cog text-amber-600"></i>
                                 Status & Condition
                             </h3>
+
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Condition</p>
                                     <p class="font-semibold text-gray-800" id="view_condition"></p>
                                 </div>
-                                <div class="bg-white rounded-lg p-3">
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
                                     <p class="text-xs text-gray-500 mb-1">Status</p>
                                     <p class="font-semibold text-gray-800" id="view_status"></p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Additional Notes -->
-                        <div class="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-5">
+                        <!-- Remarks -->
+                        <div class="bg-gray-50 rounded-lg p-5">
                             <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                <i class="fas fa-sticky-note text-blue-600"></i>
+                                <i class="fas fa-sticky-note text-gray-600"></i>
                                 Additional Notes
                             </h3>
-                            <div class="bg-white rounded-lg p-3">
+                            <div class="bg-white rounded-lg p-4 border border-gray-200">
                                 <p class="text-gray-700" id="view_remarks"></p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Modal Footer -->
-                    <div class="bg-gray-50 px-6 py-4 flex justify-end border-t">
-                        <button onclick="closeViewModal()"
-                            class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-                            <i class="fas fa-check mr-2"></i>Close
+                    <!-- Footer - FIXED VISIBILITY -->
+                    <div class="modal-footer">
+                        <button onclick="closeViewModal()" class="btn-primary flex items-center gap-2">
+                            <i class="fas fa-check"></i>
+                            Close
                         </button>
                     </div>
                 </div>
             </div>
 
             <!-- ================= DEVICE ACTIONS MODAL ================= -->
-            <div id="deviceActionsModal"
-                class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 modal-backdrop">
-                <div class="bg-white w-full max-w-2xl rounded-xl shadow-xl modal-content"
+            <div id="deviceActionsModal" class="fixed inset-0 bg-black/50 hidden z-50 modal-backdrop">
+
+                <div class="bg-white w-full max-w-xl rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
+
                     <!-- Header -->
-                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                    <div class="modal-header modal-header-default">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-800">Device Actions</h3>
-                            <p class="text-sm text-gray-500 mt-1">
-                                Device: <span id="deviceActionsAssetTag" class="font-bold text-blue-600"></span>
+                            <h3 class="text-lg font-bold text-white">Device Actions</h3>
+                            <p class="text-gray-300 text-sm mt-1">
+                                Device: <span id="deviceActionsAssetTag"
+                                    class="font-mono font-semibold text-white"></span>
                             </p>
                         </div>
                         <button type="button" onclick="closeDeviceActionsModal()"
-                            class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times"></i>
+                            class="text-gray-300 hover:text-white transition-colors">
+                            <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
 
                     <!-- Current User Info -->
-                    <div id="deviceCurrentUserInfo" class="px-6 py-3 bg-blue-50 border-b hidden">
-                        <div class="flex flex-col gap-1">
-                            <p class="text-sm text-gray-700">
-                                <i class="fas fa-user mr-2 text-blue-500"></i>
-                                <span class="font-medium">Current User:</span>
-                                <span id="deviceCurrentUserName" class="font-semibold text-blue-700 ml-1"></span>
-                            </p>
-                            <p class="text-sm text-gray-700">
-                                <i class="fas fa-building mr-2 text-blue-500"></i>
-                                <span class="font-medium">Current Department:</span>
-                                <span id="deviceCurrentDepartment" class="font-semibold text-blue-700 ml-1"></span>
-                            </p>
+                    <div id="deviceCurrentUserInfo" class="px-6 py-4 bg-primary-50 border-b border-primary-100 hidden">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-user text-primary"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">
+                                    <span class="font-medium">Current User:</span>
+                                    <span id="deviceCurrentUserName" class="font-semibold text-primary-700 ml-1"></span>
+                                </p>
+                                <p class="text-sm text-gray-600">
+                                    <span class="font-medium">Department:</span>
+                                    <span id="deviceCurrentDepartment"
+                                        class="font-semibold text-primary-700 ml-1"></span>
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Horizontal Tabs -->
-                    <div class="border-b">
-                        <div class="flex">
-                            <!-- Assign Tab -->
-                            <button type="button" id="deviceAssignTab"
-                                class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
+                    <!-- Action Tabs -->
+                    <div class="border-b border-gray-200 px-6 pt-4">
+                        <div class="flex gap-2">
+                            <button type="button" id="deviceAssignTab" class="action-tab"
                                 onclick="showDeviceActionTab('assign')">
-                                <div class="flex items-center justify-center gap-2">
-                                    <i class="fas fa-user-plus text-green-600"></i>
-                                    <span>Assign</span>
-                                </div>
+                                <i class="fas fa-user-plus text-green-600 mr-2"></i>
+                                Assign
                             </button>
-
-                            <!-- Reassign Tab -->
-                            <button type="button" id="deviceReassignTab"
-                                class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
+                            <button type="button" id="deviceReassignTab" class="action-tab"
                                 onclick="showDeviceActionTab('reassign')">
-                                <div class="flex items-center justify-center gap-2">
-                                    <i class="fas fa-recycle text-blue-600"></i>
-                                    <span>Reassign</span>
-                                </div>
+                                <i class="fas fa-recycle text-blue-600 mr-2"></i>
+                                Reassign
                             </button>
-
-                            <!-- Retrieve Tab -->
-                            <button type="button" id="deviceRetrieveTab"
-                                class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
+                            <button type="button" id="deviceRetrieveTab" class="action-tab"
                                 onclick="showDeviceActionTab('retrieve')">
-                                <div class="flex items-center justify-center gap-2">
-                                    <i class="fas fa-arrow-left text-amber-600"></i>
-                                    <span>Retrieve</span>
-                                </div>
+                                <i class="fas fa-arrow-left text-amber-600 mr-2"></i>
+                                Retrieve
                             </button>
-
-                            <!-- Retire Tab -->
-                            <button type="button" id="deviceRetireTab"
-                                class="flex-1 px-4 py-3 text-center text-sm font-medium transition-all"
+                            <button type="button" id="deviceRetireTab" class="action-tab"
                                 onclick="showDeviceActionTab('retire')">
-                                <div class="flex items-center justify-center gap-2">
-                                    <i class="fas fa-archive text-gray-600"></i>
-                                    <span>Retire</span>
-                                </div>
+                                <i class="fas fa-archive text-gray-600 mr-2"></i>
+                                Retire
                             </button>
                         </div>
                     </div>
 
-                    <!-- Form Container -->
+                    <!-- Form -->
                     <form method="POST" action="inventory.php" id="deviceActionsForm">
                         <input type="hidden" name="device_id" id="deviceActionsId">
                         <input type="hidden" name="device_action" value="1">
 
-                        <!-- Tab Content Container -->
+                        <!-- Tab Content -->
                         <div class="p-6">
                             <!-- Assign Content -->
                             <div id="deviceAssignContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Select User <span class="text-red-500">*</span>
-                                        </label>
+                                        <label class="form-label">Select User <span
+                                                class="text-red-500">*</span></label>
                                         <select name="assign_user" id="deviceAssignUserSelect" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="">Select User</option>
+                                            class="form-input">
+                                            <option value="">Choose a user...</option>
                                             <?php foreach ($users as $user): ?>
-                                                <?php
-                                                $fullName = $user['firstname'] . ' ' . $user['lastname'];
-                                                ?>
                                                 <option value="<?= $user['id'] ?>">
-                                                    <?= htmlspecialchars($fullName) ?>
+                                                    <?= htmlspecialchars($user['firstname'] . ' ' . $user['lastname']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
 
-                                    <!-- Department Field for Assign -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Department (Optional)
-                                        </label>
+                                        <label class="form-label">Department (Optional)</label>
                                         <select name="assign_department_id" id="deviceAssignDepartmentSelect"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                            <option value="">Select Department (Optional)</option>
+                                            class="form-input">
+                                            <option value="">Keep current department</option>
                                             <?php foreach ($departmentsArr as $d): ?>
                                                 <option value="<?= $d['id'] ?>">
                                                     <?= htmlspecialchars($d['department_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <p class="text-xs text-gray-500 mt-1">
-                                            You can update the department for this device during assignment
-                                        </p>
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Assignment Notes (Optional)
-                                        </label>
-                                        <textarea name="assign_notes" id="deviceAssignNotes" rows="2"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                        <label class="form-label">Assignment Notes (Optional)</label>
+                                        <textarea name="assign_notes" id="deviceAssignNotes" rows="3"
+                                            class="form-input resize-none"
                                             placeholder="Add any notes about this assignment..."></textarea>
                                     </div>
                                 </div>
@@ -2336,69 +2452,57 @@ if (!empty($_GET['department'])) {
                             <!-- Reassign Content -->
                             <div id="deviceReassignContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
-                                    <div class="p-3 bg-gray-50 rounded-lg mb-2">
-                                        <div class="space-y-2">
-                                            <p class="text-sm text-gray-700">
-                                                <i class="fas fa-user mr-2 text-blue-500"></i>
-                                                <span class="font-medium">Current Assignment:</span>
-                                                <span id="devicePreviousUserName"
-                                                    class="font-semibold text-blue-700 ml-1"></span>
-                                            </p>
-                                            <p class="text-sm text-gray-700">
-                                                <i class="fas fa-building mr-2 text-blue-500"></i>
-                                                <span class="font-medium">Current Department:</span>
-                                                <span id="devicePreviousDepartment"
-                                                    class="font-semibold text-blue-700 ml-1"></span>
-                                            </p>
-                                        </div>
-                                        <p class="text-xs text-gray-500 mt-2">
-                                            This device is currently assigned to the user and department above.
+                                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                                        <p class="text-sm text-blue-700 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-info-circle"></i>
+                                            <span class="font-medium">Current Assignment:</span>
                                         </p>
+                                        <div class="flex items-center gap-2">
+                                            <div
+                                                class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                <i class="fas fa-user text-blue-600 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <span id="devicePreviousUserName"
+                                                    class="font-semibold text-blue-800"></span>
+                                                <span class="text-blue-600 text-xs mx-1">•</span>
+                                                <span id="devicePreviousDepartment"
+                                                    class="text-blue-700 text-sm"></span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Select New User <span class="text-red-500">*</span>
-                                        </label>
+                                        <label class="form-label">Select New User <span
+                                                class="text-red-500">*</span></label>
                                         <select name="reassign_user" id="deviceReassignUserSelect" required
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                            <option value="">Select User</option>
+                                            class="form-input">
+                                            <option value="">Choose a user...</option>
                                             <?php foreach ($users as $user): ?>
-                                                <?php
-                                                $fullName = $user['firstname'] . ' ' . $user['lastname'];
-                                                ?>
                                                 <option value="<?= $user['id'] ?>">
-                                                    <?= htmlspecialchars($fullName) ?>
+                                                    <?= htmlspecialchars($user['firstname'] . ' ' . $user['lastname']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
 
-                                    <!-- Department Field for Reassign -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Update Department (Optional)
-                                        </label>
+                                        <label class="form-label">Update Department (Optional)</label>
                                         <select name="reassign_department_id" id="deviceReassignDepartmentSelect"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                            <option value="">Keep Current Department</option>
+                                            class="form-input">
+                                            <option value="">Keep current department</option>
                                             <?php foreach ($departmentsArr as $d): ?>
                                                 <option value="<?= $d['id'] ?>">
                                                     <?= htmlspecialchars($d['department_name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <p class="text-xs text-gray-500 mt-1">
-                                            You can change the department for this device during reassignment
-                                        </p>
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Reassignment Notes (Optional)
-                                        </label>
-                                        <textarea name="reassign_notes" id="deviceReassignNotes" rows="2"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                        <label class="form-label">Reassignment Notes (Optional)</label>
+                                        <textarea name="reassign_notes" id="deviceReassignNotes" rows="3"
+                                            class="form-input resize-none"
                                             placeholder="Add any notes about this reassignment..."></textarea>
                                     </div>
                                 </div>
@@ -2407,33 +2511,29 @@ if (!empty($_GET['department'])) {
                             <!-- Retrieve Content -->
                             <div id="deviceRetrieveContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
-                                    <div class="p-3 bg-amber-50 rounded-lg mb-2">
-                                        <p class="text-sm text-gray-700 mb-1">
-                                            <i class="fas fa-user mr-2 text-amber-600"></i>
-                                            <span class="font-medium">Current Assignment:</span>
-                                            <span id="deviceRetrieveUserName"
-                                                class="font-semibold text-amber-700 ml-1"></span>
-                                        </p>
-                                        <p class="text-xs text-gray-600">
-                                            <i class="fas fa-info-circle mr-1"></i>
-                                            This device will be retrieved and returned to store.
-                                        </p>
+                                    <div class="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                                        <div class="flex items-start gap-3">
+                                            <div
+                                                class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <i class="fas fa-user text-amber-600 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm text-amber-700 mb-1">
+                                                    <span class="font-medium">Currently assigned to:</span>
+                                                    <span id="deviceRetrieveUserName" class="font-semibold ml-1"></span>
+                                                </p>
+                                                <p class="text-xs text-amber-600">
+                                                    This device will be retrieved and marked as "In Storage"
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            Reason for Retrieval (Optional)
-                                        </label>
+                                        <label class="form-label">Reason for Retrieval (Optional)</label>
                                         <textarea name="retrieve_reason" id="deviceRetrieveReason" rows="3"
-                                            class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-                                            placeholder="e.g., Device inspection, maintenance, return to inventory..."></textarea>
-                                    </div>
-
-                                    <div class="p-3 bg-gray-50 rounded-lg">
-                                        <p class="text-sm text-gray-700 mb-1">
-                                            <i class="fas fa-info-circle text-gray-500 mr-2"></i>
-                                            After retrieval, the device status will change to "In Storage"
-                                        </p>
+                                            class="form-input resize-none"
+                                            placeholder="e.g., Maintenance, Return to inventory, Device inspection..."></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -2441,55 +2541,42 @@ if (!empty($_GET['department'])) {
                             <!-- Retire Content -->
                             <div id="deviceRetireContent" class="action-tab-content hidden">
                                 <div class="space-y-4">
-                                    <div class="p-4 bg-gray-100 rounded-lg border border-gray-200">
+                                    <div class="bg-red-50 rounded-lg p-4 border border-red-200">
                                         <div class="flex items-start gap-3">
-                                            <div class="flex-shrink-0">
-                                                <i class="fas fa-exclamation-triangle text-amber-500 text-xl"></i>
+                                            <div
+                                                class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <i class="fas fa-exclamation-triangle text-red-600"></i>
                                             </div>
                                             <div>
-                                                <h4 class="font-medium text-gray-800 mb-1">Important Note</h4>
-                                                <p class="text-sm text-gray-600 mb-2">
-                                                    The device will be marked as <span
-                                                        class="font-semibold">retired</span> and will no longer be
-                                                    available for assignment.
+                                                <p class="text-sm font-semibold text-red-800 mb-1">Important Notice</p>
+                                                <p class="text-xs text-red-700 leading-relaxed">
+                                                    This device will be permanently marked as retired and removed from
+                                                    active inventory.
+                                                    Any active assignments will be automatically ended. This action
+                                                    cannot be undone.
                                                 </p>
-                                                <ul class="text-xs text-gray-500 space-y-1">
-                                                    <li class="flex items-center gap-2">
-                                                        <i class="fas fa-check text-green-500"></i>
-                                                        <span>Active assignments will be automatically ended</span>
-                                                    </li>
-                                                    <li class="flex items-center gap-2">
-                                                        <i class="fas fa-check text-green-500"></i>
-                                                        <span>Device status will be changed to "Retired"</span>
-                                                    </li>
-                                                    <li class="flex items-center gap-2">
-                                                        <i class="fas fa-check text-green-500"></i>
-                                                        <span>Device will be removed from active inventory</span>
-                                                    </li>
-                                                </ul>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="p-3 bg-red-50 rounded-lg border border-red-100">
-                                        <p class="text-sm text-red-700">
-                                            <i class="fas fa-exclamation-circle mr-2"></i>
-                                            This action <span class="font-semibold">cannot be undone</span>. Please
-                                            confirm this is the correct action.
-                                        </p>
+                                    <div>
+                                        <label class="form-label">Retirement Reason (Optional)</label>
+                                        <textarea name="retire_reason" id="deviceRetireReason" rows="3"
+                                            class="form-input resize-none"
+                                            placeholder="e.g., End of life, Damaged beyond repair, Replaced..."></textarea>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Footer -->
-                        <div class="px-6 py-4 border-t flex justify-end gap-3">
-                            <button type="button" onclick="closeDeviceActionsModal()"
-                                class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium transition">
+                        <!-- Footer - FIXED VISIBILITY -->
+                        <div class="modal-footer">
+                            <button type="button" onclick="closeDeviceActionsModal()" class="btn-secondary">
                                 Cancel
                             </button>
                             <button type="button" onclick="confirmDeviceAction()" id="deviceSubmitActionBtn"
-                                class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition">
+                                class="btn-primary flex items-center gap-2">
+                                <i class="fas fa-check-circle"></i>
                                 Confirm Action
                             </button>
                         </div>
@@ -2498,37 +2585,48 @@ if (!empty($_GET['department'])) {
             </div>
 
             <!-- ================= CONFIRMATION MODAL ================= -->
-            <div id="confirmationModal"
-                class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[100] p-4 confirmation-modal">
-                <div class="bg-white w-full max-w-md rounded-xl shadow-xl confirmation-content"
+            <div id="confirmationModal" class="fixed inset-0 bg-black/50 hidden z-[100] modal-backdrop">
+
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
+
                     <!-- Header -->
-                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-800" id="confirmationTitle">Confirm Action</h3>
-                        <button onclick="closeConfirmationModal()" class="text-gray-400 hover:text-gray-600">
+                        <button onclick="closeConfirmationModal()"
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
                     <!-- Body -->
-                    <div class="px-6 py-5 text-gray-700">
-                        <p class="mb-4" id="confirmationMessage"></p>
-                        <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100 mt-3" id="confirmationWarning">
-                            <p class="text-sm text-yellow-700 flex items-center gap-2">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                This action cannot be undone
-                            </p>
+                    <div class="px-6 py-5">
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-question-circle text-amber-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-gray-700" id="confirmationMessage"></p>
+                                <div class="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                    id="confirmationWarning">
+                                    <p class="text-sm text-gray-600 flex items-center gap-2">
+                                        <i class="fas fa-info-circle text-gray-400"></i>
+                                        This action will be recorded in the system logs
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-6 py-4 border-t flex justify-end gap-3">
-                        <button onclick="closeConfirmationModal()"
-                            class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium transition">
+                    <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                        <button onclick="closeConfirmationModal()" class="btn-secondary">
                             Cancel
                         </button>
                         <button onclick="executeConfirmedAction()" id="confirmActionBtn"
-                            class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition">
+                            class="btn-primary flex items-center gap-2">
+                            <i class="fas fa-check"></i>
                             Confirm
                         </button>
                     </div>
@@ -2536,92 +2634,126 @@ if (!empty($_GET['department'])) {
             </div>
 
             <!-- ================= DELETE CONFIRMATION MODAL ================= -->
-            <div id="deleteConfirmationModal"
-                class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[100] p-4 confirmation-modal">
-                <div class="bg-white w-full max-w-md rounded-xl shadow-xl confirmation-content"
+            <div id="deleteConfirmationModal" class="fixed inset-0 bg-black/50 hidden z-[100] modal-backdrop">
+
+                <div class="bg-white w-full max-w-md rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
+
                     <!-- Header -->
-                    <div class="px-6 py-4 border-b flex items-center justify-between">
-                        <h3 class="text-lg font-semibold text-gray-800">Confirm Delete</h3>
-                        <button onclick="closeDeleteConfirmationModal()" class="text-gray-400 hover:text-gray-600">
+                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">Delete Device</h3>
+                        <button onclick="closeDeleteConfirmationModal()"
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
                     <!-- Body -->
-                    <div class="px-6 py-5 text-gray-700">
-                        <p class="mb-4" id="deleteConfirmationMessage"></p>
-                        <div class="p-3 bg-red-50 rounded-lg border border-red-100">
-                            <p class="text-sm text-red-700 flex items-center gap-2">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>This action <strong>cannot be undone</strong>. All assignment records will also be
-                                    deleted.</span>
-                            </p>
+                    <div class="px-6 py-5">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-trash-alt text-red-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-gray-700" id="deleteConfirmationMessage"></p>
+                                <div class="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                                    <p class="text-sm text-red-700 flex items-center gap-2">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span><strong>Warning:</strong> This action cannot be undone. All assignment
+                                            history will be permanently deleted.</span>
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-6 py-4 border-t flex justify-end gap-3">
-                        <button onclick="closeDeleteConfirmationModal()"
-                            class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium transition">
+                    <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                        <button onclick="closeDeleteConfirmationModal()" class="btn-secondary">
                             Cancel
                         </button>
-                        <button onclick="executeDelete()" id="confirmDeleteActionBtn"
-                            class="px-5 py-2.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium transition">
-                            Delete Device
+                        <button onclick="executeDelete()" class="btn-error flex items-center gap-2">
+                            <i class="fas fa-trash-alt"></i>
+                            Delete Permanently
                         </button>
                     </div>
                 </div>
             </div>
 
             <!-- ================= QUICK ACTIONS MODAL ================= -->
-            <div id="quickActionsModal"
-                class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[110] p-4 quick-action-modal">
+            <div id="quickActionsModal" class="fixed inset-0 bg-black/50 hidden z-[110] modal-backdrop">
+
                 <div class="bg-white w-full max-w-sm rounded-xl shadow-xl modal-content"
                     onclick="event.stopPropagation()">
+
                     <!-- Header -->
-                    <div class="px-6 py-4 border-b flex items-center justify-between">
+                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-800">Quick Actions</h3>
-                        <button onclick="closeQuickActionsModal()" class="text-gray-400 hover:text-gray-600">
+                        <button onclick="closeQuickActionsModal()"
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
                     <!-- Body -->
-                    <div class="p-6 space-y-3">
-                        <div class="space-y-2">
-                            <h4 class="text-sm font-medium text-gray-700">Device Actions</h4>
-                            <button onclick="performQuickAction('refresh')"
-                                class="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-sync text-blue-500"></i>
-                                <span>Refresh Inventory</span>
-                            </button>
-                            <button onclick="performQuickAction('export')"
-                                class="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-download text-green-500"></i>
-                                <span>Export Data</span>
-                            </button>
-                        </div>
+                    <div class="p-6">
+                        <div class="space-y-3">
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Device
+                                    Management</h4>
+                                <button onclick="performQuickAction('refresh')" class="quick-action-btn">
+                                    <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-sync-alt text-blue-600"></i>
+                                    </div>
+                                    <div class="flex-1 text-left">
+                                        <p class="font-medium text-gray-700">Refresh Inventory</p>
+                                        <p class="text-xs text-gray-500">Reload current data</p>
+                                    </div>
+                                </button>
+                                <button onclick="performQuickAction('export')" class="quick-action-btn">
+                                    <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-file-export text-green-600"></i>
+                                    </div>
+                                    <div class="flex-1 text-left">
+                                        <p class="font-medium text-gray-700">Export Data</p>
+                                        <p class="text-xs text-gray-500">Download as CSV</p>
+                                    </div>
+                                </button>
+                            </div>
 
-                        <div class="space-y-2">
-                            <h4 class="text-sm font-medium text-gray-700">View Options</h4>
-                            <button onclick="performQuickAction('toggle_view')"
-                                class="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-table text-purple-500"></i>
-                                <span>Toggle Table View</span>
-                            </button>
-                            <button onclick="performQuickAction('clear_filters')"
-                                class="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                                <i class="fas fa-filter-slash text-amber-500"></i>
-                                <span>Clear All Filters</span>
-                            </button>
+                            <div class="divider"></div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">View
+                                    Options</h4>
+                                <button onclick="performQuickAction('toggle_view')" class="quick-action-btn">
+                                    <div class="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-table text-purple-600"></i>
+                                    </div>
+                                    <div class="flex-1 text-left">
+                                        <p class="font-medium text-gray-700">Toggle Table View</p>
+                                        <p class="text-xs text-gray-500">Switch between compact/full view</p>
+                                    </div>
+                                </button>
+                                <button onclick="performQuickAction('clear_filters')" class="quick-action-btn">
+                                    <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-filter-slash text-amber-600"></i>
+                                    </div>
+                                    <div class="flex-1 text-left">
+                                        <p class="font-medium text-gray-700">Clear All Filters</p>
+                                        <p class="text-xs text-gray-500">Reset to default view</p>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-6 py-4 border-t">
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
                         <p class="text-xs text-gray-500 text-center">
-                            Use these actions for quick device management
+                            <i class="fas fa-keyboard mr-1"></i>
+                            Press <kbd class="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs">ESC</kbd>
+                            to close
                         </p>
                     </div>
                 </div>
@@ -2629,10 +2761,11 @@ if (!empty($_GET['department'])) {
 
         </main>
     </div>
+
     <?php include __DIR__ . '/footer.php'; ?>
 
     <script>
-        // ==================== TOAST NOTIFICATION FUNCTIONS ====================
+        // ==================== TOAST NOTIFICATION SYSTEM ====================
         class Toast {
             constructor(type, title, message, duration = 5000) {
                 this.type = type;
@@ -2645,67 +2778,40 @@ if (!empty($_GET['department'])) {
 
             show() {
                 const container = document.getElementById('toast-container');
-                if (!container) {
-                    console.error('Toast container not found!');
-                    return;
-                }
+                if (!container) return;
 
-                // Create toast element
                 const toast = document.createElement('div');
                 toast.id = this.id;
                 toast.className = `toast toast-${this.type}`;
-                toast.innerHTML = `
-                    <div class="toast-icon">
-                        ${this.getIcon()}
-                    </div>
-                    <div class="toast-content">
-                        <div class="toast-title">${this.title}</div>
-                        <div class="toast-message">${this.message}</div>
-                    </div>
-                    <button class="toast-close" onclick="Toast.hide('${this.id}')">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <div class="toast-progress" style="animation-duration: ${this.duration}ms"></div>
-                `;
 
-                // Add to container
-                container.appendChild(toast);
-
-                // Trigger animation
-                setTimeout(() => {
-                    toast.classList.add('show');
-                }, 10);
-
-                // Auto dismiss
-                this.timeout = setTimeout(() => {
-                    this.hide();
-                }, this.duration);
-            }
-
-            getIcon() {
                 const icons = {
                     'success': '<i class="fas fa-check-circle"></i>',
                     'error': '<i class="fas fa-exclamation-circle"></i>',
                     'warning': '<i class="fas fa-exclamation-triangle"></i>',
                     'info': '<i class="fas fa-info-circle"></i>'
                 };
-                return icons[this.type] || icons['info'];
-            }
 
-            static showSuccess(message, title = 'Success', duration = 5000) {
-                new Toast('success', title, message, duration).show();
-            }
+                toast.innerHTML = `
+                    <div class="toast-icon text-xl">${icons[this.type]}</div>
+                    <div class="toast-content flex-1">
+                        <div class="toast-title font-semibold text-sm">${this.title}</div>
+                        <div class="toast-message text-sm opacity-90">${this.message}</div>
+                    </div>
+                    <button class="toast-close w-8 h-8 rounded-lg hover:bg-black/5 transition-colors" onclick="Toast.hide('${this.id}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="toast-progress" style="animation-duration: ${this.duration}ms"></div>
+                `;
 
-            static showError(message, title = 'Error', duration = 5000) {
-                new Toast('error', title, message, duration).show();
-            }
+                container.appendChild(toast);
 
-            static showWarning(message, title = 'Warning', duration = 5000) {
-                new Toast('warning', title, message, duration).show();
-            }
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 10);
 
-            static showInfo(message, title = 'Info', duration = 3000) {
-                new Toast('info', title, message, duration).show();
+                this.timeout = setTimeout(() => {
+                    this.hide();
+                }, this.duration);
             }
 
             hide() {
@@ -2738,41 +2844,28 @@ if (!empty($_GET['department'])) {
                 }, 300);
             }
 
-            static clearAll() {
-                const container = document.getElementById('toast-container');
-                if (!container) return;
-                container.innerHTML = '';
+            static showSuccess(message, title = 'Success') {
+                new Toast('success', title, message).show();
+            }
+
+            static showError(message, title = 'Error') {
+                new Toast('error', title, message).show();
+            }
+
+            static showWarning(message, title = 'Warning') {
+                new Toast('warning', title, message, 7000).show();
+            }
+
+            static showInfo(message, title = 'Info') {
+                new Toast('info', title, message, 3000).show();
             }
         }
 
-        // Function to show PHP session messages as toasts
-        function showPHPToasts() {
-            // Success toast
-            const successToast = document.getElementById('success-toast');
-            if (successToast) {
-                Toast.showSuccess(successToast.textContent.trim(), 'Success');
-            }
-
-            // Error toast
-            const errorToast = document.getElementById('error-toast');
-            if (errorToast) {
-                Toast.showError(errorToast.textContent.trim(), 'Error');
-            }
-
-            // Warning toast (form errors)
-            const warningToast = document.getElementById('warning-toast');
-            if (warningToast) {
-                Toast.showWarning(warningToast.textContent.trim(), 'Validation Error', 7000);
-            }
-        }
-
-        // ==================== MODAL FUNCTIONS ====================
+        // ==================== MODAL MANAGEMENT ====================
         function openModal(id) {
             const modal = document.getElementById(id);
-            if (!modal) {
-                console.error('Modal not found:', id);
-                return;
-            }
+            if (!modal) return;
+
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -2781,6 +2874,7 @@ if (!empty($_GET['department'])) {
         function closeModal(id) {
             const modal = document.getElementById(id);
             if (!modal) return;
+
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.body.style.overflow = 'auto';
@@ -2794,20 +2888,28 @@ if (!empty($_GET['department'])) {
 
         // ==================== VIEW MODAL ====================
         function openViewModal(item) {
-            document.getElementById('view_asset_tag').textContent = item.asset_tag || '';
-            document.getElementById('view_device_type').textContent = item.device_type || '';
-            document.getElementById('view_brand').textContent = item.brand_name || '';
-            document.getElementById('view_model').textContent = item.model || '';
-            document.getElementById('view_serial_number').textContent = item.serial_number || '';
-            document.getElementById('view_category').textContent = item.category_name || '';
-            document.getElementById('view_specifications').textContent = item.specifications || '';
-            document.getElementById('view_department').textContent = item.department_name || '';
-            document.getElementById('view_assigned_user').textContent = (item.firstname && item.lastname) ? item.firstname + ' ' + item.lastname : 'Unassigned';
+            document.getElementById('view_asset_tag').textContent = item.asset_tag || 'N/A';
+            document.getElementById('view_asset_tag_subtitle').textContent = `Asset: ${item.asset_tag || ''}`;
+            document.getElementById('view_device_type').textContent = item.device_type || 'N/A';
+            document.getElementById('view_brand').textContent = item.brand_name || 'N/A';
+            document.getElementById('view_model').textContent = item.model || 'N/A';
+            document.getElementById('view_serial_number').textContent = item.serial_number || 'N/A';
+            document.getElementById('view_category').textContent = item.category_name || 'N/A';
+            document.getElementById('view_specifications').textContent = item.specifications || 'No specifications provided';
+            document.getElementById('view_department').textContent = item.department_name || 'Not assigned';
+            document.getElementById('view_assigned_user').textContent = (item.firstname && item.lastname) ?
+                `${item.firstname} ${item.lastname}` : 'Unassigned';
             document.getElementById('view_assigned_user_id').textContent = item.assigned_user_id || 'N/A';
-            document.getElementById('view_assigned_at').textContent = item.assigned_at ? new Date(item.assigned_at).toLocaleDateString() : 'N/A';
-            document.getElementById('view_condition').textContent = item.condition || '';
-            document.getElementById('view_status').textContent = item.status || '';
-            document.getElementById('view_remarks').textContent = item.remarks || '';
+            document.getElementById('view_assigned_at').textContent = item.assigned_at ?
+                new Date(item.assigned_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }) : 'Never';
+            document.getElementById('view_condition').textContent = item.condition || 'N/A';
+            document.getElementById('view_status').textContent = item.status ?
+                item.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A';
+            document.getElementById('view_remarks').textContent = item.remarks || 'No remarks';
 
             openModal('viewModal');
         }
@@ -2841,15 +2943,17 @@ if (!empty($_GET['department'])) {
             document.getElementById('deviceActionsId').value = id;
             document.getElementById('deviceActionsAssetTag').textContent = assetTag;
 
-            // Show current user info if available
+            // Update user info displays
             const currentUserInfo = document.getElementById('deviceCurrentUserInfo');
             const currentUserName = document.getElementById('deviceCurrentUserName');
-            const previousUserName = document.getElementById('devicePreviousUserName');
-            const retrieveUserName = document.getElementById('deviceRetrieveUserName');
             const currentDepartment = document.getElementById('deviceCurrentDepartment');
+            const previousUserName = document.getElementById('devicePreviousUserName');
             const previousDepartment = document.getElementById('devicePreviousDepartment');
+            const retrieveUserName = document.getElementById('deviceRetrieveUserName');
 
-            if (assignedUser && assignedUser.trim() !== '' && assignedUser !== 'undefined') {
+            const isAssigned = assignedUser && assignedUser.trim() !== '' && assignedUser !== 'undefined' && assignedUser !== 'Unassigned';
+
+            if (isAssigned) {
                 currentUserInfo.classList.remove('hidden');
                 currentUserName.textContent = assignedUser;
                 previousUserName.textContent = assignedUser;
@@ -2862,37 +2966,33 @@ if (!empty($_GET['department'])) {
             }
 
             // Set department information
-            if (departmentName) {
-                currentDepartment.textContent = departmentName;
-                previousDepartment.textContent = departmentName;
-            } else {
-                currentDepartment.textContent = 'No Department';
-                previousDepartment.textContent = 'No Department';
-            }
+            const deptDisplay = departmentName || 'No Department';
+            currentDepartment.textContent = deptDisplay;
+            previousDepartment.textContent = deptDisplay;
 
             // Reset form
             document.getElementById('deviceActionsForm').reset();
 
-            // Remove any existing hidden action inputs
+            // Remove existing action input
             document.querySelectorAll('input[name="action"]').forEach(input => input.remove());
 
-            // Enable/disable tabs based on device status and assignment
+            // Configure tabs based on device status
             const assignTab = document.getElementById('deviceAssignTab');
             const reassignTab = document.getElementById('deviceReassignTab');
             const retrieveTab = document.getElementById('deviceRetrieveTab');
             const retireTab = document.getElementById('deviceRetireTab');
 
-            // Reset all tabs first
+            // Reset all tabs
             [assignTab, reassignTab, retrieveTab, retireTab].forEach(tab => {
-                tab.classList.remove('tab-disabled');
+                tab.classList.remove('active', 'disabled');
                 tab.disabled = false;
+                tab.classList.add('action-tab');
             });
 
-            // Check if device is already retired
+            // Check if device is retired
             if (deviceStatus === 'retired') {
-                // Device is retired - disable all action tabs
                 [assignTab, reassignTab, retrieveTab, retireTab].forEach(tab => {
-                    tab.classList.add('tab-disabled');
+                    tab.classList.add('disabled');
                     tab.disabled = true;
                 });
                 Toast.showWarning('This device is already retired and cannot be modified.', 'Device Retired');
@@ -2900,80 +3000,52 @@ if (!empty($_GET['department'])) {
             }
 
             // Enable/disable based on assignment status
-            const isAssigned = assignedUser && assignedUser.trim() !== '' && assignedUser !== 'undefined';
-
             if (isAssigned) {
-                // Device is assigned - enable reassign/retrieve/retire, disable assign
-                assignTab.classList.add('tab-disabled');
+                assignTab.classList.add('disabled');
                 assignTab.disabled = true;
-                reassignTab.classList.remove('tab-disabled');
-                reassignTab.disabled = false;
-                retrieveTab.classList.remove('tab-disabled');
-                retrieveTab.disabled = false;
-
-                // Set default tab to reassign
                 currentDeviceActionsState.currentTab = 'reassign';
             } else {
-                // Device is unassigned - enable assign/retire, disable reassign/retrieve
-                assignTab.classList.remove('tab-disabled');
-                assignTab.disabled = false;
-                reassignTab.classList.add('tab-disabled');
+                reassignTab.classList.add('disabled');
                 reassignTab.disabled = true;
-                retrieveTab.classList.add('tab-disabled');
+                retrieveTab.classList.add('disabled');
                 retrieveTab.disabled = true;
-                retireTab.classList.remove('tab-disabled');
-                retireTab.disabled = false;
-
-                // Set default tab to assign
                 currentDeviceActionsState.currentTab = 'assign';
             }
 
-            // Show the selected tab
+            // Show the default tab
             showDeviceActionTab(currentDeviceActionsState.currentTab);
 
+            // Open modal
             openModal('deviceActionsModal');
         }
 
         function showDeviceActionTab(tabName) {
-            // Don't switch to disabled tabs
             const tabElement = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab');
-            if (tabElement.classList.contains('tab-disabled')) {
+            if (tabElement.disabled || tabElement.classList.contains('disabled')) {
                 return;
             }
 
-            // Update current tab state
             currentDeviceActionsState.currentTab = tabName;
 
-            // Remove active state from all tabs
-            const allTabs = ['assign', 'reassign', 'retrieve', 'retire'];
-            allTabs.forEach(tab => {
+            // Update all tabs
+            const tabs = ['assign', 'reassign', 'retrieve', 'retire'];
+            tabs.forEach(tab => {
                 const tabBtn = document.getElementById('device' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab');
                 const content = document.getElementById('device' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Content');
 
                 if (tabBtn) {
-                    tabBtn.classList.remove('tab-active');
-                    tabBtn.classList.add('tab-inactive');
+                    tabBtn.classList.remove('active');
                 }
-
                 if (content) {
                     content.classList.add('hidden');
                 }
             });
 
-            // Add active state to selected tab
-            const selectedTab = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab');
-            const selectedContent = document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Content');
+            // Activate selected tab
+            tabElement.classList.add('active');
+            document.getElementById('device' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Content').classList.remove('hidden');
 
-            if (selectedTab) {
-                selectedTab.classList.remove('tab-inactive');
-                selectedTab.classList.add('tab-active');
-            }
-
-            if (selectedContent) {
-                selectedContent.classList.remove('hidden');
-            }
-
-            // Update submit button text and color based on action
+            // Update submit button
             const submitBtn = document.getElementById('deviceSubmitActionBtn');
             const actionLabels = {
                 'assign': 'Assign Device',
@@ -2982,31 +3054,22 @@ if (!empty($_GET['department'])) {
                 'retire': 'Retire Device'
             };
 
-            submitBtn.textContent = actionLabels[tabName] || 'Confirm Action';
+            submitBtn.innerHTML = `<i class="fas fa-check-circle"></i>${actionLabels[tabName]}`;
 
-            // Update button color based on action
-            submitBtn.className = 'px-5 py-2.5 rounded-lg font-medium transition';
+            // Update button colors
+            submitBtn.className = 'flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-colors';
 
-            switch (tabName) {
-                case 'assign':
-                    submitBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'text-white');
-                    break;
-                case 'reassign':
-                    submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white');
-                    break;
-                case 'retrieve':
-                    submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700', 'text-white');
-                    break;
-                case 'retire':
-                    submitBtn.classList.add('bg-red-600', 'hover:bg-red-700', 'text-white');
-                    break;
-                default:
-                    submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white');
-            }
+            const colors = {
+                'assign': 'bg-green-600 hover:bg-green-700 text-white',
+                'reassign': 'bg-blue-600 hover:bg-blue-700 text-white',
+                'retrieve': 'bg-amber-600 hover:bg-amber-700 text-white',
+                'retire': 'bg-red-600 hover:bg-red-700 text-white'
+            };
+
+            submitBtn.classList.add(...colors[tabName].split(' '));
         }
 
         function closeDeviceActionsModal() {
-            // Reset state
             currentDeviceActionsState = {
                 deviceId: null,
                 assignedUser: null,
@@ -3016,12 +3079,6 @@ if (!empty($_GET['department'])) {
                 departmentId: null,
                 currentTab: 'assign'
             };
-
-            // Reset form
-            document.getElementById('deviceActionsForm').reset();
-
-            // Remove any hidden action inputs
-            document.querySelectorAll('input[name="action"]').forEach(input => input.remove());
 
             closeModal('deviceActionsModal');
         }
@@ -3034,7 +3091,7 @@ if (!empty($_GET['department'])) {
             const currentTab = currentDeviceActionsState.currentTab;
             const deviceTag = currentDeviceActionsState.assetTag;
 
-            // Validate required fields based on current tab
+            // Validate required fields
             let isValid = true;
             let errorMessage = '';
 
@@ -3043,55 +3100,24 @@ if (!empty($_GET['department'])) {
                     const assignUser = document.getElementById('deviceAssignUserSelect');
                     if (!assignUser.value) {
                         isValid = false;
-                        errorMessage = 'Please select a user to assign the device to!';
+                        errorMessage = 'Please select a user to assign this device to.';
                         assignUser.focus();
                     }
                     break;
-
                 case 'reassign':
                     const reassignUser = document.getElementById('deviceReassignUserSelect');
                     if (!reassignUser.value) {
                         isValid = false;
-                        errorMessage = 'Please select a user to reassign the device to!';
+                        errorMessage = 'Please select a user to reassign this device to.';
                         reassignUser.focus();
                     }
-                    break;
-
-                case 'retrieve':
-                    // Retrieve doesn't require any specific validation
-                    break;
-
-                case 'retire':
-                    // Retire doesn't require any specific validation
                     break;
             }
 
             if (!isValid) {
                 Toast.showError(errorMessage, 'Validation Error');
-                return false;
+                return;
             }
-
-            // Prepare confirmation message based on action
-            const actionTitles = {
-                'assign': 'Confirm Assignment',
-                'reassign': 'Confirm Reassignment',
-                'retrieve': 'Confirm Retrieval',
-                'retire': 'Confirm Retirement'
-            };
-
-            const actionMessages = {
-                'assign': `Are you sure you want to assign device <strong>"${deviceTag}"</strong> to the selected user?`,
-                'reassign': `Are you sure you want to reassign device <strong>"${deviceTag}"</strong> from the current user to the new user?`,
-                'retrieve': `Are you sure you want to retrieve device <strong>"${deviceTag}"</strong> from the current user and return it to storage?`,
-                'retire': `Are you sure you want to retire device <strong>"${deviceTag}"</strong>? This will permanently mark it as retired.`
-            };
-
-            const actionWarnings = {
-                'assign': 'This will update the device status and assignment records.',
-                'reassign': 'This will update assignment records and device status.',
-                'retrieve': 'The device will be marked as "In Storage" and assignment will be ended.',
-                'retire': 'This action cannot be undone. The device will be permanently marked as retired.'
-            };
 
             // Store pending action
             pendingAction = {
@@ -3101,52 +3127,58 @@ if (!empty($_GET['department'])) {
                 deviceTag: deviceTag
             };
 
-            // Show confirmation modal
-            document.getElementById('confirmationTitle').textContent = actionTitles[currentTab];
-            document.getElementById('confirmationMessage').innerHTML = actionMessages[currentTab];
+            // Configure confirmation modal
+            const titles = {
+                'assign': 'Confirm Assignment',
+                'reassign': 'Confirm Reassignment',
+                'retrieve': 'Confirm Retrieval',
+                'retire': 'Confirm Retirement'
+            };
 
+            const messages = {
+                'assign': `Are you sure you want to assign device <span class="font-semibold text-gray-900">"${deviceTag}"</span> to the selected user?`,
+                'reassign': `Are you sure you want to reassign device <span class="font-semibold text-gray-900">"${deviceTag}"</span> to a new user?`,
+                'retrieve': `Are you sure you want to retrieve device <span class="font-semibold text-gray-900">"${deviceTag}"</span> and return it to storage?`,
+                'retire': `Are you sure you want to retire device <span class="font-semibold text-gray-900">"${deviceTag}"</span>?`
+            };
+
+            document.getElementById('confirmationTitle').textContent = titles[currentTab];
+            document.getElementById('confirmationMessage').innerHTML = messages[currentTab];
+
+            // Update warning message
             const warningDiv = document.getElementById('confirmationWarning');
             if (currentTab === 'retire') {
-                warningDiv.classList.remove('hidden');
                 warningDiv.innerHTML = `
                     <p class="text-sm text-red-700 flex items-center gap-2">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Warning:</strong> ${actionWarnings[currentTab]}
+                        <strong>Warning:</strong> This action cannot be undone. The device will be permanently marked as retired.
                     </p>
                 `;
             } else {
-                warningDiv.classList.remove('hidden');
                 warningDiv.innerHTML = `
                     <p class="text-sm text-blue-700 flex items-center gap-2">
                         <i class="fas fa-info-circle"></i>
-                        ${actionWarnings[currentTab]}
+                        This action will be recorded in the device history log.
                     </p>
                 `;
             }
 
-            // Update confirm button color based on action
+            // Update confirm button color
             const confirmBtn = document.getElementById('confirmActionBtn');
-            confirmBtn.className = 'px-5 py-2.5 rounded-lg text-white hover:opacity-90 font-medium transition';
+            confirmBtn.className = 'flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-colors';
 
-            switch (currentTab) {
-                case 'assign':
-                    confirmBtn.classList.add('bg-green-600');
-                    break;
-                case 'reassign':
-                    confirmBtn.classList.add('bg-blue-600');
-                    break;
-                case 'retrieve':
-                    confirmBtn.classList.add('bg-amber-600');
-                    break;
-                case 'retire':
-                    confirmBtn.classList.add('bg-red-600');
-                    break;
-                default:
-                    confirmBtn.classList.add('bg-blue-600');
-            }
+            const buttonColors = {
+                'assign': 'bg-green-600 hover:bg-green-700 text-white',
+                'reassign': 'bg-blue-600 hover:bg-blue-700 text-white',
+                'retrieve': 'bg-amber-600 hover:bg-amber-700 text-white',
+                'retire': 'bg-red-600 hover:bg-red-700 text-white'
+            };
 
-            // Close device actions modal and open confirmation modal
-            closeModal('deviceActionsModal');
+            confirmBtn.classList.add(...buttonColors[currentTab].split(' '));
+            confirmBtn.innerHTML = `<i class="fas fa-check"></i>Confirm`;
+
+            // Close device actions modal and open confirmation
+            closeDeviceActionsModal();
             openModal('confirmationModal');
         }
 
@@ -3164,7 +3196,7 @@ if (!empty($_GET['department'])) {
             if (pendingAction.type === 'deviceAction') {
                 const form = document.getElementById(pendingAction.formId);
 
-                // Create or update the action input
+                // Add or update action input
                 let actionInput = form.querySelector('input[name="action"]');
                 if (!actionInput) {
                     actionInput = document.createElement('input');
@@ -3174,17 +3206,17 @@ if (!empty($_GET['department'])) {
                 }
                 actionInput.value = pendingAction.tab;
 
-                // Show success toast
+                // Show success message
                 const successMessages = {
-                    'assign': `Device "${pendingAction.deviceTag}" assigned successfully!`,
-                    'reassign': `Device "${pendingAction.deviceTag}" reassigned successfully!`,
-                    'retrieve': `Device "${pendingAction.deviceTag}" retrieved successfully!`,
-                    'retire': `Device "${pendingAction.deviceTag}" retired successfully!`
+                    'assign': `Device ${pendingAction.deviceTag} assigned successfully`,
+                    'reassign': `Device ${pendingAction.deviceTag} reassigned successfully`,
+                    'retrieve': `Device ${pendingAction.deviceTag} retrieved successfully`,
+                    'retire': `Device ${pendingAction.deviceTag} retired successfully`
                 };
 
                 Toast.showSuccess(successMessages[pendingAction.tab], 'Success');
 
-                // Submit the form
+                // Submit form
                 form.submit();
             }
 
@@ -3196,12 +3228,12 @@ if (!empty($_GET['department'])) {
         function openDeleteModal(id) {
             pendingDeleteUrl = `inventory.php?delete=${id}`;
 
-            // Get device info for confirmation message
+            // Get device info
             const row = document.querySelector(`[onclick*="openDeleteModal(${id})"]`)?.closest('tr');
             const assetTag = row?.querySelector('.asset-tag-badge')?.textContent || 'this device';
 
             document.getElementById('deleteConfirmationMessage').innerHTML =
-                `Are you sure you want to delete device <strong>"${assetTag}"</strong>?`;
+                `Are you sure you want to permanently delete device <span class="font-semibold text-gray-900">"${assetTag}"</span>?`;
 
             openModal('deleteConfirmationModal');
         }
@@ -3213,13 +3245,13 @@ if (!empty($_GET['department'])) {
 
         function executeDelete() {
             if (pendingDeleteUrl) {
-                Toast.showSuccess('Device deleted successfully!', 'Success');
+                Toast.showSuccess('Device deleted successfully', 'Success');
                 window.location.href = pendingDeleteUrl;
             }
             closeDeleteConfirmationModal();
         }
 
-        // ==================== QUICK ACTIONS MODAL ====================
+        // ==================== QUICK ACTIONS ====================
         function openQuickActionsModal() {
             openModal('quickActionsModal');
         }
@@ -3231,13 +3263,17 @@ if (!empty($_GET['department'])) {
         function performQuickAction(action) {
             switch (action) {
                 case 'refresh':
-                    window.location.reload();
+                    Toast.showInfo('Refreshing inventory data...', 'Please wait');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
                     break;
                 case 'export':
                     window.location.href = 'export_assignments.php';
                     break;
                 case 'toggle_view':
-                    Toast.showInfo('Table view toggled', 'Info', 2000);
+                    document.querySelector('.table-container').classList.toggle('compact-view');
+                    Toast.showInfo('Table view toggled', 'View Updated');
                     break;
                 case 'clear_filters':
                     window.location.href = 'inventory.php';
@@ -3247,40 +3283,40 @@ if (!empty($_GET['department'])) {
         }
 
         // ==================== SEARCH FUNCTION ====================
+        let searchTimeout;
         function searchTable() {
-            const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
-            const rows = document.querySelectorAll("#inventoryTableBody tr");
+            clearTimeout(searchTimeout);
 
-            rows.forEach(row => {
-                const assetTag = row.querySelector('.asset-tag-badge')?.textContent.toLowerCase() || '';
-                const deviceType = row.querySelector('td:nth-child(2)')?.textContent.toLowerCase() || '';
-                const brandName = row.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
-                const model = row.querySelector('td:nth-child(4)')?.textContent.toLowerCase() || '';
-                const assignedUser = row.querySelector('td:nth-child(5)')?.textContent.toLowerCase() || '';
+            searchTimeout = setTimeout(() => {
+                const searchTerm = document.getElementById("searchInput").value.toLowerCase().trim();
+                const rows = document.querySelectorAll("#inventoryTableBody tr");
+                let visibleCount = 0;
 
-                const searchableText = `${assetTag} ${deviceType} ${brandName} ${model} ${assignedUser}`;
-                row.style.display = searchableText.includes(searchTerm) ? "" : "none";
-            });
+                rows.forEach(row => {
+                    if (row.querySelector('td[colspan]')) return;
+
+                    const searchableText = Array.from(row.cells)
+                        .slice(0, -1)
+                        .map(cell => cell.textContent.toLowerCase())
+                        .join(' ');
+
+                    const isVisible = searchableText.includes(searchTerm);
+                    row.style.display = isVisible ? "" : "none";
+                    if (isVisible) visibleCount++;
+                });
+
+                if (searchTerm.length > 0) {
+                    Toast.showInfo(`Found ${visibleCount} matching devices`, 'Search Results', 2000);
+                }
+            }, 300);
         }
 
         // ==================== PAGINATION ====================
         function changeItemsPerPage(select) {
             const url = new URL(window.location.href);
             url.searchParams.set('limit', select.value);
-            url.searchParams.set('page', 1);
+            url.searchParams.set('page', '1');
             window.location.href = url.toString();
-        }
-
-        // ==================== RESPONSIVE TABLE ====================
-        function adjustTableLayout() {
-            const container = document.querySelector('.table-container');
-            const screenWidth = window.innerWidth;
-
-            if (screenWidth < 768) {
-                container.style.overflowX = 'auto';
-            } else {
-                container.style.overflowX = 'visible';
-            }
         }
 
         // ==================== FORM VALIDATION ====================
@@ -3296,8 +3332,10 @@ if (!empty($_GET['department'])) {
                     const fieldName = field.name.replace(/_/g, ' ');
                     errorMessages.push(`${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} is required`);
                     field.classList.add('border-red-500');
-                } else {
-                    field.classList.remove('border-red-500');
+
+                    setTimeout(() => {
+                        field.classList.remove('border-red-500');
+                    }, 3000);
                 }
             });
 
@@ -3311,13 +3349,23 @@ if (!empty($_GET['department'])) {
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function () {
-            // Show PHP toasts
-            showPHPToasts();
+            // Show PHP session messages as toasts
+            const successToast = document.getElementById('success-toast');
+            if (successToast && successToast.textContent.trim()) {
+                Toast.showSuccess(successToast.textContent.trim(), 'Success');
+            }
 
-            // Adjust table layout
-            adjustTableLayout();
+            const errorToast = document.getElementById('error-toast');
+            if (errorToast && errorToast.textContent.trim()) {
+                Toast.showError(errorToast.textContent.trim(), 'Error');
+            }
 
-            // Add form validation for edit forms
+            const warningToast = document.getElementById('warning-toast');
+            if (warningToast && warningToast.textContent.trim()) {
+                Toast.showWarning(warningToast.textContent.trim(), 'Validation Error', 7000);
+            }
+
+            // Add form validation
             document.querySelectorAll('form[id^="editForm"]').forEach(form => {
                 form.addEventListener('submit', function (e) {
                     if (!validateEditForm(this.id)) {
@@ -3326,67 +3374,83 @@ if (!empty($_GET['department'])) {
                 });
             });
 
-            // Add keyboard shortcuts
+            // Keyboard shortcuts
             document.addEventListener('keydown', function (e) {
-                // Escape key closes modals
+                // ESC key closes modals
                 if (e.key === 'Escape') {
-                    if (document.getElementById('deviceActionsModal').classList.contains('flex')) {
-                        closeDeviceActionsModal();
-                    } else if (document.getElementById('confirmationModal').classList.contains('flex')) {
-                        closeConfirmationModal();
-                    } else if (document.getElementById('deleteConfirmationModal').classList.contains('flex')) {
-                        closeDeleteConfirmationModal();
-                    } else if (document.getElementById('quickActionsModal').classList.contains('flex')) {
-                        closeQuickActionsModal();
-                    }
+                    const modals = ['deviceActionsModal', 'confirmationModal', 'deleteConfirmationModal',
+                        'quickActionsModal', 'viewModal', 'addModal'];
+
+                    modals.forEach(modalId => {
+                        const modal = document.getElementById(modalId);
+                        if (modal && modal.classList.contains('flex')) {
+                            e.preventDefault();
+                            if (modalId === 'deviceActionsModal') closeDeviceActionsModal();
+                            else if (modalId === 'confirmationModal') closeConfirmationModal();
+                            else if (modalId === 'deleteConfirmationModal') closeDeleteConfirmationModal();
+                            else if (modalId === 'quickActionsModal') closeQuickActionsModal();
+                            else if (modalId === 'viewModal') closeViewModal();
+                            else closeModal(modalId);
+                        }
+                    });
                 }
 
-                // Enter key in device actions modal
+                // Arrow key navigation in device actions modal
                 if (document.getElementById('deviceActionsModal').classList.contains('flex')) {
-                    if (e.key === 'Enter' && !e.target.tagName === 'TEXTAREA') {
+                    const tabs = ['assign', 'reassign', 'retrieve', 'retire'];
+                    const currentIndex = tabs.indexOf(currentDeviceActionsState.currentTab);
+
+                    if (e.key === 'ArrowRight' && currentIndex < tabs.length - 1) {
                         e.preventDefault();
-                        confirmDeviceAction();
+                        let nextIndex = currentIndex + 1;
+                        while (nextIndex < tabs.length) {
+                            const nextTab = document.getElementById('device' + tabs[nextIndex].charAt(0).toUpperCase() + tabs[nextIndex].slice(1) + 'Tab');
+                            if (!nextTab.disabled && !nextTab.classList.contains('disabled')) {
+                                showDeviceActionTab(tabs[nextIndex]);
+                                break;
+                            }
+                            nextIndex++;
+                        }
                     }
 
-                    // Tab navigation with arrow keys
-                    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-                        const tabs = ['assign', 'reassign', 'retrieve', 'retire'];
-                        const currentIndex = tabs.indexOf(currentDeviceActionsState.currentTab);
-
-                        if (e.key === 'ArrowRight' && currentIndex < tabs.length - 1) {
-                            e.preventDefault();
-                            let nextIndex = currentIndex + 1;
-                            // Skip disabled tabs
-                            while (nextIndex < tabs.length) {
-                                const nextTab = document.getElementById('device' + tabs[nextIndex].charAt(0).toUpperCase() + tabs[nextIndex].slice(1) + 'Tab');
-                                if (!nextTab.classList.contains('tab-disabled')) {
-                                    showDeviceActionTab(tabs[nextIndex]);
-                                    break;
-                                }
-                                nextIndex++;
+                    if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                        e.preventDefault();
+                        let prevIndex = currentIndex - 1;
+                        while (prevIndex >= 0) {
+                            const prevTab = document.getElementById('device' + tabs[prevIndex].charAt(0).toUpperCase() + tabs[prevIndex].slice(1) + 'Tab');
+                            if (!prevTab.disabled && !prevTab.classList.contains('disabled')) {
+                                showDeviceActionTab(tabs[prevIndex]);
+                                break;
                             }
-                        }
-
-                        if (e.key === 'ArrowLeft' && currentIndex > 0) {
-                            e.preventDefault();
-                            let prevIndex = currentIndex - 1;
-                            // Skip disabled tabs
-                            while (prevIndex >= 0) {
-                                const prevTab = document.getElementById('device' + tabs[prevIndex].charAt(0).toUpperCase() + tabs[prevIndex].slice(1) + 'Tab');
-                                if (!prevTab.classList.contains('tab-disabled')) {
-                                    showDeviceActionTab(tabs[prevIndex]);
-                                    break;
-                                }
-                                prevIndex--;
-                            }
+                            prevIndex--;
                         }
                     }
                 }
             });
         });
 
-        // Adjust on resize
-        window.addEventListener('resize', adjustTableLayout);
+        // Export global functions
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.closeModalOnBackdrop = closeModalOnBackdrop;
+        window.openViewModal = openViewModal;
+        window.closeViewModal = closeViewModal;
+        window.openDeviceActionsModal = openDeviceActionsModal;
+        window.showDeviceActionTab = showDeviceActionTab;
+        window.closeDeviceActionsModal = closeDeviceActionsModal;
+        window.confirmDeviceAction = confirmDeviceAction;
+        window.closeConfirmationModal = closeConfirmationModal;
+        window.executeConfirmedAction = executeConfirmedAction;
+        window.openDeleteModal = openDeleteModal;
+        window.closeDeleteConfirmationModal = closeDeleteConfirmationModal;
+        window.executeDelete = executeDelete;
+        window.openQuickActionsModal = openQuickActionsModal;
+        window.closeQuickActionsModal = closeQuickActionsModal;
+        window.performQuickAction = performQuickAction;
+        window.searchTable = searchTable;
+        window.changeItemsPerPage = changeItemsPerPage;
+        window.validateEditForm = validateEditForm;
+        window.Toast = Toast;
     </script>
 </body>
 

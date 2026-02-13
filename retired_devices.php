@@ -389,7 +389,7 @@ function displayRetiredDevicesPage()
         'good' => 'bg-green-100 text-green-700 border-green-200',
         'fair' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
         'poor' => 'bg-orange-100 text-orange-700 border-orange-200',
-        'faulty' => 'bg-red-100 text-red-700 border-red-200'
+        'faulty' => 'bg-pink-100 text-pink-700 border-pink-200'
     ];
 
     $conditionLabels = [
@@ -667,9 +667,9 @@ function displayRetiredDevicesPage()
                 padding: 4px 8px;
                 border-radius: 6px;
                 display: inline-block;
-                background-color: #fef2f2;
-                color: #dc2626;
-                border: 1px solid #fecaca;
+                background-color: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #dbeafe;
             }
 
             .user-avatar {
@@ -682,13 +682,13 @@ function displayRetiredDevicesPage()
                 font-size: 0.75rem;
                 font-weight: 600;
                 color: white;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             }
 
             .retired-overlay {
                 position: absolute;
                 inset: 0;
-                background: linear-gradient(45deg, rgba(220, 38, 38, 0.05), rgba(239, 68, 68, 0.05));
+                background: linear-gradient(45deg, rgba(59, 130, 246, 0.05), rgba(37, 99, 235, 0.05));
                 pointer-events: none;
             }
 
@@ -969,7 +969,7 @@ function displayRetiredDevicesPage()
         </style>
     </head>
 
-    <body class="bg-gradient-to-br from-gray-50 via-red-50 to-orange-50 min-h-screen">
+    <body class="bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 min-h-screen">
         <!-- Toast Container -->
         <div id="toast-container"></div>
 
@@ -1017,17 +1017,17 @@ function displayRetiredDevicesPage()
                 <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                     <div>
                         <h1
-                            class="text-4xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                            class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                             Retired Devices
                         </h1>
                         <p class="text-gray-600 text-sm mt-2 flex items-center gap-2">
-                            <i class="fas fa-recycle text-red-500"></i>
+                            <i class="fas fa-recycle text-blue-500"></i>
                             View devices that have been retired from service
                         </p>
                     </div>
                     <div class="flex items-center gap-3">
                         <div
-                            class="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl shadow-lg flex items-center gap-2">
+                            class="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl shadow-lg flex items-center gap-2">
                             <i class="fas fa-history"></i>
                             <span class="font-semibold text-sm">RETIRED</span>
                         </div>
@@ -1050,7 +1050,7 @@ function displayRetiredDevicesPage()
                 <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
                     <div class="flex items-center gap-3">
                         <div
-                            class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg">
+                            class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
                             <i class="fas fa-laptop text-white text-xl"></i>
                         </div>
                         <div>
@@ -1113,7 +1113,7 @@ function displayRetiredDevicesPage()
                 <div class="glass-effect rounded-2xl shadow-lg p-6 border border-gray-100">
                     <div class="flex items-center gap-3">
                         <div
-                            class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                            class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg">
                             <i class="fas fa-exclamation-triangle text-white text-xl"></i>
                         </div>
                         <div>
@@ -1141,7 +1141,7 @@ function displayRetiredDevicesPage()
                 <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-filter text-red-500"></i>
+                            <i class="fas fa-filter text-blue-500"></i>
                             Filter Retired Devices
                         </h3>
                         <button type="button" onclick="clearFilters()"
@@ -1208,7 +1208,7 @@ function displayRetiredDevicesPage()
                     <!-- Apply Button -->
                     <div class="mt-6 flex justify-end gap-2">
                         <button type="submit"
-                            class="bg-red-600 text-white px-5 py-2.5 rounded-xl hover:bg-red-700 transition flex items-center gap-2">
+                            class="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition flex items-center gap-2">
                             <i class="fas fa-filter"></i> Apply Filters
                         </button>
                         <button type="button" onclick="exportRetired()"
@@ -1230,7 +1230,7 @@ function displayRetiredDevicesPage()
                     </p>
                 </div>
                 <div class="flex gap-2">
-                    <button id="tableViewBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2">
+                    <button id="tableViewBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2">
                         <i class="fas fa-table"></i> Table View
                     </button>
                     <button id="cardViewBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2">
@@ -1251,7 +1251,7 @@ function displayRetiredDevicesPage()
                         <div class="relative">
                             <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             <input type="text" id="searchTable" placeholder="Search devices..."
-                                class="pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent w-full md:w-64">
+                                class="pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64">
                         </div>
                     </div>
                 </div>
@@ -1453,7 +1453,7 @@ function displayRetiredDevicesPage()
 
                                 for ($i = $startPage; $i <= $endPage; $i++):
                                     $activeClass = $i === $page
-                                        ? 'bg-red-500 text-white'
+                                        ? 'bg-blue-500 text-white'
                                         : 'bg-white text-gray-700 hover:bg-gray-50';
                                     ?>
                                     <a href="?page=<?= $i ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
@@ -1499,7 +1499,7 @@ function displayRetiredDevicesPage()
                         ?>
                         <div class="device-card glass-effect rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                             <!-- Card Header -->
-                            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+                            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                                 <div class="flex items-start justify-between">
                                     <div class="flex items-center gap-3">
                                         <div
@@ -1841,15 +1841,15 @@ function displayRetiredDevicesPage()
                 $('#tableViewBtn').click(function () {
                     $('#tableView').removeClass('hidden');
                     $('#cardView').addClass('hidden');
-                    $(this).removeClass('bg-gray-200 text-gray-700').addClass('bg-red-600 text-white');
-                    $('#cardViewBtn').removeClass('bg-red-600 text-white').addClass('bg-gray-200 text-gray-700');
+                    $(this).removeClass('bg-gray-200 text-gray-700').addClass('bg-blue-600 text-white');
+                    $('#cardViewBtn').removeClass('bg-blue-600 text-white').addClass('bg-gray-200 text-gray-700');
                 });
 
                 $('#cardViewBtn').click(function () {
                     $('#cardView').removeClass('hidden');
                     $('#tableView').addClass('hidden');
-                    $(this).removeClass('bg-gray-200 text-gray-700').addClass('bg-red-600 text-white');
-                    $('#tableViewBtn').removeClass('bg-red-600 text-white').addClass('bg-gray-200 text-gray-700');
+                    $(this).removeClass('bg-gray-200 text-gray-700').addClass('bg-blue-600 text-white');
+                    $('#tableViewBtn').removeClass('bg-blue-600 text-white').addClass('bg-gray-200 text-gray-700');
                 });
 
                 // Make table responsive on mobile
@@ -1957,7 +1957,7 @@ function displayRetiredDevicesPage()
                     <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
                         <h3 class="font-semibold text-gray-800 mb-2">Device Information</h3>
                         <div class="space-y-2">
-                            <p><span class="font-medium">Asset Tag:</span> <span class="font-mono bg-red-50 px-2 py-1 rounded">${escapeHtml(device.asset_tag)}</span></p>
+                            <p><span class="font-medium">Asset Tag:</span> <span class="font-mono bg-blue-50 px-2 py-1 rounded">${escapeHtml(device.asset_tag)}</span></p>
                             <p><span class="font-medium">Device Type:</span> ${escapeHtml(device.device_type || 'N/A')}</p>
                             <p><span class="font-medium">Category:</span> ${escapeHtml(device.category_name || 'N/A')}</p>
                             <p><span class="font-medium">Serial Number:</span> <span class="font-mono">${escapeHtml(device.serial_number || 'N/A')}</span></p>
@@ -1970,7 +1970,7 @@ function displayRetiredDevicesPage()
                         <h3 class="font-semibold text-gray-800 mb-2">Device Status</h3>
                         <div class="space-y-2">
                             <p><span class="font-medium">Condition:</span> ${escapeHtml(device.condition || 'N/A')}</p>
-                            <p><span class="font-medium">Status:</span> <span class="text-red-600 font-semibold">${escapeHtml(device.status || 'N/A')}</span></p>
+                            <p><span class="font-medium">Status:</span> <span class="text-blue-600 font-semibold">${escapeHtml(device.status || 'N/A')}</span></p>
                             <p><span class="font-medium">Department:</span> ${escapeHtml(device.department_name || 'N/A')}</p>
                             <p><span class="font-medium">Created:</span> ${escapeHtml(device.created_at ? new Date(device.created_at).toLocaleDateString() : 'N/A')}</p>
                             <p><span class="font-medium">Last Updated:</span> ${escapeHtml(device.updated_at ? new Date(device.updated_at).toLocaleDateString() : 'N/A')}</p>
@@ -2002,9 +2002,9 @@ function displayRetiredDevicesPage()
                     </div>
                 </div>
                 
-                <div class="mt-6 bg-red-50 p-4 rounded-xl border border-red-200">
-                    <h3 class="font-semibold text-red-800 mb-2">Retirement Information</h3>
-                    <p class="text-red-700 text-sm">
+                <div class="mt-6 bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <h3 class="font-semibold text-blue-800 mb-2">Retirement Information</h3>
+                    <p class="text-blue-700 text-sm">
                         <i class="fas fa-exclamation-triangle mr-2"></i>
                         This device has been retired from service. It is no longer available for assignment.
                     </p>

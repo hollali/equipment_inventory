@@ -70,7 +70,7 @@ if ($topDevicesQuery) {
     }
 }
 
-// Top 5 users with most assignments - FIXED: Removed department join since department_id doesn't exist in users table
+// Top 5 users with most assignments
 $topUsersQuery = mysqli_query($conn, "
     SELECT 
         u.id,
@@ -317,310 +317,714 @@ if ($status_result) {
 
 <head>
     <meta charset="UTF-8">
-    <title>Device Assignment History</title>
+    <title>Device Assignment History | Asset Management</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="./images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+        /* Professional Design System - No Gradients */
+        :root {
+            --primary: #1e293b;
+            --primary-light: #334155;
+            --secondary: #2563eb;
+            --secondary-light: #3b82f6;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --info: #4f46e5;
+            --background: #f1f5f9;
+            --surface: #ffffff;
+            --surface-hover: #f8fafc;
+            --border: #e2e8f0;
+            --border-dark: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --text-disabled: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.5;
+        }
+
+        /* Animations */
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(10px);
+                transform: translateY(5px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
 
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
         .animate-fade-in {
-            animation: fadeIn 0.3s ease-out;
+            animation: fadeIn 0.2s ease-out;
         }
 
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
+        .animate-slide {
+            animation: slideIn 0.2s ease-out;
+        }
+
+        /* Status Badges - Solid Colors */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1.25rem;
+            border: 1px solid transparent;
+        }
+
+        .badge-status-active { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .badge-status-in_use { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .badge-status-in_storage { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+        .badge-status-repairing { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+        .badge-status-faulty { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .badge-status-retired { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+        
+        .badge-condition-new { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .badge-condition-good { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .badge-condition-fair { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+        .badge-condition-faulty { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
+        .badge-role-admin { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
+        .badge-role-user { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .badge-status-user-active { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .badge-status-user-inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-hover);
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .card-footer {
+            padding: 1.25rem 1.5rem;
+            border-top: 1px solid var(--border);
+            background: var(--surface-hover);
+        }
+
+        /* Tables */
+        .table-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: var(--surface-hover);
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
             font-weight: 600;
-            display: inline-block;
-            border: 1px solid;
-            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
         }
 
-        .history-card {
-            transition: all 0.2s ease;
-            border-left: 4px solid #3b82f6;
+        .table td {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
         }
 
-        .history-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        .table tr:last-child td {
+            border-bottom: none;
         }
 
-        .stat-card {
-            transition: all 0.2s ease;
+        .table tbody tr:hover td {
+            background: var(--surface-hover);
         }
 
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        /* Progress Bar */
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
         }
 
         .progress-bar {
-            height: 6px;
-            border-radius: 3px;
-            overflow: hidden;
-            background-color: #e5e7eb;
-        }
-
-        .progress-fill {
             height: 100%;
-            border-radius: 3px;
-            transition: width 0.3s ease;
+            background: var(--secondary);
+            border-radius: 2px;
+            transition: width 0.2s ease;
         }
 
-        .table-row-hover:hover {
-            background-color: #f9fafb;
-        }
-
-        .search-glow:focus {
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 9998;
-        }
-
-        .modal-content {
-            max-height: 90vh;
-            animation: modalSlideIn 0.3s ease-out;
-            z-index: 9999;
-        }
-
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px) scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .loading-spinner {
-            display: none;
-        }
-
-        .loading-spinner.active {
-            display: block;
-        }
-
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-width: 400px;
-        }
-
-        .toast {
-            padding: 16px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            display: flex;
+        /* Buttons */
+        .btn {
+            display: inline-flex;
             align-items: center;
-            gap: 12px;
-            transform: translateX(100%);
-            opacity: 0;
-            animation: slideIn 0.3s forwards, slideOut 0.3s forwards 4s;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+            gap: 0.5rem;
+            line-height: 1.25rem;
         }
 
-        .toast-success {
-            background: #10b981;
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            background: var(--secondary);
             color: white;
-            border-left: 4px solid #059669;
+            border-color: var(--secondary);
         }
 
-        .toast-error {
-            background: #ef4444;
-            color: white;
-            border-left: 4px solid #dc2626;
+        .btn-primary:hover {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
         }
 
-        .toast-warning {
-            background: #f59e0b;
-            color: white;
-            border-left: 4px solid #d97706;
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text-primary);
+            border-color: var(--border);
         }
 
-        .toast-info {
-            background: #3b82f6;
-            color: white;
-            border-left: 4px solid #1d4ed8;
+        .btn-secondary:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-dark);
         }
 
-        @keyframes slideIn {
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        .btn-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border-color: var(--border);
         }
 
-        @keyframes slideOut {
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
+        .btn-outline:hover {
+            background: var(--surface-hover);
+            color: var(--text-primary);
+            border-color: var(--border-dark);
         }
 
-        .confirmation-modal {
-            position: fixed;
-            inset: 0;
-            z-index: 10001;
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        /* Inputs */
+        .form-label {
+            display: block;
+            margin-bottom: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            transition: all 0.15s ease;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .input-field.input-with-icon {
+            padding-left: 2.25rem;
+        }
+
+        .select-field {
+            width: 100%;
+            padding: 0.625rem 2rem 0.625rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linecap='round' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.25rem;
+        }
+
+        .select-field:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Stats Cards */
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            transition: all 0.15s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--secondary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+        }
+
+        .stat-icon-blue { background: #dbeafe; color: #1e40af; }
+        .stat-icon-green { background: #dcfce7; color: #166534; }
+        .stat-icon-purple { background: #f3e8ff; color: #6b21a8; }
+        .stat-icon-amber { background: #fef3c7; color: #92400e; }
+
+        /* Top Items Cards - No hover effects */
+        .top-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            width: 100%;
+        }
+
+        .rank-badge {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .rank-1 { background: #fef3c7; color: #92400e; }
+        .rank-2 { background: #f1f5f9; color: #334155; }
+        .rank-3 { background: #ffedd5; color: #9a3412; }
+        .rank-other { background: #f1f5f9; color: #475569; }
+
+        .device-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .device-icon-blue { background: #dbeafe; color: #1e40af; }
+        .device-icon-green { background: #dcfce7; color: #166534; }
+        .device-icon-purple { background: #f3e8ff; color: #6b21a8; }
+        .device-icon-amber { background: #fef3c7; color: #92400e; }
+        .device-icon-gray { background: #f1f5f9; color: #475569; }
+
+        .user-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal {
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow: hidden;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            max-height: calc(90vh - 130px);
+        }
+
+        .modal-footer {
+            padding: 1.25rem 1.5rem;
+            background: var(--surface-hover);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left-width: 4px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.2s ease-out;
+            max-width: 350px;
+        }
+
+        .toast-success { border-left-color: var(--success); }
+        .toast-error { border-left-color: var(--danger); }
+        .toast-warning { border-left-color: var(--warning); }
+        .toast-info { border-left-color: var(--info); }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .page-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            height: 2rem;
+            padding: 0 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .page-link:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-dark);
+            color: var(--text-primary);
+        }
+
+        .page-link.active {
+            background: var(--secondary);
+            border-color: var(--secondary);
+            color: white;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 2px solid var(--border);
+            border-top-color: var(--secondary);
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Confirmation Modal */
+        .confirmation-modal {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
         }
 
         .confirmation-backdrop {
             position: absolute;
             inset: 0;
-            background-color: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.5);
         }
 
         .confirmation-content {
-            background: white;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            overflow: hidden;
-            z-index: 1;
-            animation: modalSlideIn 0.3s ease-out;
+            position: relative;
+            background: var(--surface);
+            border-radius: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            animation: fadeIn 0.2s ease-out;
         }
 
         .confirmation-header {
-            padding: 24px;
-            border-bottom: 1px solid #e5e7eb;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
         }
 
         .confirmation-body {
-            padding: 24px;
+            padding: 1.5rem;
         }
 
         .confirmation-footer {
-            padding: 24px;
-            border-top: 1px solid #e5e7eb;
+            padding: 1.25rem 1.5rem;
+            border-top: 1px solid var(--border);
             display: flex;
             justify-content: flex-end;
-            gap: 12px;
+            gap: 0.75rem;
         }
 
+        /* Assignment Cards */
         .assignment-card {
-            transition: all 0.2s ease;
-            border: 1px solid #e5e7eb;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            overflow: hidden;
-            background: white;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
         }
 
-        .assignment-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        .assignment-card:last-child {
+            margin-bottom: 0;
         }
 
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
+        .assignment-status {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: white;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
         }
 
-        .rank-badge {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            color: white;
-            margin-right: 12px;
+        .status-active { background: #dcfce7; color: #166534; }
+        .status-completed { background: #f1f5f9; color: #475569; }
+
+        /* Grid Layouts */
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
         }
 
-        .rank-1 {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #7c2d12;
+        .grid-top {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
         }
 
-        .rank-2 {
-            background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%);
-            color: #374151;
+        @media (max-width: 1024px) {
+            .grid-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .grid-top {
+                grid-template-columns: 1fr;
+            }
         }
 
-        .rank-3 {
-            background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%);
-            color: #7c2d12;
+        @media (max-width: 640px) {
+            .grid-stats {
+                grid-template-columns: 1fr;
+            }
         }
 
-        .rank-other {
-            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-            color: white;
-        }
-
-        .top-list-item {
-            transition: all 0.2s ease;
-            padding: 16px;
+        /* Filter Bar */
+        .filter-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            background: white;
-            border: 1px solid #e5e7eb;
+            padding: 1.25rem;
         }
 
-        .top-list-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border-color: #3b82f6;
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: end;
         }
 
-        .device-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+        @media (max-width: 768px) {
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utility Classes */
+        .hidden {
+            display: none !important;
+        }
+
+        .text-muted { color: var(--text-muted); }
+        .text-secondary { color: var(--text-secondary); }
+        .bg-surface { background: var(--surface); }
+        .bg-primary { background: #1e293b; color: white; }
+        
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 1rem 0;
+        }
+
+        .space-y-3 > * + * {
+            margin-top: 0.75rem;
+        }
+
+        .space-y-4 > * + * {
+            margin-top: 1rem;
+        }
+
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+
+        /* Fix for modal buttons */
+        .modal-footer .btn {
+            min-width: 80px;
+        }
+
+        /* Fix for status display in modal */
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        /* Fix for top users section - REMOVED HOVER EFFECTS */
+        .user-info {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .user-badges {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .user-stats {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-right: 12px;
+            gap: 0.5rem;
+            margin-left: auto;
         }
 
-        .user-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        /* Remove any hover effects from top items */
+        .top-item:hover {
+            background: var(--surface);
+            border-color: var(--border);
+            cursor: default;
+        }
+
+        /* Fix for status display in table */
+        .status-badge-container {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 12px;
+            flex-direction: column;
+            gap: 0.25rem;
         }
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+<body class="bg-[#f1f5f9]">
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
 
@@ -629,18 +1033,16 @@ if ($status_result) {
         <div class="confirmation-backdrop"></div>
         <div class="confirmation-content">
             <div class="confirmation-header">
-                <h3 class="text-lg font-semibold text-gray-800" id="confirmationTitle">Confirm Action</h3>
+                <h3 class="text-lg font-semibold text-[#0f172a]" id="confirmationTitle">Confirm Action</h3>
             </div>
             <div class="confirmation-body">
-                <p class="text-gray-600" id="confirmationMessage">Are you sure you want to perform this action?</p>
+                <p class="text-[#475569]" id="confirmationMessage">Are you sure you want to perform this action?</p>
             </div>
             <div class="confirmation-footer">
-                <button onclick="closeConfirmation()"
-                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <button onclick="closeConfirmation()" class="btn btn-outline">
                     Cancel
                 </button>
-                <button onclick="confirmAction()" id="confirmButton"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <button onclick="confirmAction()" id="confirmButton" class="btn btn-primary">
                     Confirm
                 </button>
             </div>
@@ -649,23 +1051,23 @@ if ($status_result) {
 
     <div class="flex">
         <?php include "sidebar.php"; ?>
-        <main id="mainContent" class="w-full p-6">
+        <main id="mainContent" class="flex-1 p-6">
             <!-- Header -->
             <div class="flex justify-between items-center mb-6">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Device Assignment History</h1>
-                    <p class="text-gray-500">Track all device assignments and user history</p>
+                    <h1 class="text-2xl font-bold text-[#0f172a]">Device Assignment History</h1>
+                    <p class="text-[#475569] text-sm mt-1">Track all device assignments and user history</p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="showExportConfirmation()"
-                        class="bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-4 py-2 text-sm rounded-lg hover:bg-green-700">
-                        <i class="fas fa-download text-xs mr-1"></i> Export
+                <div>
+                    <button onclick="showExportConfirmation()" class="btn btn-secondary">
+                        <i class="fas fa-download text-xs"></i>
+                        Export
                     </button>
                 </div>
             </div>
 
             <!-- Statistics Summary -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid-stats mb-6">
                 <?php
                 $stats_query = mysqli_query($conn, "
                     SELECT 
@@ -678,13 +1080,7 @@ if ($status_result) {
                 ");
                 $stats = mysqli_fetch_assoc($stats_query);
 
-                $stats_colors = [
-                    ['from' => 'from-blue-500', 'to' => 'to-blue-600', 'bg' => 'bg-blue-500'],
-                    ['from' => 'from-green-500', 'to' => 'to-green-600', 'bg' => 'bg-green-500'],
-                    ['from' => 'from-purple-500', 'to' => 'to-purple-600', 'bg' => 'bg-purple-500'],
-                    ['from' => 'from-amber-500', 'to' => 'to-amber-600', 'bg' => 'bg-amber-500']
-                ];
-
+                $stat_icons = ['blue', 'green', 'purple', 'amber'];
                 $stat_items = [
                     [
                         'title' => 'Total Devices',
@@ -714,16 +1110,15 @@ if ($status_result) {
                 ?>
 
                 <?php foreach ($stat_items as $index => $stat): ?>
-                    <div class="stat-card bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                        <div class="flex items-center justify-between">
+                    <div class="stat-card animate-fade-in">
+                        <div class="flex items-start justify-between">
                             <div>
-                                <div class="text-gray-500 text-sm font-medium mb-1"><?= $stat['title'] ?></div>
-                                <div class="text-2xl font-bold text-gray-800"><?= $stat['value'] ?></div>
-                                <div class="text-gray-400 text-xs mt-1"><?= $stat['description'] ?></div>
+                                <p class="text-xs font-medium text-[#64748b] uppercase tracking-wider"><?= $stat['title'] ?></p>
+                                <p class="text-2xl font-bold text-[#0f172a] mt-1"><?= $stat['value'] ?></p>
+                                <p class="text-xs text-[#64748b] mt-1"><?= $stat['description'] ?></p>
                             </div>
-                            <div
-                                class="w-12 h-12 <?= $stats_colors[$index]['from'] ?> <?= $stats_colors[$index]['to'] ?> rounded-lg flex items-center justify-center">
-                                <i class="fas <?= $stat['icon'] ?> text-white text-xl"></i>
+                            <div class="stat-icon stat-icon-<?= $stat_icons[$index] ?>">
+                                <i class="fas <?= $stat['icon'] ?>"></i>
                             </div>
                         </div>
                     </div>
@@ -731,86 +1126,69 @@ if ($status_result) {
             </div>
 
             <!-- Top Devices and Users Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="grid-top mb-6">
                 <!-- Top 5 Most Assigned Devices -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
-                    <div class="border-b border-gray-200 px-6 py-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h2 class="text-lg font-semibold text-gray-800">Top 5 Most Assigned Devices</h2>
-                                <p class="text-gray-500 text-sm">Devices with the highest assignment counts</p>
-                            </div>
-                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-trophy text-blue-600"></i>
-                            </div>
+                <div class="card animate-fade-in">
+                    <div class="card-header flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-[#0f172a]">Top 5 Most Assigned Devices</h2>
+                            <p class="text-xs text-[#64748b] mt-0.5">Highest assignment counts</p>
+                        </div>
+                        <div class="w-10 h-10 bg-[#dbeafe] rounded flex items-center justify-center">
+                            <i class="fas fa-trophy text-[#1e40af]"></i>
                         </div>
                     </div>
-                    <div class="p-6">
+                    <div class="card-body">
                         <?php if (empty($topDevices)): ?>
                             <div class="text-center py-8">
-                                <div
-                                    class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <i class="fas fa-inbox text-gray-400 text-xl"></i>
+                                <div class="w-12 h-12 bg-[#f1f5f9] rounded flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-inbox text-[#64748b]"></i>
                                 </div>
-                                <p class="text-gray-500">No device assignment data available</p>
+                                <p class="text-[#64748b] text-sm">No device assignment data available</p>
                             </div>
                         <?php else: ?>
-                            <div class="space-y-4">
+                            <div class="space-y-3">
                                 <?php foreach ($topDevices as $index => $device): ?>
                                     <?php
                                     $rank = $index + 1;
                                     $rankClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : 'rank-other'));
                                     $deviceIconColor = match ($device['device_type']) {
-                                        'Laptop' => 'bg-blue-100 text-blue-600',
-                                        'Desktop' => 'bg-purple-100 text-purple-600',
-                                        'Tablet' => 'bg-green-100 text-green-600',
-                                        'Mobile' => 'bg-red-100 text-red-600',
-                                        'Monitor' => 'bg-amber-100 text-amber-600',
-                                        default => 'bg-gray-100 text-gray-600'
+                                        'Laptop' => 'device-icon-blue',
+                                        'Desktop' => 'device-icon-purple',
+                                        'Tablet' => 'device-icon-green',
+                                        'Mobile' => 'device-icon-amber',
+                                        'Monitor' => 'device-icon-gray',
+                                        default => 'device-icon-gray'
                                     };
                                     ?>
-                                    <div class="top-list-item">
-                                        <div class="flex items-center">
+                                    <div class="top-item">
+                                        <div class="flex items-center gap-3">
                                             <div class="rank-badge <?= $rankClass ?>">
                                                 <?= $rank ?>
                                             </div>
                                             <div class="device-icon <?= $deviceIconColor ?>">
                                                 <i class="fas fa-laptop"></i>
                                             </div>
-                                            <div class="flex-1">
-                                                <div class="flex justify-between items-start">
-                                                    <div>
-                                                        <div class="font-medium text-gray-900">
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-start justify-between">
+                                                    <div class="truncate pr-2">
+                                                        <p class="font-medium text-[#0f172a]">
                                                             <?= htmlspecialchars($device['asset_tag']) ?>
-                                                        </div>
-                                                        <div class="text-sm text-gray-500">
+                                                        </p>
+                                                        <p class="text-xs text-[#64748b] truncate">
                                                             <?= htmlspecialchars($device['device_type']) ?> •
                                                             <?= htmlspecialchars($device['model']) ?>
-                                                        </div>
-                                                        <div class="text-xs text-gray-400 mt-1">
-                                                            <?= htmlspecialchars($device['brand_name'] ?? 'N/A') ?> •
-                                                            <?= htmlspecialchars($device['category_name'] ?? 'N/A') ?>
-                                                        </div>
+                                                        </p>
                                                     </div>
-                                                    <div class="text-right">
-                                                        <div class="font-bold text-gray-900 text-xl">
-                                                            <?= $device['assignment_count'] ?>
-                                                        </div>
-                                                        <div class="text-xs text-gray-500">assignments</div>
-                                                    </div>
+                                                    <p class="font-bold text-[#0f172a] whitespace-nowrap">
+                                                        <?= $device['assignment_count'] ?>
+                                                    </p>
                                                 </div>
-                                                <div class="mt-3">
-                                                    <div class="flex justify-between text-sm mb-1">
-                                                        <span class="text-gray-600">Unique Users:</span>
-                                                        <span class="font-medium"><?= $device['user_count'] ?></span>
-                                                    </div>
-                                                    <div class="flex justify-between text-sm">
-                                                        <span class="text-gray-600">Status:</span>
-                                                        <span
-                                                            class="status-badge <?= $device['status'] === 'in_use' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-gray-100 text-gray-700 border-gray-200' ?>">
-                                                            <?= htmlspecialchars($statusLabels[$device['status']] ?? ucfirst(str_replace('_', ' ', $device['status']))) ?>
-                                                        </span>
-                                                    </div>
+                                                <div class="flex items-center justify-between mt-2 text-xs">
+                                                    <span class="text-[#64748b]">Unique users: <?= $device['user_count'] ?></span>
+                                                    <span class="badge badge-status-<?= $device['status'] ?> whitespace-nowrap">
+                                                        <?= htmlspecialchars($statusLabels[$device['status']] ?? ucfirst(str_replace('_', ' ', $device['status']))) ?>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -821,94 +1199,68 @@ if ($status_result) {
                     </div>
                 </div>
 
-                <!-- Top 5 Users with Most Assignments -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
-                    <div class="border-b border-gray-200 px-6 py-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h2 class="text-lg font-semibold text-gray-800">Top 5 Active Users</h2>
-                                <p class="text-gray-500 text-sm">Users with the highest assignment counts</p>
-                            </div>
-                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-users text-green-600"></i>
-                            </div>
+                <!-- Top 5 Users with Most Assignments - FIXED: Removed hover effects -->
+                <div class="card animate-fade-in">
+                    <div class="card-header flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-[#0f172a]">Top 5 Active Users</h2>
+                            <p class="text-xs text-[#64748b] mt-0.5">Highest assignment counts</p>
+                        </div>
+                        <div class="w-10 h-10 bg-[#dcfce7] rounded flex items-center justify-center">
+                            <i class="fas fa-users text-[#166534]"></i>
                         </div>
                     </div>
-                    <div class="p-6">
+                    <div class="card-body">
                         <?php if (empty($topUsers)): ?>
                             <div class="text-center py-8">
-                                <div
-                                    class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <i class="fas fa-users text-gray-400 text-xl"></i>
+                                <div class="w-12 h-12 bg-[#f1f5f9] rounded flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-users text-[#64748b]"></i>
                                 </div>
-                                <p class="text-gray-500">No user assignment data available</p>
+                                <p class="text-[#64748b] text-sm">No user assignment data available</p>
                             </div>
                         <?php else: ?>
-                            <div class="space-y-4">
+                            <div class="space-y-3">
                                 <?php foreach ($topUsers as $index => $user): ?>
                                     <?php
                                     $rank = $index + 1;
                                     $rankClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : 'rank-other'));
-                                    $userStatusColor = $user['user_status'] === 'active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200';
-                                    $roleColor = $user['role'] === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                                    $roleClass = $user['role'] === 'admin' ? 'badge-role-admin' : 'badge-role-user';
+                                    $statusClass = $user['user_status'] === 'active' ? 'badge-status-user-active' : 'badge-status-user-inactive';
+                                    $statusText = $user['user_status'] === 'active' ? 'Active' : 'Inactive';
+                                    $avatarInitials = strtoupper(substr($user['firstname'] ?? '', 0, 1) . substr($user['lastname'] ?? '', 0, 1));
                                     ?>
-                                    <div class="top-list-item">
-                                        <div class="flex items-center">
+                                    <div class="top-item">
+                                        <div class="flex items-center gap-3">
                                             <div class="rank-badge <?= $rankClass ?>">
                                                 <?= $rank ?>
                                             </div>
-                                            <div class="user-icon bg-gradient-to-r from-blue-500 to-purple-600">
-                                                <span class="text-white font-semibold">
-                                                    <?= strtoupper(substr($user['firstname'] ?? '', 0, 1) . substr($user['lastname'] ?? '', 0, 1)) ?>
-                                                </span>
+                                            <div class="user-avatar">
+                                                <?= $avatarInitials ?: '?' ?>
                                             </div>
-                                            <div class="flex-1">
-                                                <div class="flex justify-between items-start">
+                                            <div class="user-info">
+                                                <div class="flex items-start justify-between">
                                                     <div>
-                                                        <div class="font-medium text-gray-900">
+                                                        <p class="font-medium text-[#0f172a]">
                                                             <?= htmlspecialchars($user['firstname'] . ' ' . $user['lastname']) ?>
-                                                        </div>
-                                                        <div class="text-sm text-gray-500">
-                                                            <i class="fas fa-envelope mr-1"></i>
+                                                        </p>
+                                                        <p class="text-xs text-[#64748b]">
                                                             <?= htmlspecialchars($user['email']) ?>
-                                                        </div>
-                                                        <div class="flex items-center gap-2 mt-1">
-                                                            <span class="text-xs px-2 py-1 rounded-full <?= $roleColor ?>">
-                                                                <?= htmlspecialchars(ucfirst($user['role'])) ?>
-                                                            </span>
-                                                            <span
-                                                                class="text-xs px-2 py-1 rounded-full <?= $userStatusColor ?>">
-                                                                <?= htmlspecialchars(ucfirst($user['user_status'])) ?>
-                                                            </span>
-                                                        </div>
+                                                        </p>
                                                     </div>
-                                                    <div class="text-right">
-                                                        <div class="font-bold text-gray-900 text-xl">
-                                                            <?= $user['assignment_count'] ?>
-                                                        </div>
-                                                        <div class="text-xs text-gray-500">assignments</div>
-                                                    </div>
+                                                    <p class="font-bold text-[#0f172a] ml-2">
+                                                        <?= $user['assignment_count'] ?>
+                                                    </p>
                                                 </div>
-                                                <div class="mt-3">
-                                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                                        <div>
-                                                            <div class="text-gray-600">Devices Assigned:</div>
-                                                            <div class="font-medium"><?= $user['device_count'] ?> devices</div>
-                                                        </div>
-                                                        <div>
-                                                            <div class="text-gray-600">Avg. Duration:</div>
-                                                            <div class="font-medium">
-                                                                <?= round($user['avg_days_per_assignment'] ?? 0, 1) ?> days
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="mt-2">
-                                                        <div class="text-sm text-gray-600">
-                                                            Total Days Assigned: <span
-                                                                class="font-medium"><?= round($user['total_days_assigned'] ?? 0) ?>
-                                                                days</span>
-                                                        </div>
-                                                    </div>
+                                                <div class="user-badges">
+                                                    <span class="badge <?= $roleClass ?>">
+                                                        <?= htmlspecialchars(ucfirst($user['role'])) ?>
+                                                    </span>
+                                                    <span class="badge <?= $statusClass ?>">
+                                                        <?= $statusText ?>
+                                                    </span>
+                                                    <span class="text-xs text-[#64748b]">
+                                                        Devices: <?= $user['device_count'] ?>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -921,259 +1273,207 @@ if ($status_result) {
             </div>
 
             <!-- Search and Filters -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-                <form method="GET" class="w-full">
-                    <div class="flex flex-col lg:flex-row gap-4 items-stretch lg:items-end">
-                        <!-- Search -->
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Search Devices</label>
-                            <div class="relative">
-                                <i
-                                    class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                                    placeholder="Search by asset tag, device type, model, or brand..."
-                                    autocomplete="off"
-                                    class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent search-glow">
-                            </div>
+            <div class="filter-bar mb-6 animate-fade-in">
+                <form method="GET" class="filter-grid">
+                    <!-- Search -->
+                    <div>
+                        <label class="form-label">Search Devices</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-search input-icon"></i>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
+                                placeholder="Search by asset tag, model, or brand..."
+                                class="input-field input-with-icon">
                         </div>
+                    </div>
 
-                        <!-- Status Filter -->
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Status</label>
-                            <select name="status"
-                                class="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">All Status</option>
-                                <?php foreach ($statusLabels as $key => $label): ?>
-                                    <option value="<?= $key ?>" <?= $status_filter == $key ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($label) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                    <!-- Status Filter -->
+                    <div>
+                        <label class="form-label">Status</label>
+                        <select name="status" class="select-field">
+                            <option value="">All Status</option>
+                            <?php foreach ($statusLabels as $key => $label): ?>
+                                <option value="<?= $key ?>" <?= $status_filter == $key ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($label) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
-                        <!-- Category Filter -->
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1.5 ml-1">Category</label>
-                            <select name="category"
-                                class="w-full border border-gray-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">All Categories</option>
-                                <?php foreach ($categories as $category): ?>
-                                    <option value="<?= $category['id'] ?>" <?= $category_filter == $category['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($category['category_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                    <!-- Category Filter -->
+                    <div>
+                        <label class="form-label">Category</label>
+                        <select name="category" class="select-field">
+                            <option value="">All Categories</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?= $category['id'] ?>" <?= $category_filter == $category['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($category['category_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
-                        <!-- Action Buttons -->
-                        <div class="flex gap-2">
-                            <button type="submit"
-                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium">
-                                <i class="fas fa-filter mr-2"></i>Filter
-                            </button>
-                            <a href="device_history.php"
-                                class="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium">
-                                <i class="fas fa-redo mr-2"></i>Reset
-                            </a>
-                        </div>
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i>
+                            Filter
+                        </button>
+                        <a href="device_history.php" class="btn btn-outline">
+                            <i class="fas fa-redo"></i>
+                            Reset
+                        </a>
                     </div>
                 </form>
             </div>
 
             <!-- Devices Table -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-fade-in">
-                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div class="card animate-fade-in">
+                <div class="card-header flex items-center justify-between">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-800">Device Assignment History</h2>
-                        <p class="text-gray-500 text-sm">Showing <?= count($devices) ?> of <?= $total_devices ?> devices
-                        </p>
+                        <h2 class="font-semibold text-[#0f172a]">Device Assignment History</h2>
+                        <p class="text-xs text-[#64748b] mt-0.5">Showing <?= count($devices) ?> of <?= $total_devices ?> devices</p>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="w-full">
+                    <table class="table">
                         <thead>
-                            <tr class="bg-gray-50">
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Device</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Assignments</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Users</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    First Assigned</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Last Assigned</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions</th>
+                            <tr>
+                                <th>Device</th>
+                                <th>Assignments</th>
+                                <th>Users</th>
+                                <th>First Assigned</th>
+                                <th>Last Assigned</th>
+                                <th>Status / Condition</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200">
+                        <tbody>
                             <?php if (empty($devices)): ?>
                                 <tr>
-                                    <td colspan="7" class="px-6 py-12 text-center">
+                                    <td colspan="7" class="text-center py-12">
                                         <div class="flex flex-col items-center">
-                                            <div
-                                                class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                                <i class="fas fa-search text-gray-400 text-xl"></i>
+                                            <div class="w-12 h-12 bg-[#f1f5f9] rounded flex items-center justify-center mb-3">
+                                                <i class="fas fa-search text-[#64748b]"></i>
                                             </div>
-                                            <p class="text-gray-500">No devices found matching your criteria</p>
+                                            <p class="text-[#64748b]">No devices found matching your criteria</p>
                                         </div>
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <?php
-                                $statusColors = [
-                                    'active' => 'bg-green-100 text-green-700 border-green-200',
-                                    'in_use' => 'bg-indigo-100 text-indigo-700 border-indigo-200',
-                                    'in_storage' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                                    'repairing' => 'bg-orange-100 text-orange-700 border-orange-200',
-                                    'faulty' => 'bg-red-100 text-red-700 border-red-200',
-                                    'retired' => 'bg-gray-100 text-gray-700 border-gray-200'
-                                ];
-                                $statusLabels = [
-                                    'active' => 'Active',
-                                    'in_use' => 'In Use',
-                                    'in_storage' => 'Store',
-                                    'repairing' => 'Repairing',
-                                    'faulty' => 'Faulty',
-                                    'retired' => 'Retired'
-                                ];
-                                $conditionColors = [
-                                    'New' => 'bg-green-100 text-green-700 border-green-200',
-                                    'Good' => 'bg-blue-100 text-blue-700 border-blue-200',
-                                    'Fair' => 'bg-amber-100 text-amber-700 border-amber-200',
-                                    'Faulty' => 'bg-red-100 text-red-700 border-red-200'
-                                ];
-                                ?>
-
                                 <?php foreach ($devices as $device): ?>
                                     <?php
-                                    $status_class = $statusColors[$device['status']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
-                                    $condition_class = $conditionColors[$device['condition']] ?? 'bg-gray-100 text-gray-700 border-gray-200';
                                     $assignment_percentage = min(100, ($device['total_assignments'] * 20));
+                                    
+                                    // Fix for status display
+                                    $status_key = $device['status'] ?? '';
+                                    $status_display = isset($statusLabels[$status_key]) 
+                                        ? $statusLabels[$status_key] 
+                                        : ucfirst(str_replace('_', ' ', $status_key));
+                                    
+                                    // Fix for condition display
+                                    $condition_value = $device['condition'] ?? '';
+                                    $condition_display = isset($conditionLabels[$condition_value]) 
+                                        ? $conditionLabels[$condition_value] 
+                                        : ucfirst(str_replace('_', ' ', $condition_value));
+                                    
+                                    // Generate CSS classes
+                                    $status_class = 'badge-status-' . str_replace('_', '-', $status_key);
+                                    $condition_class = 'badge-condition-' . strtolower(str_replace(' ', '-', $condition_value));
+                                    
+                                    // Default classes if empty
+                                    if (empty($status_key)) {
+                                        $status_class = 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
+                                        $status_display = 'Unknown';
+                                    }
+                                    
+                                    if (empty($condition_value)) {
+                                        $condition_class = 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
+                                        $condition_display = 'Unknown';
+                                    }
                                     ?>
-                                    <tr class="table-row-hover">
+                                    <tr>
                                         <!-- Device Info -->
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center">
-                                                <div
-                                                    class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                                    <i class="fas fa-laptop text-blue-600"></i>
+                                        <td>
+                                            <div class="flex items-center gap-3">
+                                                <div class="device-icon device-icon-blue">
+                                                    <i class="fas fa-laptop"></i>
                                                 </div>
                                                 <div>
-                                                    <div class="font-medium text-gray-900">
-                                                        <?= htmlspecialchars($device['asset_tag']) ?>
-                                                    </div>
-                                                    <div class="text-sm text-gray-500">
+                                                    <p class="font-medium text-[#0f172a]"><?= htmlspecialchars($device['asset_tag']) ?></p>
+                                                    <p class="text-xs text-[#64748b]">
                                                         <?= htmlspecialchars($device['device_type']) ?>
-                                                        <?php if ($device['model']): ?>
-                                                            • <?= htmlspecialchars($device['model']) ?>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <div class="text-xs text-gray-400">
-                                                        <?= htmlspecialchars($device['brand_name'] ?? 'N/A') ?>
-                                                        • <?= htmlspecialchars($device['category_name'] ?? 'N/A') ?>
-                                                    </div>
+                                                        <?php if ($device['model']): ?>• <?= htmlspecialchars($device['model']) ?><?php endif; ?>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </td>
 
                                         <!-- Assignments Count -->
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center">
-                                                <div class="w-24 mr-3">
-                                                    <div class="progress-bar">
-                                                        <div class="progress-fill bg-blue-500"
-                                                            style="width: <?= $assignment_percentage ?>%"></div>
+                                        <td>
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-20">
+                                                    <div class="progress">
+                                                        <div class="progress-bar" style="width: <?= $assignment_percentage ?>%"></div>
                                                     </div>
                                                 </div>
-                                                <div class="text-right">
-                                                    <div class="font-bold text-gray-900"><?= $device['total_assignments'] ?>
-                                                    </div>
-                                                    <div class="text-xs text-gray-500">assignments</div>
-                                                </div>
+                                                <span class="font-medium text-[#0f172a]"><?= $device['total_assignments'] ?></span>
                                             </div>
                                         </td>
 
                                         <!-- Users Count -->
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center">
-                                                <div
-                                                    class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-2">
-                                                    <i class="fas fa-user text-purple-600 text-xs"></i>
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-6 h-6 bg-[#f1f5f9] rounded flex items-center justify-center">
+                                                    <i class="fas fa-user text-[#64748b] text-xs"></i>
                                                 </div>
-                                                <div>
-                                                    <div class="font-bold text-gray-900"><?= $device['total_users'] ?></div>
-                                                    <div class="text-xs text-gray-500">unique users</div>
-                                                </div>
+                                                <span class="font-medium text-[#0f172a]"><?= $device['total_users'] ?></span>
                                             </div>
                                         </td>
 
                                         <!-- First Assigned -->
-                                        <td class="px-6 py-4">
+                                        <td>
                                             <?php if ($device['first_assigned']): ?>
-                                                <div class="text-gray-900">
-                                                    <?= date('M d, Y', strtotime($device['first_assigned'])) ?>
-                                                </div>
-                                                <div class="text-xs text-gray-500">
-                                                    <?= date('h:i A', strtotime($device['first_assigned'])) ?>
-                                                </div>
+                                                <p class="text-sm text-[#0f172a]"><?= date('M d, Y', strtotime($device['first_assigned'])) ?></p>
+                                                <p class="text-xs text-[#64748b]"><?= date('h:i A', strtotime($device['first_assigned'])) ?></p>
                                             <?php else: ?>
-                                                <span class="text-gray-400 italic">Never assigned</span>
+                                                <span class="text-sm text-[#64748b] italic">Never assigned</span>
                                             <?php endif; ?>
                                         </td>
 
                                         <!-- Last Assigned -->
-                                        <td class="px-6 py-4">
+                                        <td>
                                             <?php if ($device['last_assigned']): ?>
-                                                <div class="text-gray-900">
-                                                    <?= date('M d, Y', strtotime($device['last_assigned'])) ?>
-                                                </div>
-                                                <div class="text-xs text-gray-500">
-                                                    <?= date('h:i A', strtotime($device['last_assigned'])) ?>
-                                                </div>
+                                                <p class="text-sm text-[#0f172a]"><?= date('M d, Y', strtotime($device['last_assigned'])) ?></p>
+                                                <p class="text-xs text-[#64748b]"><?= date('h:i A', strtotime($device['last_assigned'])) ?></p>
                                             <?php else: ?>
-                                                <span class="text-gray-400 italic">Not applicable</span>
+                                                <span class="text-sm text-[#64748b] italic">Not applicable</span>
                                             <?php endif; ?>
                                         </td>
 
-                                        <!-- Status -->
-                                        <td class="px-6 py-4">
-                                            <span class="status-badge <?= $status_class ?>">
-                                                <?= htmlspecialchars($statusLabels[$device['status']] ?? ucfirst(str_replace('_', ' ', $device['status']))) ?>
-                                            </span>
-                                            <div class="mt-1">
-                                                <span class="text-xs status-badge <?= $condition_class ?>">
-                                                    <?= htmlspecialchars($conditionLabels[$device['condition']] ?? ucfirst($device['condition'])) ?>
+                                        <!-- Status - FIXED: Now displays correctly -->
+                                        <td>
+                                            <div class="status-badge-container">
+                                                <span class="badge <?= $status_class ?>">
+                                                    <?= htmlspecialchars($status_display) ?>
                                                 </span>
+                                                
+                                                <?php if (!empty($device['condition'])): ?>
+                                                    <span class="badge <?= $condition_class ?>">
+                                                        <?= htmlspecialchars($condition_display) ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
 
                                         <!-- Actions -->
-                                        <td class="px-6 py-4">
-                                            <div class="flex gap-2">
-                                                <button
-                                                    onclick="openDeviceHistoryModal(<?= $device['id'] ?>, '<?= htmlspecialchars(addslashes($device['asset_tag'])) ?>')"
-                                                    class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center">
-                                                    <i class="fas fa-history text-xs mr-1"></i>
-                                                    View
-                                                </button>
-                                                <!--<a href="inventory.php?edit=<?= $device['id'] ?>"
-                                                    class="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center">
-                                                    <i class="fas fa-edit text-xs mr-1"></i>
-                                                    Edit
-                                                </a>-->
-                                            </div>
+                                        <td>
+                                            <button
+                                                onclick="openDeviceHistoryModal(<?= $device['id'] ?>, '<?= htmlspecialchars(addslashes($device['asset_tag'])) ?>')"
+                                                class="btn btn-primary btn-sm">
+                                                <i class="fas fa-history"></i>
+                                                View
+                                            </button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -1190,17 +1490,15 @@ if ($status_result) {
                     $base_url = '?' . (!empty($query_params) ? http_build_query($query_params) . '&' : '');
                     ?>
 
-                    <div class="px-6 py-4 border-t border-gray-200">
+                    <div class="card-footer">
                         <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                            <div class="text-sm text-gray-600">
-                                Page <?= $page ?> of <?= $total_pages ?> •
-                                Showing <?= count($devices) ?> of <?= $total_devices ?> devices
-                            </div>
+                            <p class="text-sm text-[#64748b]">
+                                Page <?= $page ?> of <?= $total_pages ?> • Showing <?= count($devices) ?> of <?= $total_devices ?> devices
+                            </p>
 
-                            <div class="flex items-center gap-2">
+                            <div class="pagination">
                                 <?php if ($page > 1): ?>
-                                    <a href="<?= $base_url ?>page=<?= $page - 1 ?>"
-                                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    <a href="<?= $base_url ?>page=<?= $page - 1 ?>" class="page-link">
                                         <i class="fas fa-chevron-left"></i>
                                     </a>
                                 <?php endif; ?>
@@ -1211,31 +1509,27 @@ if ($status_result) {
 
                                 for ($i = $start_page; $i <= $end_page; $i++):
                                     ?>
-                                    <a href="<?= $base_url ?>page=<?= $i ?>" class="px-3 py-2 rounded-lg font-medium text-sm <?= $i == $page
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' ?>">
+                                    <a href="<?= $base_url ?>page=<?= $i ?>" class="page-link <?= $i == $page ? 'active' : '' ?>">
                                         <?= $i ?>
                                     </a>
                                 <?php endfor; ?>
 
                                 <?php if ($page < $total_pages): ?>
-                                    <a href="<?= $base_url ?>page=<?= $page + 1 ?>"
-                                        class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    <a href="<?= $base_url ?>page=<?= $page + 1 ?>" class="page-link">
                                         <i class="fas fa-chevron-right"></i>
                                     </a>
                                 <?php endif; ?>
                             </div>
 
                             <div class="flex items-center gap-2">
-                                <span class="text-sm text-gray-600">Show:</span>
-                                <select onchange="changeItemsPerPage(this)"
-                                    class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                <span class="text-sm text-[#64748b]">Show:</span>
+                                <select onchange="changeItemsPerPage(this)" class="select-field !w-auto !py-1 !text-sm">
                                     <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
                                     <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
                                     <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
                                     <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
                                 </select>
-                                <span class="text-sm text-gray-600">per page</span>
+                                <span class="text-sm text-[#64748b]">per page</span>
                             </div>
                         </div>
                     </div>
@@ -1244,154 +1538,141 @@ if ($status_result) {
         </main>
     </div>
 
-    <!-- Device History Modal -->
-    <div id="deviceHistoryModal" class="fixed inset-0 z-50 hidden modal-backdrop">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl modal-content">
-                <!-- Modal Header -->
-                <div
-                    class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+    <!-- Device History Modal - FIXED: Buttons now display properly -->
+    <div id="deviceHistoryModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                        <div class="w-10 h-10 bg-[#334155] rounded flex items-center justify-center">
                             <i class="fas fa-history text-white"></i>
                         </div>
                         <div>
                             <h2 class="text-xl font-bold text-white" id="modalTitle">Device Assignment History</h2>
-                            <p class="text-blue-100 text-sm" id="modalSubtitle">Loading...</p>
+                            <p class="text-[#94a3b8] text-sm" id="modalSubtitle">Loading...</p>
                         </div>
                     </div>
-                    <button onclick="closeDeviceHistoryModal()" class="text-white/80 hover:text-white transition">
+                    <button onclick="closeDeviceHistoryModal()" class="text-[#94a3b8] hover:text-white transition">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
+            </div>
 
-                <!-- Modal Body -->
-                <div class="p-6 overflow-y-auto max-h-[70vh]">
-                    <div id="loadingSpinner" class="loading-spinner text-center py-12">
-                        <div
-                            class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mb-4">
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <div id="loadingSpinner" class="text-center py-12">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-[#64748b]">Loading device history...</p>
+                </div>
+
+                <div id="modalContent" class="hidden">
+                    <!-- Device Info Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-1">Asset Tag</p>
+                            <p class="font-mono font-medium text-[#0f172a]" id="modalAssetTag"></p>
                         </div>
-                        <p class="text-gray-600">Loading device history...</p>
-                    </div>
-
-                    <div id="modalContent" class="hidden">
-                        <!-- Device Info -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-blue-50 rounded-lg p-4">
-                                <div class="text-blue-600 text-sm font-medium mb-1">Asset Tag</div>
-                                <div class="text-gray-800 font-bold font-mono" id="modalAssetTag"></div>
-                            </div>
-                            <div class="bg-green-50 rounded-lg p-4">
-                                <div class="text-green-600 text-sm font-medium mb-1">Brand & Model</div>
-                                <div class="text-gray-800 font-semibold" id="modalBrand"></div>
-                                <div class="text-gray-600 text-sm" id="modalModel"></div>
-                            </div>
-                            <div class="bg-purple-50 rounded-lg p-4">
-                                <div class="text-purple-600 text-sm font-medium mb-1">Serial Number</div>
-                                <div class="text-gray-800 font-semibold font-mono" id="modalSerial"></div>
-                            </div>
-                            <div class="bg-amber-50 rounded-lg p-4">
-                                <div class="text-amber-600 text-sm font-medium mb-1">Category</div>
-                                <div class="text-gray-800 font-semibold" id="modalCategory"></div>
-                            </div>
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-1">Brand & Model</p>
+                            <p class="font-medium text-[#0f172a]" id="modalBrand"></p>
+                            <p class="text-sm text-[#64748b]" id="modalModel"></p>
                         </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="text-gray-600 text-sm font-medium mb-1">Current Status</div>
-                                <span class="status-badge" id="modalStatus"></span>
-                            </div>
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="text-gray-600 text-sm font-medium mb-1">Total Assignments</div>
-                                <div class="text-gray-800 font-bold text-xl" id="modalTotalAssignments"></div>
-                                <div class="text-gray-500 text-sm" id="modalUniqueUsers"></div>
-                            </div>
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="text-gray-600 text-sm font-medium mb-1">Current Assignment</div>
-                                <div class="text-gray-800 font-semibold" id="modalCurrentAssignment"></div>
-                                <div class="text-gray-500 text-sm" id="modalAssignmentDate"></div>
-                            </div>
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-1">Serial Number</p>
+                            <p class="font-mono font-medium text-[#0f172a]" id="modalSerial"></p>
                         </div>
-
-                        <!-- Assignment History -->
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-                            <div class="border-b border-gray-200 px-6 py-4">
-                                <h3 class="text-lg font-semibold text-gray-800">Assignment History</h3>
-                                <p class="text-gray-600 text-sm" id="timelineDescription"></p>
-                            </div>
-
-                            <div class="p-6">
-                                <div id="assignmentHistory"></div>
-                            </div>
-                        </div>
-
-                        <!-- Statistics -->
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div class="border-b border-gray-200 px-6 py-4">
-                                <h3 class="text-lg font-semibold text-gray-800">Assignment Statistics</h3>
-                            </div>
-
-                            <div class="p-6">
-                                <div id="assignmentStatistics"></div>
-                            </div>
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-1">Category</p>
+                            <p class="font-medium text-[#0f172a]" id="modalCategory"></p>
                         </div>
                     </div>
 
-                    <div id="noHistoryMessage" class="hidden text-center py-12">
-                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-user-slash text-gray-400 text-2xl"></i>
+                    <!-- Status & Stats Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-2">Current Status</p>
+                            <div id="modalStatus" class="status-container"></div>
                         </div>
-                        <h3 class="text-lg font-medium text-gray-700 mb-2">No Assignment History</h3>
-                        <p class="text-gray-500">This device has never been assigned to any user.</p>
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-1">Total Assignments</p>
+                            <p class="text-2xl font-bold text-[#0f172a]" id="modalTotalAssignments"></p>
+                            <p class="text-sm text-[#64748b]" id="modalUniqueUsers"></p>
+                        </div>
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                            <p class="text-xs font-medium text-[#475569] mb-1">Current Assignment</p>
+                            <p class="font-medium text-[#0f172a]" id="modalCurrentAssignment"></p>
+                            <p class="text-sm text-[#64748b]" id="modalAssignmentDate"></p>
+                        </div>
+                    </div>
+
+                    <!-- Assignment History -->
+                    <div class="card mb-6">
+                        <div class="card-header">
+                            <h3 class="font-semibold text-[#0f172a]">Assignment History</h3>
+                            <p class="text-sm text-[#64748b]" id="timelineDescription"></p>
+                        </div>
+                        <div class="card-body">
+                            <div id="assignmentHistory"></div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="font-semibold text-[#0f172a]">Assignment Statistics</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="assignmentStatistics"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Modal Footer -->
-                <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t rounded-b-2xl">
-                    <button onclick="printModalContent()"
-                        class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center">
-                        <i class="fas fa-print mr-2"></i> Print
-                    </button>
-                    <button onclick="closeDeviceHistoryModal()"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Close
-                    </button>
+                <div id="noHistoryMessage" class="hidden text-center py-12">
+                    <div class="w-16 h-16 bg-[#f1f5f9] rounded flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-history text-[#64748b] text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-[#0f172a] mb-2">No Assignment History</h3>
+                    <p class="text-[#64748b]">This device has never been assigned to any user.</p>
                 </div>
+            </div>
+
+            <!-- Modal Footer - FIXED: Buttons now display properly -->
+            <div class="modal-footer">
+                <button onclick="printModalContent()" class="btn btn-outline">
+                    <i class="fas fa-print"></i>
+                    Print
+                </button>
+                <button onclick="closeDeviceHistoryModal()" class="btn btn-primary">
+                    Close
+                </button>
             </div>
         </div>
     </div>
-
 
     <!-- Footer -->
     <?php include __DIR__ . '/footer.php'; ?>
 
     <script>
         // Status labels mapping
-        const statusLabels = {
-            'active': 'Active',
-            'in_use': 'In Use',
-            'in_storage': 'Store',
-            'repairing': 'Repairing',
-            'faulty': 'Faulty',
-            'retired': 'Retired'
-        };
+        const statusLabels = <?= json_encode($statusLabels) ?>;
+        const conditionLabels = <?= json_encode($conditionLabels) ?>;
 
-        // Status colors mapping
+        // Status colors mapping for modal
         const statusColors = {
-            'active': 'bg-green-100 text-green-700 border-green-200',
-            'in_use': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-            'in_storage': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-            'repairing': 'bg-orange-100 text-orange-700 border-orange-200',
-            'faulty': 'bg-red-100 text-red-700 border-red-200',
-            'retired': 'bg-gray-100 text-gray-700 border-gray-200'
+            'active': 'badge-status-active',
+            'in_use': 'badge-status-in_use',
+            'in_storage': 'badge-status-in_storage',
+            'repairing': 'badge-status-repairing',
+            'faulty': 'badge-status-faulty',
+            'retired': 'badge-status-retired'
         };
 
-        // Condition colors mapping
         const conditionColors = {
-            'New': 'bg-green-100 text-green-700 border-green-200',
-            'Good': 'bg-blue-100 text-blue-700 border-blue-200',
-            'Fair': 'bg-amber-100 text-amber-700 border-amber-200',
-            'Faulty': 'bg-red-100 text-red-700 border-red-200'
+            'New': 'badge-condition-new',
+            'Good': 'badge-condition-good',
+            'Fair': 'badge-condition-fair',
+            'Faulty': 'badge-condition-faulty'
         };
 
         // Toast Notification System
@@ -1406,9 +1687,9 @@ if ($status_result) {
             if (type === 'warning') icon = 'fa-exclamation-triangle';
 
             toast.innerHTML = `
-                <i class="fas ${icon} text-lg"></i>
-                <div class="flex-1">${message}</div>
-                <button onclick="this.parentElement.remove()" class="text-white/80 hover:text-white">
+                <i class="fas ${icon} text-[#475569]"></i>
+                <div class="flex-1 text-sm">${message}</div>
+                <button onclick="this.parentElement.remove()" class="text-[#64748b] hover:text-[#0f172a]">
                     <i class="fas fa-times"></i>
                 </button>
             `;
@@ -1417,8 +1698,7 @@ if ($status_result) {
 
             setTimeout(() => {
                 if (toast.parentElement) {
-                    toast.style.animation = 'slideOut 0.3s forwards';
-                    setTimeout(() => toast.remove(), 300);
+                    toast.remove();
                 }
             }, duration);
         }
@@ -1514,19 +1794,19 @@ if ($status_result) {
         let currentDeviceId = null;
 
         function openDeviceHistoryModal(deviceId, assetTag) {
-            console.log('Opening modal for device:', deviceId, assetTag);
-
             currentDeviceId = deviceId;
             const modal = document.getElementById('deviceHistoryModal');
-            const title = document.getElementById('modalTitle');
             const subtitle = document.getElementById('modalSubtitle');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const modalContent = document.getElementById('modalContent');
+            const noHistoryMessage = document.getElementById('noHistoryMessage');
 
             subtitle.textContent = 'Loading history for ' + assetTag;
 
             modal.classList.remove('hidden');
-            document.getElementById('loadingSpinner').classList.add('active');
-            document.getElementById('modalContent').classList.add('hidden');
-            document.getElementById('noHistoryMessage').classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            modalContent.classList.add('hidden');
+            noHistoryMessage.classList.add('hidden');
 
             fetchDeviceHistory(deviceId, assetTag);
         }
@@ -1537,8 +1817,6 @@ if ($status_result) {
         }
 
         function fetchDeviceHistory(deviceId, assetTag) {
-            console.log('Fetching history for device ID:', deviceId);
-
             const xhr = new XMLHttpRequest();
             const url = `device_history.php?get_device_details=${deviceId}&ajax=1&_=${Date.now()}`;
 
@@ -1547,13 +1825,11 @@ if ($status_result) {
 
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4) {
-                    console.log('Response status:', xhr.status);
-                    console.log('Response text (first 500 chars):', xhr.responseText.substring(0, 500));
-
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    
                     if (xhr.status === 200) {
                         try {
                             const data = JSON.parse(xhr.responseText);
-                            console.log('Parsed JSON data:', data);
 
                             if (data.success === false || data.error) {
                                 showToast(data.error || 'Error loading device history', 'error');
@@ -1562,17 +1838,13 @@ if ($status_result) {
                             }
 
                             if (data.device && Object.keys(data.device).length > 0) {
-                                console.log('Device data found, populating modal...');
                                 populateModal(data.device, data.history || []);
                                 showToast(`Loaded history for ${assetTag}`, 'success');
                             } else {
-                                console.log('No device data found');
                                 showNoHistory();
                             }
                         } catch (e) {
-                            console.error('JSON parse error:', e);
-                            console.error('Full response:', xhr.responseText);
-                            showToast('Invalid response from server. Please check console for details.', 'error');
+                            showToast('Invalid response from server', 'error');
                             showNoHistory();
                         }
                     } else {
@@ -1583,7 +1855,7 @@ if ($status_result) {
             };
 
             xhr.onerror = function () {
-                console.error('Network error');
+                document.getElementById('loadingSpinner').classList.add('hidden');
                 showToast('Network error. Please check your connection.', 'error');
                 showNoHistory();
             };
@@ -1592,9 +1864,6 @@ if ($status_result) {
         }
 
         function populateModal(device, history) {
-            console.log('Populating modal with device:', device);
-            console.log('Populating modal with history:', history);
-
             // Update basic device info
             document.getElementById('modalAssetTag').textContent = device.asset_tag || 'N/A';
             document.getElementById('modalBrand').textContent = device.brand_name || 'N/A';
@@ -1605,24 +1874,21 @@ if ($status_result) {
             document.getElementById('modalUniqueUsers').textContent = (device.unique_users || 0) + ' unique users';
 
             // Update status with proper formatting
-            const statusClass = statusColors[device.status] || 'bg-gray-100 text-gray-700 border-gray-200';
-            const conditionClass = conditionColors[device.condition] || 'bg-gray-100 text-gray-700 border-gray-200';
+            const statusClass = statusColors[device.status] || 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
+            const conditionClass = conditionColors[device.condition] || 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
 
             const statusText = device.status ?
                 (statusLabels[device.status] || device.status.charAt(0).toUpperCase() + device.status.slice(1).replace('_', ' ')) :
                 'Unknown';
 
             const conditionText = device.condition ?
-                (device.condition.charAt(0).toUpperCase() + device.condition.slice(1)) :
+                (conditionLabels[device.condition] || device.condition.charAt(0).toUpperCase() + device.condition.slice(1)) :
                 'Unknown';
 
             const statusBadge = document.getElementById('modalStatus');
-            statusBadge.className = `status-badge ${statusClass}`;
             statusBadge.innerHTML = `
-                ${statusText}
-                <span class="ml-2 text-xs status-badge ${conditionClass}">
-                    ${conditionText}
-                </span>
+                <span class="badge ${statusClass}">${statusText}</span>
+                <span class="badge ${conditionClass}">${conditionText}</span>
             `;
 
             // Find current assignment
@@ -1631,7 +1897,7 @@ if ($status_result) {
 
             if (currentAssignment) {
                 document.getElementById('modalCurrentAssignment').textContent =
-                    currentAssignment.firstname + ' ' + currentAssignment.lastname;
+                    (currentAssignment.firstname || '') + ' ' + (currentAssignment.lastname || '');
                 document.getElementById('modalAssignmentDate').textContent =
                     'Since ' + formatDate(currentAssignment.assigned_at);
             } else {
@@ -1642,7 +1908,7 @@ if ($status_result) {
             // Update timeline description
             document.getElementById('modalSubtitle').textContent = `History for ${device.asset_tag}`;
             document.getElementById('timelineDescription').textContent =
-                `Showing ${history.length} assignments for ${device.asset_tag}`;
+                `Showing ${history.length} assignment${history.length !== 1 ? 's' : ''} for ${device.asset_tag}`;
 
             // Populate assignment history
             populateAssignmentHistory(history || []);
@@ -1651,7 +1917,6 @@ if ($status_result) {
             populateStatistics(history || []);
 
             // Hide loading, show content
-            document.getElementById('loadingSpinner').classList.remove('active');
             document.getElementById('modalContent').classList.remove('hidden');
         }
 
@@ -1661,25 +1926,22 @@ if ($status_result) {
             if (!Array.isArray(history) || history.length === 0) {
                 historyContainer.innerHTML = `
                     <div class="text-center py-8">
-                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-user-slash text-gray-400 text-2xl"></i>
+                        <div class="w-12 h-12 bg-[#f1f5f9] rounded flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-history text-[#64748b]"></i>
                         </div>
-                        <p class="text-gray-5000">No assignment history available</p>
+                        <p class="text-[#64748b]">No assignment history available</p>
                     </div>
                 `;
                 return;
             }
 
-            let historyHTML = '<div class="space-y-4">';
+            let historyHTML = '';
 
             history.forEach((assignment, index) => {
-                console.log('Processing assignment:', assignment);
-
                 const isActive = assignment.status === 'assigned';
                 const assignedDate = new Date(assignment.assigned_at);
                 const returnedDate = assignment.returned_at ? new Date(assignment.returned_at) : null;
 
-                // Format dates safely
                 let assignedDateStr = 'Invalid date';
                 let returnedDateStr = 'N/A';
 
@@ -1707,7 +1969,6 @@ if ($status_result) {
                     console.error('Date formatting error:', e);
                 }
 
-                // Calculate duration
                 const daysAssigned = assignment.days_assigned || 0;
                 const durationText = daysAssigned > 0 ?
                     `${daysAssigned} day${daysAssigned > 1 ? 's' : ''}` :
@@ -1715,78 +1976,72 @@ if ($status_result) {
 
                 historyHTML += `
                     <div class="assignment-card">
-                        <div class="p-5">
-                            <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                                <div class="flex-1">
-                                    <div class="flex items-start gap-4">
-                                        <div class="user-avatar flex-shrink-0">
-                                            ${assignment.firstname ? assignment.firstname.charAt(0).toUpperCase() : '?'}
+                        <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-start gap-4">
+                                    <div class="user-avatar flex-shrink-0">
+                                        ${assignment.firstname ? assignment.firstname.charAt(0).toUpperCase() : '?'}
+                                    </div>
+                                    
+                                    <div class="flex-1">
+                                        <div class="flex flex-wrap items-center gap-3 mb-3">
+                                            <span class="assignment-status ${isActive ? 'status-active' : 'status-completed'}">
+                                                <i class="fas ${isActive ? 'fa-user-check' : 'fa-user-times'} mr-1"></i>
+                                                ${isActive ? 'ACTIVE' : 'COMPLETED'}
+                                            </span>
+                                            <span class="text-xs text-[#64748b]">
+                                                <i class="far fa-calendar mr-1"></i>${assignedDateStr}
+                                            </span>
+                                            <span class="text-xs text-[#64748b]">
+                                                <i class="far fa-clock mr-1"></i>${durationText}
+                                            </span>
                                         </div>
                                         
-                                        <div class="flex-1">
-                                            <div class="flex flex-wrap items-center gap-3 mb-3">
-                                                <span class="px-3 py-1 rounded-full text-xs font-medium ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">
-                                                    <i class="fas ${isActive ? 'fa-user-check' : 'fa-user-times'} mr-1"></i>
-                                                    ${isActive ? 'ACTIVE' : 'COMPLETED'}
-                                                </span>
-                                                <span class="text-sm text-gray-500">
-                                                    <i class="far fa-calendar mr-1"></i>${assignedDateStr}
-                                                </span>
-                                                <span class="text-sm text-gray-500">
-                                                    <i class="far fa-clock mr-1"></i>${durationText}
-                                                </span>
+                                        <h4 class="font-medium text-[#0f172a] mb-2">
+                                            ${assignment.firstname || ''} ${assignment.lastname || ''}
+                                        </h4>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <p class="text-[#64748b]">
+                                                    <i class="fas fa-envelope mr-2 text-xs"></i>
+                                                    ${assignment.email || 'N/A'}
+                                                </p>
+                                                <p class="text-[#64748b] mt-1">
+                                                    <i class="fas fa-user-tag mr-2 text-xs"></i>
+                                                    Role: ${assignment.role || 'N/A'}
+                                                </p>
                                             </div>
-                                            
-                                            <h4 class="font-medium text-gray-800 mb-2">
-                                                ${assignment.firstname || ''} ${assignment.lastname || ''}
-                                                ${isActive ? '<span class="text-green-600 ml-2">• Currently Assigned</span>' : ''}
-                                            </h4>
-                                            
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                                <div>
-                                                    <div class="text-gray-600 mb-2">
-                                                        <i class="fas fa-envelope mr-2"></i>
-                                                        ${assignment.email || 'N/A'}
-                                                    </div>
-                                                    <div class="text-gray-600 mb-2">
-                                                        <i class="fas fa-user-tag mr-2"></i>
-                                                        Role: ${assignment.role || 'N/A'}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div class="text-gray-600 mb-2">
-                                                        <i class="fas fa-calendar-alt mr-2"></i>
-                                                        Assignment Date: ${assignedDateStr}
-                                                    </div>
-                                                    ${returnedDate ? `
-                                                        <div class="text-gray-600 mb-2">
-                                                            <i class="fas fa-calendar-times mr-2"></i>
-                                                            Returned: ${returnedDateStr}
-                                                        </div>
-                                                    ` : ''}
-                                                </div>
+                                            <div>
+                                                <p class="text-[#64748b]">
+                                                    <i class="fas fa-calendar-alt mr-2 text-xs"></i>
+                                                    Assigned: ${assignedDateStr}
+                                                </p>
+                                                ${returnedDate ? `
+                                                    <p class="text-[#64748b] mt-1">
+                                                        <i class="fas fa-calendar-times mr-2 text-xs"></i>
+                                                        Returned: ${returnedDateStr}
+                                                    </p>
+                                                ` : ''}
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <div class="md:text-right">
-                                    <div class="text-gray-500 text-sm mb-2">
-                                        <i class="fas fa-hashtag mr-1"></i>
-                                        Assignment #${index + 1}
-                                    </div>
-                                    <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
-                                        <i class="fas ${isActive ? 'fa-check-circle' : 'fa-times-circle'} mr-1"></i>
-                                        ${isActive ? 'Active' : 'Completed'}
-                                    </div>
-                                </div>
+                            </div>
+                            
+                            <div class="md:text-right">
+                                <p class="text-xs text-[#64748b] mb-1">
+                                    <i class="fas fa-hashtag"></i> Assignment #${index + 1}
+                                </p>
+                                <span class="badge ${isActive ? 'badge-status-active' : 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]'}">
+                                    ${isActive ? 'Active' : 'Completed'}
+                                </span>
                             </div>
                         </div>
                     </div>
                 `;
             });
 
-            historyHTML += '</div>';
             historyContainer.innerHTML = historyHTML;
         }
 
@@ -1794,7 +2049,7 @@ if ($status_result) {
             const statsContainer = document.getElementById('assignmentStatistics');
 
             if (!Array.isArray(history) || history.length === 0) {
-                statsContainer.innerHTML = '<p class="text-gray-500 text-center">No statistics available</p>';
+                statsContainer.innerHTML = '<p class="text-[#64748b] text-center">No statistics available</p>';
                 return;
             }
 
@@ -1842,37 +2097,35 @@ if ($status_result) {
             if (shortestAssignment === Infinity) shortestAssignment = 0;
 
             const avgDays = history.length > 0 ? Math.round((totalDays / history.length) * 10) / 10 : 0;
-            const avgActiveDays = activeAssignments > 0 ? Math.round((totalActiveDays / activeAssignments) * 10) / 10 : 0;
 
-            // Convert userCounts object to array and sort
             const userCountsArray = Object.values(userCounts);
             userCountsArray.sort((a, b) => b.count - a.count);
             const topUsers = userCountsArray.slice(0, 5);
 
             let statsHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <div class="text-blue-600 text-sm font-medium mb-1">Total Assignments</div>
-                        <div class="text-2xl font-bold text-gray-800">${history.length}</div>
-                        <div class="text-gray-500 text-sm">${activeAssignments} active, ${completedAssignments} completed</div>
+                    <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                        <p class="text-xs font-medium text-[#475569] mb-1">Total Assignments</p>
+                        <p class="text-2xl font-bold text-[#0f172a]">${history.length}</p>
+                        <p class="text-xs text-[#64748b]">${activeAssignments} active, ${completedAssignments} completed</p>
                     </div>
                     
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <div class="text-blue-600 text-sm font-medium mb-1">Unique Users</div>
-                        <div class="text-2xl font-bold text-gray-800">${uniqueUserIds.length}</div>
-                        <div class="text-gray-500 text-sm">Distinct users assigned</div>
+                    <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                        <p class="text-xs font-medium text-[#475569] mb-1">Unique Users</p>
+                        <p class="text-2xl font-bold text-[#0f172a]">${uniqueUserIds.length}</p>
+                        <p class="text-xs text-[#64748b]">Distinct users assigned</p>
                     </div>
                     
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <div class="text-blue-600 text-sm font-medium mb-1">Avg. Duration</div>
-                        <div class="text-2xl font-bold text-gray-800">${avgDays} days</div>
-                        <div class="text-gray-500 text-sm">Average per assignment</div>
+                    <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                        <p class="text-xs font-medium text-[#475569] mb-1">Avg. Duration</p>
+                        <p class="text-2xl font-bold text-[#0f172a]">${avgDays} days</p>
+                        <p class="text-xs text-[#64748b]">Average per assignment</p>
                     </div>
                     
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <div class="text-blue-600 text-sm font-medium mb-1">Longest Assignment</div>
-                        <div class="text-2xl font-bold text-gray-800">${longestAssignment} days</div>
-                        <div class="text-gray-500 text-sm">Shortest: ${shortestAssignment} days</div>
+                    <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
+                        <p class="text-xs font-medium text-[#475569] mb-1">Longest Assignment</p>
+                        <p class="text-2xl font-bold text-[#0f172a]">${longestAssignment} days</p>
+                        <p class="text-xs text-[#64748b]">Shortest: ${shortestAssignment} days</p>
                     </div>
                 </div>
             `;
@@ -1880,8 +2133,8 @@ if ($status_result) {
             if (topUsers.length > 0) {
                 statsHTML += `
                     <div class="mt-6">
-                        <h4 class="text-md font-semibold text-gray-700 mb-4">Top Users by Assignments</h4>
-                        <div class="space-y-4">
+                        <h4 class="text-sm font-semibold text-[#0f172a] mb-3">Top Users by Assignments</h4>
+                        <div class="space-y-3">
                 `;
 
                 topUsers.forEach(user => {
@@ -1889,24 +2142,24 @@ if ($status_result) {
                     const avgUserDays = user.count > 0 ? Math.round(user.totalDays / user.count * 10) / 10 : 0;
 
                     statsHTML += `
-                        <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-3">
                                     <div class="user-avatar w-8 h-8 text-xs">
                                         ${user.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <div class="font-medium text-gray-800">${user.name}</div>
-                                        <div class="text-gray-500 text-sm">Avg: ${avgUserDays} days per assignment</div>
+                                        <p class="font-medium text-[#0f172a]">${user.name}</p>
+                                        <p class="text-xs text-[#64748b]">Avg: ${avgUserDays} days per assignment</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <div class="font-bold text-gray-800">${user.count} assignment${user.count > 1 ? 's' : ''}</div>
-                                    <div class="text-gray-500 text-sm">Total: ${user.totalDays} days</div>
+                                    <p class="font-bold text-[#0f172a]">${user.count}</p>
+                                    <p class="text-xs text-[#64748b]">assignments</p>
                                 </div>
                             </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                            <div class="progress">
+                                <div class="progress-bar" style="width: ${percentage}%"></div>
                             </div>
                         </div>
                     `;
@@ -1918,26 +2171,25 @@ if ($status_result) {
                 `;
             }
 
-            // Add assignment timeline visualization
             if (history.length > 0) {
                 const firstAssignment = history[history.length - 1];
                 const lastAssignment = history[0];
 
                 statsHTML += `
                     <div class="mt-6">
-                        <h4 class="text-md font-semibold text-gray-700 mb-4">Assignment Timeline Overview</h4>
-                        <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-sm font-semibold text-[#0f172a] mb-3">Assignment Timeline</h4>
+                        <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <div class="flex items-center justify-between text-sm mb-2">
-                                <span class="text-gray-600">First Assignment:</span>
-                                <span class="font-medium">${formatDate(firstAssignment.assigned_at)}</span>
+                                <span class="text-[#64748b]">First Assignment:</span>
+                                <span class="font-medium text-[#0f172a]">${formatDate(firstAssignment.assigned_at)}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm mb-2">
-                                <span class="text-gray-600">Last Assignment:</span>
-                                <span class="font-medium">${formatDate(lastAssignment.assigned_at)}</span>
+                                <span class="text-[#64748b]">Last Assignment:</span>
+                                <span class="font-medium text-[#0f172a]">${formatDate(lastAssignment.assigned_at)}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600">Total Time Period:</span>
-                                <span class="font-medium">${Math.round(totalDays)} days</span>
+                                <span class="text-[#64748b]">Total Time Period:</span>
+                                <span class="font-medium text-[#0f172a]">${Math.round(totalDays)} days</span>
                             </div>
                         </div>
                     </div>
@@ -1948,7 +2200,7 @@ if ($status_result) {
         }
 
         function showNoHistory() {
-            document.getElementById('loadingSpinner').classList.remove('active');
+            document.getElementById('loadingSpinner').classList.add('hidden');
             document.getElementById('noHistoryMessage').classList.remove('hidden');
         }
 
@@ -1965,19 +2217,11 @@ if ($status_result) {
                         <head>
                             <title>Device History - Print</title>
                             <style>
-                                body { font-family: Arial, sans-serif; margin: 20px; }
-                                .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                                .device-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
-                                .info-card { border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
-                                .status-badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-                                .timeline-item { margin-bottom: 20px; padding-left: 20px; border-left: 3px solid #3b82f6; }
-                                .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
-                                .assignment-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+                                body { font-family: Arial, sans-serif; margin: 20px; color: #0f172a; }
+                                .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+                                .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #e2e8f0; }
                                 @media print {
                                     body { font-size: 12px; }
-                                    .print-header { margin-bottom: 20px; }
-                                    .device-info { grid-template-columns: repeat(2, 1fr); }
-                                    .stats-grid { grid-template-columns: repeat(2, 1fr); }
                                 }
                             </style>
                         </head>
@@ -2020,12 +2264,15 @@ if ($status_result) {
             }
         });
 
-        // Focus search input on page load
+        // Fix for loading spinner initially showing
         document.addEventListener('DOMContentLoaded', function () {
             const searchInput = document.querySelector('input[name="search"]');
             if (searchInput) {
                 searchInput.focus();
             }
+
+            // Hide loading spinner initially
+            document.getElementById('loadingSpinner').classList.add('hidden');
 
             setTimeout(() => {
                 showToast('Welcome to Device Assignment History', 'info', 3000);
