@@ -879,7 +879,7 @@ function getConditionDisplay($condition, $conditionColors, $conditionLabels)
     </style>
 </head>
 
-<body class="antialiased">
+<body class="antialiased bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
     <!-- Toast Container -->
     <div id="toast-container"></div>
 

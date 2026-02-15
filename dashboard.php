@@ -504,199 +504,317 @@ foreach ($recentActivities as $activity) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
     * {
         font-family: 'Inter', sans-serif;
     }
 
-    /* Smooth transitions */
-    .transition-all {
-        transition: all 0.2s ease-in-out;
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
     }
 
     /* Custom scrollbar */
     ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
     }
 
     ::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: #f1f5f9;
         border-radius: 10px;
     }
 
     ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
+        background: linear-gradient(180deg, #94a3b8, #64748b);
         border-radius: 10px;
+        border: 2px solid #f1f5f9;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: linear-gradient(180deg, #64748b, #475569);
     }
 
-    /* Card hover effects */
+    /* Card styles with glassmorphism */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    }
+
+    /* Enhanced stats card */
     .stats-card {
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .stats-card:hover::before {
+        opacity: 1;
     }
 
     .stats-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px -10px rgba(31, 38, 135, 0.25);
     }
 
-    /* Status badges with colors */
+    /* Gradient text */
+    .gradient-text {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* Status badges with enhanced colors */
     .status-badge {
         display: inline-flex;
         align-items: center;
-        padding: 0.125rem 0.625rem;
+        padding: 0.25rem 0.75rem;
         border-radius: 9999px;
         font-size: 0.75rem;
-        font-weight: 500;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
     .status-in_use {
-        background-color: #f0fdf4;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
         color: #166534;
-        border: 1px solid #dcfce7;
+        border: 1px solid #bbf7d0;
     }
     
     .status-in_storage {
-        background-color: #fefce8;
+        background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
         color: #854d0e;
-        border: 1px solid #fef9c3;
+        border: 1px solid #fef08a;
     }
     
     .status-repairing {
-        background-color: #fff7ed;
+        background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
         color: #9a3412;
-        border: 1px solid #ffedd5;
+        border: 1px solid #fed7aa;
     }
     
     .status-faulty {
-        background-color: #fef2f2;
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
         color: #b91c1c;
-        border: 1px solid #fee2e2;
+        border: 1px solid #fecaca;
     }
     
     .status-retired {
-        background-color: #f9fafb;
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
         color: #374151;
         border: 1px solid #e5e7eb;
     }
     
     .status-active {
-        background-color: #eff6ff;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
         color: #1e40af;
-        border: 1px solid #dbeafe;
+        border: 1px solid #bfdbfe;
     }
 
-    /* Condition badges */
+    /* Condition badges with enhanced colors */
     .condition-badge {
         display: inline-flex;
         align-items: center;
-        padding: 0.125rem 0.625rem;
+        padding: 0.25rem 0.75rem;
         border-radius: 9999px;
         font-size: 0.75rem;
-        font-weight: 500;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .condition-New {
-        background-color: #eff6ff;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
         color: #1e40af;
-        border: 1px solid #dbeafe;
+        border: 1px solid #bfdbfe;
     }
 
     .condition-Good {
-        background-color: #f0fdf4;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
         color: #166534;
-        border: 1px solid #dcfce7;
+        border: 1px solid #bbf7d0;
     }
 
     .condition-Fair {
-        background-color: #fefce8;
+        background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
         color: #854d0e;
-        border: 1px solid #fef9c3;
+        border: 1px solid #fef08a;
     }
 
     .condition-Poor {
-        background-color: #fff7ed;
+        background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
         color: #9a3412;
-        border: 1px solid #ffedd5;
+        border: 1px solid #fed7aa;
     }
 
     .condition-Faulty {
-        background-color: #fef2f2;
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
         color: #b91c1c;
-        border: 1px solid #fee2e2;
+        border: 1px solid #fecaca;
     }
 
-    /* Activity timeline */
+    /* Enhanced timeline */
     .timeline-item {
         position: relative;
+        transition: all 0.3s ease;
+    }
+
+    .timeline-item:hover {
+        background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(249,250,251,0.8) 100%);
     }
 
     .timeline-item:not(:last-child)::after {
         content: '';
         position: absolute;
-        left: 2rem;
-        top: 4rem;
+        left: 2.5rem;
+        top: 4.5rem;
         bottom: -1rem;
         width: 2px;
-        background: linear-gradient(to bottom, #e2e8f0, #f1f5f9);
+        background: linear-gradient(to bottom, #e2e8f0, transparent);
     }
 
-    /* New item highlight */
-    @keyframes highlight {
+    /* Icon container with shadow */
+    .icon-container {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .timeline-item:hover .icon-container {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    }
+
+    /* New item highlight with shimmer */
+    @keyframes shimmer {
         0% {
-            background-color: rgba(59, 130, 246, 0.1);
+            background-position: -1000px 0;
         }
         100% {
-            background-color: transparent;
+            background-position: 1000px 0;
         }
     }
 
     .highlight-new {
-        animation: highlight 3s ease-out;
-    }
-
-    /* Live indicator */
-    .live-indicator {
         position: relative;
+        overflow: hidden;
     }
 
-    .live-indicator::after {
+    .highlight-new::before {
         content: '';
         position: absolute;
-        top: -2px;
-        right: -2px;
-        width: 8px;
-        height: 8px;
-        background-color: #10b981;
-        border-radius: 50%;
-        border: 2px solid white;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+            90deg,
+            rgba(59, 130, 246, 0) 0%,
+            rgba(59, 130, 246, 0.1) 50%,
+            rgba(59, 130, 246, 0) 100%
+        );
+        background-size: 1000px 100%;
+        animation: shimmer 3s infinite;
     }
 
-    @keyframes pulse {
-        0%, 100% {
+    /* Live indicator with pulse */
+    @keyframes pulse-ring {
+        0% {
+            transform: scale(0.95);
             opacity: 1;
         }
         50% {
-            opacity: 0.5;
+            transform: scale(1.05);
+            opacity: 0.7;
+        }
+        100% {
+            transform: scale(0.95);
+            opacity: 1;
         }
     }
 
-    .pulse {
-        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    .live-indicator {
+        animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Enhanced search input */
+    .search-input {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        transform: translateY(-2px);
+    }
+
+    /* Button enhancements */
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        padding: 0.625rem 1.25rem;
+        border-radius: 0.75rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+    
+    .btn-primary:active {
+        transform: translateY(0);
+    }
+
+    .btn-outline {
+        border: 2px solid #e5e7eb;
+        background: white;
+        color: #374151;
+        padding: 0.625rem 1.25rem;
+        border-radius: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .btn-outline:hover {
+        background: #f9fafb;
+        border-color: #d1d5db;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     /* Loading spinner */
     .spinner {
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #3b82f6;
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #3b82f6;
         border-radius: 50%;
-        width: 40px;
-        height: 40px;
+        width: 48px;
+        height: 48px;
         animation: spin 1s linear infinite;
     }
 
@@ -705,241 +823,290 @@ foreach ($recentActivities as $activity) {
         100% { transform: rotate(360deg); }
     }
 
-    /* Search input */
-    .search-input {
-        transition: all 0.2s;
+    /* Stat icon gradient backgrounds */
+    .stat-icon-blue {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     }
 
-    .search-input:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    .stat-icon-green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     }
 
-    /* Button styles */
-    .btn-primary {
-        background-color: #2563eb;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        font-weight: 500;
-        border: none;
-        cursor: pointer;
-    }
-    
-    .btn-primary:hover {
-        background-color: #1d4ed8;
-    }
-    
-    .btn-primary:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5);
+    .stat-icon-yellow {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     }
 
-    .btn-outline {
-        border: 1px solid #d1d5db;
-        background-color: white;
-        color: #374151;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        font-weight: 500;
-        cursor: pointer;
+    .stat-icon-red {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     }
-    
-    .btn-outline:hover {
-        background-color: #f9fafb;
+
+    .stat-icon-purple {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     }
-    
-    .btn-outline:focus {
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(209, 213, 219, 0.5);
+
+    .stat-icon-orange {
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    }
+
+    .stat-icon-gray {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    }
+
+    .stat-icon-indigo {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    }
+
+    /* Page header gradient */
+    .page-header {
+        background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    /* Pagination */
+    .pagination-btn {
+        transition: all 0.2s ease;
+    }
+
+    .pagination-btn:hover:not(.active) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .pagination-btn.active {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    /* Toast notification */
+    .toast {
+        animation: slideInRight 0.3s ease-out, slideOutRight 0.3s ease-in 2.7s;
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+        }
+        to {
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+        }
+        to {
+            transform: translateX(100%);
+        }
+    }
+
+    /* Metric badge */
+    .metric-badge {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.2);
     }
 </style>
 </head>
 
-<body class="bg-gray-50">
+<body class="bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
     <!-- Sidebar -->
     <?php include 'sidebar.php'; ?>
 
     <!-- Main Content -->
-    <main id="mainContent" class="flex-1 p-6 lg:p-8 ml-0 lg:ml-64 transition-all duration-300">
-        <!-- Header Section -->
-        <div class="mb-8">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-                    <p class="text-sm text-gray-500 mt-1">Real-time inventory monitoring and activity tracking</p>
+    <main id="mainContent" class="flex-1 p-4 lg:p-8 ml-0 lg:ml-64 transition-all duration-300">
+        
+        <!-- Page Header -->
+        <div class="glass-card page-header rounded-2xl shadow-xl p-6 lg:p-8 mb-8">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div class="flex-1">
+                    <h1 class="text-3xl lg:text-4xl font-bold gradient-text mb-2">Dashboard Overview</h1>
+                    <p class="text-gray-600 text-sm lg:text-base flex items-center gap-2">
+                        <i class="fas fa-chart-line text-blue-500"></i>
+                        Real-time inventory monitoring and activity tracking
+                    </p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm border border-gray-200">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    <div class="flex items-center gap-2 px-4 py-2.5 bg-white rounded-xl shadow-md border border-green-100">
+                        <span class="relative flex h-3 w-3">
+                            <span class="live-indicator absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                         </span>
-                        <span class="text-xs font-medium text-gray-600">Live Updates</span>
+                        <span class="text-sm font-semibold text-gray-700">Live</span>
                     </div>
-                    <button onclick="refreshData()" class="p-2 bg-white rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <button onclick="refreshData()" class="p-3 bg-white rounded-xl shadow-md border border-gray-100 hover:bg-gray-50 transition-all hover:scale-105">
                         <i class="fas fa-sync-alt text-gray-600"></i>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Stats Grid -->
+        <!-- Primary Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <!-- Total Devices -->
-            <div class="stats-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Total Devices</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2"><?= number_format($totalItems) ?></p>
-                        <p class="text-xs text-gray-400 mt-1">Across all categories</p>
+            <div class="stats-card glass-card rounded-2xl shadow-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Total Devices</p>
+                        <p class="text-4xl font-bold text-gray-900"><?= number_format($totalItems) ?></p>
                     </div>
-                    <div class="p-3 bg-blue-50 rounded-lg">
-                        <i class="fas fa-laptop text-blue-600 text-xl"></i>
+                    <div class="p-4 stat-icon-blue rounded-xl shadow-lg icon-container">
+                        <i class="fas fa-laptop text-white text-2xl"></i>
                     </div>
                 </div>
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-green-600">↑ 12%</span>
-                        <span class="text-xs text-gray-400">from last month</span>
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">Across all categories</span>
+                        <span class="metric-badge px-3 py-1 rounded-full text-xs font-bold text-green-700">
+                            <i class="fas fa-arrow-up mr-1"></i>12%
+                        </span>
                     </div>
                 </div>
             </div>
 
             <!-- In Use -->
-            <div class="stats-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Devices In Use</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2"><?= number_format($inUseDevices) ?></p>
-                        <p class="text-xs text-gray-400 mt-1">Currently active</p>
+            <div class="stats-card glass-card rounded-2xl shadow-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Devices In Use</p>
+                        <p class="text-4xl font-bold text-gray-900"><?= number_format($inUseDevices) ?></p>
                     </div>
-                    <div class="p-3 bg-green-50 rounded-lg">
-                        <i class="fas fa-user-check text-green-600 text-xl"></i>
+                    <div class="p-4 stat-icon-green rounded-xl shadow-lg icon-container">
+                        <i class="fas fa-user-check text-white text-2xl"></i>
                     </div>
                 </div>
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-gray-600"><?= number_format($activeUsers) ?> active users</span>
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">Currently active</span>
+                        <span class="px-3 py-1 bg-green-50 border border-green-200 rounded-full text-xs font-bold text-green-700">
+                            <?= number_format($activeUsers) ?> users
+                        </span>
                     </div>
                 </div>
             </div>
 
             <!-- In Storage -->
-            <div class="stats-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">In Storage</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2"><?= number_format($inStorageDevices) ?></p>
-                        <p class="text-xs text-gray-400 mt-1">Available for assignment</p>
+            <div class="stats-card glass-card rounded-2xl shadow-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">In Storage</p>
+                        <p class="text-4xl font-bold text-gray-900"><?= number_format($inStorageDevices) ?></p>
                     </div>
-                    <div class="p-3 bg-yellow-50 rounded-lg">
-                        <i class="fas fa-warehouse text-yellow-600 text-xl"></i>
+                    <div class="p-4 stat-icon-yellow rounded-xl shadow-lg icon-container">
+                        <i class="fas fa-warehouse text-white text-2xl"></i>
                     </div>
                 </div>
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-gray-600"><?= number_format($unassignedDevices) ?> unassigned</span>
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-500">Available for assignment</span>
+                        <span class="px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-full text-xs font-bold text-yellow-700">
+                            <?= number_format($unassignedDevices) ?> free
+                        </span>
                     </div>
                 </div>
             </div>
 
             <!-- Needs Attention -->
-            <div class="stats-card bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Needs Attention</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2"><?= number_format($faultyDevices + $repairingDevices) ?></p>
-                        <p class="text-xs text-gray-400 mt-1">Faulty or in repair</p>
+            <div class="stats-card glass-card rounded-2xl shadow-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Needs Attention</p>
+                        <p class="text-4xl font-bold text-gray-900"><?= number_format($faultyDevices + $repairingDevices) ?></p>
                     </div>
-                    <div class="p-3 bg-red-50 rounded-lg">
-                        <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                    <div class="p-4 stat-icon-red rounded-xl shadow-lg icon-container">
+                        <i class="fas fa-exclamation-triangle text-white text-2xl"></i>
                     </div>
                 </div>
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-red-600"><?= number_format($faultyDevices) ?> faulty</span>
-                        <span class="text-xs text-gray-400">•</span>
-                        <span class="text-xs font-medium text-orange-600"><?= number_format($repairingDevices) ?> repairing</span>
+                <div class="pt-4 border-t border-gray-100">
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-2 py-1 bg-red-50 border border-red-200 rounded-full font-bold text-red-700">
+                            <?= number_format($faultyDevices) ?> faulty
+                        </span>
+                        <span class="px-2 py-1 bg-orange-50 border border-orange-200 rounded-full font-bold text-orange-700">
+                            <?= number_format($repairingDevices) ?> repair
+                        </span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Secondary Stats -->
+        <!-- Secondary Stats Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="p-2 bg-purple-50 rounded-lg">
-                        <i class="fas fa-users text-purple-600"></i>
+            <div class="glass-card rounded-xl shadow-md p-5 hover:shadow-lg transition-shadow">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 stat-icon-purple rounded-lg shadow-md">
+                        <i class="fas fa-users text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500">Total Users</p>
-                        <p class="text-lg font-semibold text-gray-900"><?= number_format($totalUsers) ?></p>
-                        <p class="text-xs text-gray-400"><?= number_format($adminUsers) ?> admins</p>
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Total Users</p>
+                        <p class="text-2xl font-bold text-gray-900"><?= number_format($totalUsers) ?></p>
+                        <p class="text-xs text-gray-400 mt-0.5"><?= number_format($adminUsers) ?> administrators</p>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="p-2 bg-orange-50 rounded-lg">
-                        <i class="fas fa-tools text-orange-600"></i>
+            <div class="glass-card rounded-xl shadow-md p-5 hover:shadow-lg transition-shadow">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 stat-icon-orange rounded-lg shadow-md">
+                        <i class="fas fa-tools text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500">Under Repair</p>
-                        <p class="text-lg font-semibold text-gray-900"><?= number_format($repairingDevices) ?></p>
-                        <p class="text-xs text-gray-400">Maintenance</p>
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Under Repair</p>
+                        <p class="text-2xl font-bold text-gray-900"><?= number_format($repairingDevices) ?></p>
+                        <p class="text-xs text-gray-400 mt-0.5">In maintenance</p>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="p-2 bg-gray-50 rounded-lg">
-                        <i class="fas fa-archive text-gray-600"></i>
+            <div class="glass-card rounded-xl shadow-md p-5 hover:shadow-lg transition-shadow">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 stat-icon-gray rounded-lg shadow-md">
+                        <i class="fas fa-archive text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500">Retired</p>
-                        <p class="text-lg font-semibold text-gray-900"><?= number_format($retiredDevices) ?></p>
-                        <p class="text-xs text-gray-400">Decommissioned</p>
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Retired</p>
+                        <p class="text-2xl font-bold text-gray-900"><?= number_format($retiredDevices) ?></p>
+                        <p class="text-xs text-gray-400 mt-0.5">Decommissioned</p>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="p-2 bg-indigo-50 rounded-lg">
-                        <i class="fas fa-calendar-day text-indigo-600"></i>
+            <div class="glass-card rounded-xl shadow-md p-5 hover:shadow-lg transition-shadow">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 stat-icon-indigo rounded-lg shadow-md">
+                        <i class="fas fa-calendar-day text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500">Today's Changes</p>
-                        <p class="text-lg font-semibold text-gray-900"><?= number_format($todayChanges) ?></p>
-                        <p class="text-xs text-gray-400">Activities</p>
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Today's Changes</p>
+                        <p class="text-2xl font-bold text-gray-900"><?= number_format($todayChanges) ?></p>
+                        <p class="text-xs text-gray-400 mt-0.5">Activities logged</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Activity Section -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+        <div class="glass-card rounded-2xl shadow-xl overflow-hidden mb-8">
             <!-- Activity Header -->
-            <div class="p-6 border-b border-gray-200">
+            <div class="p-6 lg:p-8 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50">
                 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Recent Activity</h2>
-                        <p class="text-sm text-gray-500 mt-1">Latest inventory changes and updates</p>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-1">Recent Activity</h2>
+                        <p class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-history text-blue-500"></i>
+                            Latest inventory changes and updates
+                        </p>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="relative flex-1 lg:flex-initial">
-                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             <input type="text" id="searchInput" placeholder="Search activities..." 
-                                class="search-input w-full lg:w-64 pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500">
+                                class="search-input w-full lg:w-72 pl-11 pr-4 py-3 text-sm bg-white border-2 border-gray-200 rounded-xl">
                         </div>
                         <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" 
-                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-sync-alt mr-2"></i>Auto Refresh
+                            class="btn-outline flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-sync-alt"></i>
+                            <span class="hidden sm:inline">Auto Refresh</span>
                         </button>
                     </div>
                 </div>
@@ -948,12 +1115,12 @@ foreach ($recentActivities as $activity) {
             <!-- Activity Timeline -->
             <div class="divide-y divide-gray-100">
                 <?php if (empty($currentPageActivities)): ?>
-                    <div class="p-12 text-center">
-                        <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                            <i class="fas fa-inbox text-2xl text-gray-400"></i>
+                    <div class="p-16 text-center">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-4 shadow-inner">
+                            <i class="fas fa-inbox text-3xl text-gray-400"></i>
                         </div>
-                        <p class="text-gray-500">No recent activities found</p>
-                        <p class="text-sm text-gray-400 mt-1">Activities will appear here as changes occur</p>
+                        <p class="text-lg font-semibold text-gray-600 mb-1">No recent activities found</p>
+                        <p class="text-sm text-gray-400">Activities will appear here as changes occur</p>
                     </div>
                 <?php else:
                     foreach ($currentPageActivities as $index => $activity):
@@ -973,115 +1140,118 @@ foreach ($recentActivities as $activity) {
                             $conditionClass = 'condition-' . $activity['condition'];
                         }
                 ?>
-                    <div class="timeline-item relative p-6 hover:bg-gray-50 transition-colors <?= $isNew ? 'highlight-new' : '' ?>">
-                        <div class="flex gap-4">
+                    <div class="timeline-item relative p-6 lg:p-8 <?= $isNew ? 'highlight-new' : '' ?>">
+                        <div class="flex gap-5">
                             <!-- Icon -->
                             <div class="flex-shrink-0">
-                                <div class="w-12 h-12 rounded-xl bg-gradient-to-br <?= $activity['color'] ?> flex items-center justify-center">
-                                    <i class="fas <?= $activity['icon'] ?> text-white"></i>
+                                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br <?= $activity['color'] ?> flex items-center justify-center shadow-lg icon-container">
+                                    <i class="fas <?= $activity['icon'] ?> text-white text-xl"></i>
                                 </div>
                             </div>
 
                             <!-- Content -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                                <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                                     <div class="flex-1">
-                                        <div class="flex items-center gap-2 flex-wrap mb-2">
-                                            <h3 class="font-semibold text-gray-900"><?= e($activity['title']) ?></h3>
-                                            <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                        <!-- Title and Badges -->
+                                        <div class="flex items-center gap-2 flex-wrap mb-3">
+                                            <h3 class="font-bold text-lg text-gray-900"><?= e($activity['title']) ?></h3>
+                                            <span class="px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-full text-xs font-bold shadow-sm">
                                                 <?= e($activity['asset_tag']) ?>
                                             </span>
                                             
-                                            <!-- Status Badge with Color -->
-                                            <?php if (!empty($activity['status'])): ?>
-                                                <span class="status-badge <?= $statusClass ?>">
-                                                    <i class="fas fa-circle text-[6px] mr-1"></i>
-                                                    <?= e($activity['status_label']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                            
-                                            <!-- Condition Badge with Color -->
-                                            <?php if (!empty($activity['condition'])): ?>
-                                                <span class="condition-badge <?= $conditionClass ?>">
-                                                    <i class="fas fa-tag text-[10px] mr-1"></i>
-                                                    <?= CONDITION_LABELS[$activity['condition']] ?? ucfirst($activity['condition']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                            
                                             <?php if ($isNew): ?>
-                                                <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                                    <i class="fas fa-bolt mr-1"></i>New
+                                                <span class="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 text-xs font-bold rounded-full shadow-sm border border-green-200">
+                                                    <i class="fas fa-bolt mr-1"></i>NEW
                                                 </span>
                                             <?php endif; ?>
                                         </div>
 
-                                        <p class="text-sm text-gray-600 mb-3"><?= $activity['description'] ?></p>
+                                        <p class="text-sm text-gray-700 mb-4 leading-relaxed"><?= $activity['description'] ?></p>
+
+                                        <!-- Status and Condition Badges -->
+                                        <div class="flex flex-wrap gap-2 mb-4">
+                                            <?php if (!empty($activity['status'])): ?>
+                                                <span class="status-badge <?= $statusClass ?>">
+                                                    <i class="fas fa-circle text-[6px] mr-1.5"></i>
+                                                    <?= e($activity['status_label']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            
+                                            <?php if (!empty($activity['condition'])): ?>
+                                                <span class="condition-badge <?= $conditionClass ?>">
+                                                    <i class="fas fa-tag text-[10px] mr-1.5"></i>
+                                                    <?= CONDITION_LABELS[$activity['condition']] ?? ucfirst($activity['condition']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
 
                                         <!-- Details Grid -->
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                                             <?php if (!empty($activity['device_type'])): ?>
-                                                <div class="flex items-center gap-2 text-xs">
-                                                    <i class="fas fa-tag text-gray-400"></i>
-                                                    <span class="text-gray-500">Type:</span>
-                                                    <span class="text-gray-900 font-medium"><?= e($activity['device_type']) ?></span>
+                                                <div class="flex items-center gap-2 text-xs bg-gray-50 px-3 py-2 rounded-lg">
+                                                    <i class="fas fa-tag text-blue-500"></i>
+                                                    <span class="text-gray-500 font-medium">Type:</span>
+                                                    <span class="text-gray-900 font-semibold"><?= e($activity['device_type']) ?></span>
                                                 </div>
                                             <?php endif; ?>
 
                                             <?php if (!empty($activity['model'])): ?>
-                                                <div class="flex items-center gap-2 text-xs">
-                                                    <i class="fas fa-microchip text-gray-400"></i>
-                                                    <span class="text-gray-500">Model:</span>
-                                                    <span class="text-gray-900 font-medium"><?= e($activity['model']) ?></span>
+                                                <div class="flex items-center gap-2 text-xs bg-gray-50 px-3 py-2 rounded-lg">
+                                                    <i class="fas fa-microchip text-purple-500"></i>
+                                                    <span class="text-gray-500 font-medium">Model:</span>
+                                                    <span class="text-gray-900 font-semibold"><?= e($activity['model']) ?></span>
                                                 </div>
                                             <?php endif; ?>
 
                                             <?php if (!empty($activity['category_name'])): ?>
-                                                <div class="flex items-center gap-2 text-xs">
-                                                    <i class="fas fa-folder text-gray-400"></i>
-                                                    <span class="text-gray-500">Category:</span>
-                                                    <span class="text-gray-900 font-medium"><?= e($activity['category_name']) ?></span>
+                                                <div class="flex items-center gap-2 text-xs bg-gray-50 px-3 py-2 rounded-lg">
+                                                    <i class="fas fa-folder text-orange-500"></i>
+                                                    <span class="text-gray-500 font-medium">Category:</span>
+                                                    <span class="text-gray-900 font-semibold"><?= e($activity['category_name']) ?></span>
                                                 </div>
                                             <?php endif; ?>
 
                                             <?php if (!empty($activity['department_name'])): ?>
-                                                <div class="flex items-center gap-2 text-xs">
-                                                    <i class="fas fa-building text-gray-400"></i>
-                                                    <span class="text-gray-500">Department:</span>
-                                                    <span class="text-gray-900 font-medium"><?= e($activity['department_name']) ?></span>
+                                                <div class="flex items-center gap-2 text-xs bg-gray-50 px-3 py-2 rounded-lg">
+                                                    <i class="fas fa-building text-indigo-500"></i>
+                                                    <span class="text-gray-500 font-medium">Department:</span>
+                                                    <span class="text-gray-900 font-semibold"><?= e($activity['department_name']) ?></span>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
 
                                         <!-- Specifications -->
                                         <?php if (!empty($activity['specifications'])): ?>
-                                            <div class="text-xs text-gray-500 mb-3">
-                                                <i class="fas fa-info-circle mr-1"></i>
-                                                <?= e($activity['specifications']) ?>
+                                            <div class="flex items-start gap-2 text-xs text-gray-600 mb-4 bg-blue-50 px-4 py-3 rounded-lg border border-blue-100">
+                                                <i class="fas fa-info-circle text-blue-500 mt-0.5"></i>
+                                                <span class="flex-1"><?= e($activity['specifications']) ?></span>
                                             </div>
                                         <?php endif; ?>
 
                                         <!-- Assignment Info -->
                                         <?php if (!empty($assignedUser['name']) && in_array($activity['type'], ['assigned'])): ?>
-                                            <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
+                                            <div class="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 shadow-sm">
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-md">
                                                     <?= strtoupper(substr($assignedUser['name'], 0, 2)) ?>
                                                 </div>
                                                 <div>
-                                                    <p class="text-xs font-medium text-gray-900"><?= e($assignedUser['name']) ?></p>
+                                                    <p class="text-sm font-bold text-gray-900"><?= e($assignedUser['name']) ?></p>
                                                     <?php if (!empty($assignedUser['email'])): ?>
-                                                        <p class="text-xs text-gray-500"><?= e($assignedUser['email']) ?></p>
+                                                        <p class="text-xs text-gray-600"><?= e($assignedUser['email']) ?></p>
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
                                         <?php endif; ?>
                                     </div>
 
-                                    <!-- Timestamp -->
+                                    <!-- Timestamp and Type -->
                                     <div class="flex flex-col items-end gap-2">
-                                        <span class="text-xs text-gray-400 whitespace-nowrap" title="<?= e($activity['updated_at']) ?>">
-                                            <i class="far fa-clock mr-1"></i><?= $timeAgo ?>
+                                        <span class="text-xs text-gray-400 whitespace-nowrap flex items-center gap-1.5" title="<?= e($activity['updated_at']) ?>">
+                                            <i class="far fa-clock"></i>
+                                            <?= $timeAgo ?>
                                         </span>
-                                        <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full capitalize">
+                                        <span class="px-3 py-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-lg text-xs font-bold capitalize shadow-sm border border-indigo-100">
                                             <?= str_replace('_', ' ', $activity['type']) ?>
                                         </span>
                                     </div>
@@ -1094,26 +1264,28 @@ foreach ($recentActivities as $activity) {
 
             <!-- Pagination -->
             <?php if ($totalPages > 1): ?>
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <div class="px-6 lg:px-8 py-5 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
                 <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <p class="text-xs text-gray-500">
-                        Showing <?= $offset + 1 ?> to <?= min($offset + $perPage, $totalActivities) ?> of <?= number_format($totalActivities) ?> activities
+                    <p class="text-xs font-medium text-gray-600">
+                        Showing <span class="font-bold text-gray-900"><?= $offset + 1 ?></span> to 
+                        <span class="font-bold text-gray-900"><?= min($offset + $perPage, $totalActivities) ?></span> of 
+                        <span class="font-bold text-gray-900"><?= number_format($totalActivities) ?></span> activities
                     </p>
                     <div class="flex gap-2">
                         <?php if ($page > 1): ?>
-                            <a href="?page=<?= $page - 1 ?>" class="px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                            <a href="?page=<?= $page - 1 ?>" class="pagination-btn px-4 py-2 text-xs font-semibold bg-white border-2 border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 shadow-sm">
                                 <i class="fas fa-chevron-left mr-1"></i> Previous
                             </a>
                         <?php endif; ?>
 
                         <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                            <a href="?page=<?= $i ?>" class="px-3 py-1.5 text-xs <?= $i === $page ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50' ?> border border-gray-200 rounded-lg transition-colors">
+                            <a href="?page=<?= $i ?>" class="pagination-btn px-4 py-2 text-xs font-semibold <?= $i === $page ? 'active text-white' : 'bg-white text-gray-700 hover:bg-gray-50' ?> border-2 border-gray-200 rounded-lg shadow-sm">
                                 <?= $i ?>
                             </a>
                         <?php endfor; ?>
 
                         <?php if ($page < $totalPages): ?>
-                            <a href="?page=<?= $page + 1 ?>" class="px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                            <a href="?page=<?= $page + 1 ?>" class="pagination-btn px-4 py-2 text-xs font-semibold bg-white border-2 border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 shadow-sm">
                                 Next <i class="fas fa-chevron-right ml-1"></i>
                             </a>
                         <?php endif; ?>
@@ -1125,10 +1297,10 @@ foreach ($recentActivities as $activity) {
     </main>
 
     <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm z-50 hidden items-center justify-center">
-        <div class="bg-white rounded-xl p-6 shadow-xl">
-            <div class="spinner mx-auto"></div>
-            <p class="text-sm text-gray-600 mt-3">Refreshing data...</p>
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-md z-50 hidden items-center justify-center">
+        <div class="glass-card rounded-2xl p-8 shadow-2xl">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-sm text-gray-700 font-semibold">Refreshing data...</p>
         </div>
     </div>
 
@@ -1161,12 +1333,14 @@ foreach ($recentActivities as $activity) {
             if (autoRefreshEnabled) {
                 clearInterval(autoRefreshInterval);
                 autoRefreshEnabled = false;
-                btn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Auto Refresh';
+                btn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i><span class="hidden sm:inline">Auto Refresh</span>';
+                btn.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700');
                 showToast('Auto refresh disabled', 'info');
             } else {
                 autoRefreshEnabled = true;
                 autoRefreshInterval = setInterval(refreshData, 30000);
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Auto Refresh ON';
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i><span class="hidden sm:inline">Auto Refresh ON</span>';
+                btn.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700');
                 showToast('Auto refresh enabled (30s)', 'success');
             }
         }
@@ -1182,24 +1356,27 @@ foreach ($recentActivities as $activity) {
         // Toast notification
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
-            toast.className = `fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full ${
-                type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 
-                type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' : 
-                'bg-blue-50 text-blue-800 border border-blue-200'
-            }`;
+            const colors = {
+                success: 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border-green-200',
+                error: 'bg-gradient-to-r from-red-50 to-rose-50 text-red-800 border-red-200',
+                info: 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border-blue-200'
+            };
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.className = `toast fixed top-6 right-6 px-5 py-4 rounded-xl shadow-2xl z-50 border-2 ${colors[type]}`;
             toast.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
-                    <span class="text-sm font-medium">${message}</span>
+                <div class="flex items-center gap-3">
+                    <i class="fas ${icons[type]} text-lg"></i>
+                    <span class="text-sm font-semibold">${message}</span>
                 </div>
             `;
             document.body.appendChild(toast);
 
-            setTimeout(() => toast.style.transform = 'translateX(0)', 10);
-            setTimeout(() => {
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         // Keyboard shortcuts
