@@ -1,12 +1,10 @@
 <?php
-// retired_devices.php - Complete single file solution
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 session_start();
 
-// First, check if database config exists and load it
 $config_file = __DIR__ . "/config/database.php";
 if (!file_exists($config_file)) {
     die("Database configuration file not found: " . $config_file);
@@ -59,7 +57,7 @@ function handleAjaxRequest()
         exit();
     }
 
-    $action = $_POST['action'];
+    $action = $_POST['action'] ?? '';
 
     switch ($action) {
         case 'restore_device':
@@ -136,6 +134,9 @@ function restoreDevice()
             ]);
         }
 
+        $stmt->close();
+        $check_stmt->close();
+
     } catch (Exception $e) {
         error_log("Exception in restoreDevice: " . $e->getMessage());
         echo json_encode([
@@ -198,6 +199,9 @@ function deleteDevice()
             ]);
         }
 
+        $stmt->close();
+        $check_stmt->close();
+
     } catch (Exception $e) {
         error_log("Exception in deleteDevice: " . $e->getMessage());
         echo json_encode([
@@ -225,7 +229,6 @@ function displayRetiredDevicesPage()
             $departmentsArr[] = $row;
         }
     } else {
-        // Handle query error
         error_log("Departments query failed: " . $conn->error);
     }
 
@@ -240,12 +243,43 @@ function displayRetiredDevicesPage()
         error_log("Categories query failed: " . $conn->error);
     }
 
+    // Get brands for filter
+    $brandsArr = [];
+    $brandResult = $conn->query("SELECT id, brand_name FROM brands ORDER BY brand_name");
+    if ($brandResult) {
+        while ($row = $brandResult->fetch_assoc()) {
+            $brandsArr[] = $row;
+        }
+    }
+
     /* Get retired devices count */
     $retiredCount = 0;
     $retiredCountQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired'";
     $retiredCountResult = $conn->query($retiredCountQuery);
     if ($retiredCountResult) {
         $retiredCount = $retiredCountResult->fetch_assoc()['count'];
+    }
+
+    /* Get statistics */
+    $assignedCount = 0;
+    $assignedQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired' AND assigned_user IS NOT NULL";
+    $assignedResult = $conn->query($assignedQuery);
+    if ($assignedResult) {
+        $assignedCount = $assignedResult->fetch_assoc()['count'];
+    }
+
+    $goodCount = 0;
+    $goodQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired' AND `condition` = 'good'";
+    $goodResult = $conn->query($goodQuery);
+    if ($goodResult) {
+        $goodCount = $goodResult->fetch_assoc()['count'];
+    }
+
+    $faultyCount = 0;
+    $faultyQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired' AND `condition` = 'faulty'";
+    $faultyResult = $conn->query($faultyQuery);
+    if ($faultyResult) {
+        $faultyCount = $faultyResult->fetch_assoc()['count'];
     }
 
     /* Get retired devices with pagination */
@@ -255,31 +289,31 @@ function displayRetiredDevicesPage()
 
     // Build WHERE clause for filters
     $whereConditions = ["i.status = 'retired'"];
-    $params = [];
-    $paramTypes = "";
+    $filterParams = [];
+    $filterParamTypes = "";
 
     if (!empty($_GET['department'])) {
         $whereConditions[] = "d.department_name = ?";
-        $params[] = $_GET['department'];
-        $paramTypes .= "s";
+        $filterParams[] = $_GET['department'];
+        $filterParamTypes .= "s";
     }
 
     if (!empty($_GET['brand'])) {
         $whereConditions[] = "i.brand_id = ?";
-        $params[] = intval($_GET['brand']);
-        $paramTypes .= "i";
+        $filterParams[] = intval($_GET['brand']);
+        $filterParamTypes .= "i";
     }
 
     if (!empty($_GET['category'])) {
         $whereConditions[] = "i.category_id = ?";
-        $params[] = intval($_GET['category']);
-        $paramTypes .= "i";
+        $filterParams[] = intval($_GET['category']);
+        $filterParamTypes .= "i";
     }
 
     if (!empty($_GET['condition'])) {
-        $whereConditions[] = "i.condition = ?";
-        $params[] = $_GET['condition'];
-        $paramTypes .= "s";
+        $whereConditions[] = "i.`condition` = ?";
+        $filterParams[] = $_GET['condition'];
+        $filterParamTypes .= "s";
     }
 
     $whereClause = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
@@ -291,24 +325,25 @@ function displayRetiredDevicesPage()
                    LEFT JOIN departments d ON i.department_id = d.id
                    $whereClause";
 
-    if (!empty($params)) {
+    if (!empty($filterParams)) {
         $countStmt = $conn->prepare($countQuery);
         if ($countStmt) {
-            $countStmt->bind_param($paramTypes, ...$params);
+            $countStmt->bind_param($filterParamTypes, ...$filterParams);
             $countStmt->execute();
             $countResult = $countStmt->get_result();
             if ($countResult) {
                 $totalRetired = $countResult->fetch_assoc()['total'];
-                $totalPages = ceil($totalRetired / $perPage);
             }
+            $countStmt->close();
         }
     } else {
         $countResult = $conn->query($countQuery);
         if ($countResult) {
             $totalRetired = $countResult->fetch_assoc()['total'];
-            $totalPages = ceil($totalRetired / $perPage);
         }
     }
+
+    $totalPages = $totalRetired > 0 ? ceil($totalRetired / $perPage) : 1;
 
     /* Get retired devices */
     $retiredDevices = [];
@@ -331,15 +366,17 @@ function displayRetiredDevicesPage()
         LIMIT ? OFFSET ?
     ";
 
-    // Add pagination parameters
-    $params[] = $perPage;
-    $params[] = $offset;
-    $paramTypes .= "ii";
+    // Combine filter params with pagination params
+    $queryParams = $filterParams;
+    $queryParamTypes = $filterParamTypes;
+    $queryParams[] = $perPage;
+    $queryParams[] = $offset;
+    $queryParamTypes .= "ii";
 
     $stmt = $conn->prepare($query);
     if ($stmt) {
-        if (!empty($params)) {
-            $stmt->bind_param($paramTypes, ...$params);
+        if (!empty($queryParams)) {
+            $stmt->bind_param($queryParamTypes, ...$queryParams);
         }
         $stmt->execute();
         $result = $stmt->get_result();
@@ -348,6 +385,7 @@ function displayRetiredDevicesPage()
                 $retiredDevices[] = $row;
             }
         }
+        $stmt->close();
     }
 
     /* ================== FILTER INPUTS ================== */
@@ -355,15 +393,6 @@ function displayRetiredDevicesPage()
     $filterBrand = $_GET['brand'] ?? '';
     $filterCategory = $_GET['category'] ?? '';
     $filterCondition = $_GET['condition'] ?? '';
-
-    // Get brands for filter
-    $brandsArr = [];
-    $brandResult = $conn->query("SELECT id, brand_name FROM brands ORDER BY brand_name");
-    if ($brandResult) {
-        while ($row = $brandResult->fetch_assoc()) {
-            $brandsArr[] = $row;
-        }
-    }
 
     // Status and condition arrays
     $statusColors = [
@@ -433,7 +462,7 @@ function displayRetiredDevicesPage()
 
     // Handle export request
     if (isset($_GET['export']) && $_GET['export'] == 'csv') {
-        exportToCSV($whereClause, $params, $paramTypes);
+        exportToCSV($whereClause, $filterParams, $filterParamTypes);
         exit();
     }
 
@@ -1037,10 +1066,10 @@ function displayRetiredDevicesPage()
 
             <!-- Database Connection Error -->
             <?php if (!$conn): ?>
-                <div class="error-message">
-                    <h3 class="font-bold text-lg mb-2">Database Connection Error</h3>
-                    <p>Unable to connect to the database. Please check your database configuration in
-                        <code>config/database.php</code>.
+                <div class="glass-effect rounded-2xl shadow-lg p-6 mb-6 border border-red-200 bg-red-50">
+                    <h3 class="font-bold text-lg mb-2 text-red-800">Database Connection Error</h3>
+                    <p class="text-red-700">Unable to connect to the database. Please check your database configuration in
+                        <code class="bg-red-100 px-2 py-1 rounded">config/database.php</code>.
                     </p>
                 </div>
             <?php endif; ?>
@@ -1068,19 +1097,7 @@ function displayRetiredDevicesPage()
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Still Assigned</p>
-                            <p class="text-2xl font-bold text-gray-800">
-                                <?php
-                                $assignedCount = 0;
-                                if ($conn) {
-                                    $assignedQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired' AND assigned_user IS NOT NULL";
-                                    $assignedResult = $conn->query($assignedQuery);
-                                    if ($assignedResult) {
-                                        $assignedCount = $assignedResult->fetch_assoc()['count'];
-                                    }
-                                }
-                                echo number_format($assignedCount);
-                                ?>
-                            </p>
+                            <p class="text-2xl font-bold text-gray-800"><?= number_format($assignedCount) ?></p>
                         </div>
                     </div>
                 </div>
@@ -1093,19 +1110,7 @@ function displayRetiredDevicesPage()
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Good Condition</p>
-                            <p class="text-2xl font-bold text-gray-800">
-                                <?php
-                                $goodCount = 0;
-                                if ($conn) {
-                                    $goodQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired' AND `condition` = 'good'";
-                                    $goodResult = $conn->query($goodQuery);
-                                    if ($goodResult) {
-                                        $goodCount = $goodResult->fetch_assoc()['count'];
-                                    }
-                                }
-                                echo number_format($goodCount);
-                                ?>
-                            </p>
+                            <p class="text-2xl font-bold text-gray-800"><?= number_format($goodCount) ?></p>
                         </div>
                     </div>
                 </div>
@@ -1118,19 +1123,7 @@ function displayRetiredDevicesPage()
                         </div>
                         <div>
                             <p class="text-sm text-gray-500">Faulty Condition</p>
-                            <p class="text-2xl font-bold text-gray-800">
-                                <?php
-                                $faultyCount = 0;
-                                if ($conn) {
-                                    $faultyQuery = "SELECT COUNT(*) as count FROM inventory_items WHERE status = 'retired' AND `condition` = 'faulty'";
-                                    $faultyResult = $conn->query($faultyQuery);
-                                    if ($faultyResult) {
-                                        $faultyCount = $faultyResult->fetch_assoc()['count'];
-                                    }
-                                }
-                                echo number_format($faultyCount);
-                                ?>
-                            </p>
+                            <p class="text-2xl font-bold text-gray-800"><?= number_format($faultyCount) ?></p>
                         </div>
                     </div>
                 </div>
@@ -1150,7 +1143,7 @@ function displayRetiredDevicesPage()
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- Department -->
                         <div>
                             <label class="block text-xs font-medium text-gray-700 mb-2">Department</label>
@@ -1406,19 +1399,19 @@ function displayRetiredDevicesPage()
                                         <!-- Actions -->
                                         <td>
                                             <div class="flex gap-1">
-                                                <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
+                                                <button onclick='viewDeviceDetails(<?= json_encode($device, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
                                                     class="action-btn bg-blue-500 text-white hover:bg-blue-600"
                                                     title="View Details">
                                                     <i class="fas fa-eye text-xs"></i>
                                                 </button>
                                                 <button
-                                                    onclick="showRestoreConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
+                                                    onclick="showRestoreConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag'], ENT_QUOTES) ?>')"
                                                     class="action-btn bg-green-500 text-white hover:bg-green-600"
                                                     title="Restore Device">
                                                     <i class="fas fa-undo text-xs"></i>
                                                 </button>
                                                 <button
-                                                    onclick="showDeleteConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
+                                                    onclick="showDeleteConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag'], ENT_QUOTES) ?>')"
                                                     class="action-btn bg-red-500 text-white hover:bg-red-600"
                                                     title="Delete Permanently">
                                                     <i class="fas fa-trash text-xs"></i>
@@ -1441,9 +1434,9 @@ function displayRetiredDevicesPage()
                             </div>
                             <div class="flex gap-2">
                                 <?php if ($page > 1): ?>
-                                    <a href="?page=<?= $page - 1 ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                    <a href="?page=<?= $page - 1 ?>&department=<?= urlencode($filterDepartment) ?>&brand=<?= urlencode($filterBrand) ?>&category=<?= urlencode($filterCategory) ?>&condition=<?= urlencode($filterCondition) ?>"
                                         class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-all flex items-center gap-2">
-                                        <i class="fas fa-chevron-left mr-1"></i> Previous
+                                        <i class="fas fa-chevron-left"></i> Previous
                                     </a>
                                 <?php endif; ?>
 
@@ -1456,16 +1449,16 @@ function displayRetiredDevicesPage()
                                         ? 'bg-blue-500 text-white'
                                         : 'bg-white text-gray-700 hover:bg-gray-50';
                                     ?>
-                                    <a href="?page=<?= $i ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                    <a href="?page=<?= $i ?>&department=<?= urlencode($filterDepartment) ?>&brand=<?= urlencode($filterBrand) ?>&category=<?= urlencode($filterCategory) ?>&condition=<?= urlencode($filterCondition) ?>"
                                         class="px-4 py-2 border border-gray-300 rounded-lg text-sm transition-all <?= $activeClass ?>">
                                         <?= $i ?>
                                     </a>
                                 <?php endfor; ?>
 
                                 <?php if ($page < $totalPages): ?>
-                                    <a href="?page=<?= $page + 1 ?>&department=<?= $filterDepartment ?>&brand=<?= $filterBrand ?>&category=<?= $filterCategory ?>&condition=<?= $filterCondition ?>"
+                                    <a href="?page=<?= $page + 1 ?>&department=<?= urlencode($filterDepartment) ?>&brand=<?= urlencode($filterBrand) ?>&category=<?= urlencode($filterCategory) ?>&condition=<?= urlencode($filterCondition) ?>"
                                         class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-all flex items-center gap-2">
-                                        Next <i class="fas fa-chevron-right ml-1"></i>
+                                        Next <i class="fas fa-chevron-right"></i>
                                     </a>
                                 <?php endif; ?>
                             </div>
@@ -1587,19 +1580,19 @@ function displayRetiredDevicesPage()
 
                                 <!-- Action Buttons -->
                                 <div class="flex gap-2">
-                                    <button onclick="viewDeviceDetails(<?= htmlspecialchars(json_encode($device)) ?>)"
+                                    <button onclick='viewDeviceDetails(<?= json_encode($device, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'
                                         class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
                                         title="View Details">
                                         <i class="fas fa-eye"></i> View
                                     </button>
                                     <button
-                                        onclick="showRestoreConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
+                                        onclick="showRestoreConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag'], ENT_QUOTES) ?>')"
                                         class="flex-1 px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2"
                                         title="Restore Device">
                                         <i class="fas fa-undo"></i> Restore
                                     </button>
                                     <button
-                                        onclick="showDeleteConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag']) ?>')"
+                                        onclick="showDeleteConfirm(<?= $device['id'] ?>, '<?= htmlspecialchars($device['asset_tag'], ENT_QUOTES) ?>')"
                                         class="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-all flex items-center justify-center gap-2"
                                         title="Delete">
                                         <i class="fas fa-trash"></i> Delete
@@ -1639,6 +1632,7 @@ function displayRetiredDevicesPage()
         </div>
 
         <?php include __DIR__ . '/footer.php'; ?>
+        
         <!-- JavaScript Libraries -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
@@ -1733,7 +1727,7 @@ function displayRetiredDevicesPage()
                 icon.innerHTML = icons[type];
                 titleEl.textContent = title;
                 messageEl.textContent = message;
-                button.textContent = confirmText;
+                button.innerHTML = `<i class="fas fa-check"></i> ${confirmText}`;
                 button.className = `confirmation-btn ${confirmClass}`;
 
                 modal.classList.add('active');
@@ -1854,7 +1848,6 @@ function displayRetiredDevicesPage()
 
                 // Make table responsive on mobile
                 function adjustTableLayout() {
-                    const table = document.querySelector('.data-table');
                     const container = document.querySelector('.table-container');
                     const screenWidth = window.innerWidth;
 
@@ -1949,7 +1942,7 @@ function displayRetiredDevicesPage()
             // View Modal Functions
             function viewDeviceDetails(device) {
                 // Set title
-                document.getElementById('deviceTitle').textContent = `${device.brand_name} ${device.model || ''}`;
+                document.getElementById('deviceTitle').textContent = `${device.brand_name || 'Unknown'} ${device.model || ''}`;
 
                 // Build details HTML
                 const detailsHTML = `
@@ -2033,7 +2026,7 @@ function displayRetiredDevicesPage()
     <?php
 }
 
-function exportToCSV($whereClause, $params, $paramTypes)
+function exportToCSV($whereClause, $filterParams, $filterParamTypes)
 {
     global $conn;
 
@@ -2041,7 +2034,7 @@ function exportToCSV($whereClause, $params, $paramTypes)
         die("Database connection failed");
     }
 
-    // Get retired devices for export
+    // Get retired devices for export (without pagination)
     $query = " 
         SELECT 
             i.asset_tag,
@@ -2051,7 +2044,7 @@ function exportToCSV($whereClause, $params, $paramTypes)
             c.category_name,
             d.department_name,
             i.serial_number,
-            i.condition,
+            i.`condition`,
             i.status,
             i.remarks,
             i.created_at,
@@ -2067,19 +2060,15 @@ function exportToCSV($whereClause, $params, $paramTypes)
         ORDER BY i.updated_at DESC
     ";
 
-    $stmt = $conn->prepare($query);
-    if (!empty($params)) {
-        // Remove pagination parameters for export
-        $exportParams = array_slice($params, 0, count($params) - 2);
-        $exportParamTypes = substr($paramTypes, 0, -2);
+    if (!empty($filterParams)) {
+        $stmt = $conn->prepare($query);
         if ($stmt) {
-            $stmt->bind_param($exportParamTypes, ...$exportParams);
+            $stmt->bind_param($filterParamTypes, ...$filterParams);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        } else {
+            die("Query preparation failed: " . $conn->error);
         }
-    }
-
-    if ($stmt) {
-        $stmt->execute();
-        $result = $stmt->get_result();
     } else {
         $result = $conn->query($query);
     }
@@ -2137,5 +2126,10 @@ function exportToCSV($whereClause, $params, $paramTypes)
     }
 
     fclose($output);
+    
+    if (isset($stmt)) {
+        $stmt->close();
+    }
+    
     exit();
 }

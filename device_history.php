@@ -6,19 +6,30 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+/* ================== SESSION AUTHENTICATION CHECK ================== */
+/*if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}*/
+
 /* ================== DB CONNECTION ================== */
 require_once "./config/database.php";
 
-$db = new Database();
-$conn = $db->getConnection();
-
-if (!$conn) {
+try {
+    $db = new Database();
+    $conn = $db->getConnection();
+    
+    if (!$conn || $conn->connect_error) {
+        throw new Exception("Database connection failed: " . ($conn->connect_error ?? 'Unknown error'));
+    }
+} catch (Exception $e) {
     if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         header('Content-Type: application/json');
+        http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Database connection failed']);
         exit;
     }
-    die("Database connection failed");
+    die("Database connection failed. Please try again later.");
 }
 
 /* ================== STATUS LABELS ================== */
@@ -39,169 +50,160 @@ $conditionLabels = [
 ];
 
 /* ================== FETCH TOP DEVICES AND USERS ================== */
-
-// Top 5 most assigned devices
-$topDevicesQuery = mysqli_query($conn, "
-    SELECT 
-        i.id,
-        i.asset_tag,
-        i.device_type,
-        i.model,
-        i.status,
-        b.brand_name,
-        c.category_name,
-        COUNT(DISTINCT dua.id) as assignment_count,
-        COUNT(DISTINCT dua.user_id) as user_count,
-        DATEDIFF(NOW(), MIN(dua.assigned_at)) as days_in_service
-    FROM inventory_items i
-    LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
-    LEFT JOIN brands b ON i.brand_id = b.id
-    LEFT JOIN categories c ON i.category_id = c.id
-    GROUP BY i.id
-    HAVING assignment_count > 0
-    ORDER BY assignment_count DESC, user_count DESC
-    LIMIT 5
-");
-
 $topDevices = [];
-if ($topDevicesQuery) {
-    while ($row = mysqli_fetch_assoc($topDevicesQuery)) {
-        $topDevices[] = $row;
-    }
-}
-
-// Top 5 users with most assignments
-$topUsersQuery = mysqli_query($conn, "
-    SELECT 
-        u.id,
-        u.firstname,
-        u.lastname,
-        u.email,
-        u.role,
-        u.status as user_status,
-        COUNT(DISTINCT dua.id) as assignment_count,
-        COUNT(DISTINCT dua.inventory_id) as device_count,
-        AVG(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as avg_days_per_assignment,
-        SUM(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as total_days_assigned
-    FROM users u
-    LEFT JOIN device_user_assignments dua ON u.id = dua.user_id
-    GROUP BY u.id
-    HAVING assignment_count > 0
-    ORDER BY assignment_count DESC, total_days_assigned DESC
-    LIMIT 5
-");
-
 $topUsers = [];
-if ($topUsersQuery) {
-    while ($row = mysqli_fetch_assoc($topUsersQuery)) {
-        $topUsers[] = $row;
-    }
-}
 
-/* ================== FETCH DEVICE DETAILS FOR MODAL ================== */
-$device_details = null;
-$assignment_history = [];
-
-if (isset($_GET['get_device_details']) && is_numeric($_GET['get_device_details'])) {
-    $device_id = (int) $_GET['get_device_details'];
-
-    $device_query = mysqli_prepare($conn, "
+try {
+    // Top 5 most assigned devices
+    $topDevicesQuery = mysqli_query($conn, "
         SELECT 
             i.id,
             i.asset_tag,
             i.device_type,
             i.model,
-            i.serial_number,
             i.status,
-            i.condition,
-            i.brand_id,
-            i.category_id,
-            i.department_id,
-            i.remarks,
-            i.created_at,
-            i.updated_at,
             b.brand_name,
             c.category_name,
-            d.department_name,
-            (SELECT COUNT(*) FROM device_user_assignments WHERE inventory_id = i.id) as total_assignments,
-            (SELECT COUNT(DISTINCT user_id) FROM device_user_assignments WHERE inventory_id = i.id) as unique_users
+            COUNT(DISTINCT dua.id) as assignment_count,
+            COUNT(DISTINCT dua.user_id) as user_count,
+            DATEDIFF(NOW(), MIN(dua.assigned_at)) as days_in_service
         FROM inventory_items i
+        LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
         LEFT JOIN brands b ON i.brand_id = b.id
         LEFT JOIN categories c ON i.category_id = c.id
-        LEFT JOIN departments d ON i.department_id = d.id
-        WHERE i.id = ?
+        GROUP BY i.id
+        HAVING assignment_count > 0
+        ORDER BY assignment_count DESC, user_count DESC
+        LIMIT 5
     ");
-
-    if (!$device_query) {
-        if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'error' => 'Database query preparation failed: ' . mysqli_error($conn)]);
-            exit;
+    
+    if ($topDevicesQuery) {
+        while ($row = mysqli_fetch_assoc($topDevicesQuery)) {
+            $topDevices[] = $row;
         }
     }
 
-    mysqli_stmt_bind_param($device_query, "i", $device_id);
-    mysqli_stmt_execute($device_query);
-    $device_result = mysqli_stmt_get_result($device_query);
-    $device_details = mysqli_fetch_assoc($device_result);
-    mysqli_stmt_close($device_query);
-
-    if ($device_details) {
-        $history_query = mysqli_prepare($conn, "
-            SELECT 
-                dua.*,
-                u.firstname,
-                u.lastname,
-                u.email,
-                u.role,
-                TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW())) as days_assigned
-            FROM device_user_assignments dua
-            JOIN users u ON dua.user_id = u.id
-            WHERE dua.inventory_id = ?
-            ORDER BY dua.assigned_at DESC
-        ");
-
-        if ($history_query) {
-            mysqli_stmt_bind_param($history_query, "i", $device_id);
-            mysqli_stmt_execute($history_query);
-            $history_result = mysqli_stmt_get_result($history_query);
-
-            while ($row = mysqli_fetch_assoc($history_result)) {
-                $assignment_history[] = $row;
-            }
-            mysqli_stmt_close($history_query);
+    // Top 5 users with most assignments
+    $topUsersQuery = mysqli_query($conn, "
+        SELECT 
+            u.id,
+            u.firstname,
+            u.lastname,
+            u.email,
+            u.role,
+            u.status as user_status,
+            COUNT(DISTINCT dua.id) as assignment_count,
+            COUNT(DISTINCT dua.inventory_id) as device_count,
+            AVG(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as avg_days_per_assignment,
+            SUM(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as total_days_assigned
+        FROM users u
+        LEFT JOIN device_user_assignments dua ON u.id = dua.user_id
+        GROUP BY u.id
+        HAVING assignment_count > 0
+        ORDER BY assignment_count DESC, total_days_assigned DESC
+        LIMIT 5
+    ");
+    
+    if ($topUsersQuery) {
+        while ($row = mysqli_fetch_assoc($topUsersQuery)) {
+            $topUsers[] = $row;
         }
     }
-
-    if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
-        header('Content-Type: application/json');
-
-        $response = [
-            'success' => true,
-            'device' => $device_details,
-            'history' => $assignment_history
-        ];
-
-        if ($device_details === null) {
-            $response['success'] = false;
-            $response['error'] = 'Device not found';
-        }
-
-        echo json_encode($response);
-        exit;
-    }
+} catch (Exception $e) {
+    error_log("Error fetching top devices/users: " . $e->getMessage());
 }
 
-if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+/* ================== FETCH DEVICE DETAILS FOR MODAL ================== */
+if (isset($_GET['get_device_details']) && is_numeric($_GET['get_device_details'])) {
+    $device_id = (int) $_GET['get_device_details'];
+    $response = ['success' => false, 'error' => 'Device not found'];
+    
+    try {
+        $device_query = mysqli_prepare($conn, "
+            SELECT 
+                i.id,
+                i.asset_tag,
+                i.device_type,
+                i.model,
+                i.serial_number,
+                i.status,
+                i.`condition`,
+                i.brand_id,
+                i.category_id,
+                i.department_id,
+                i.remarks,
+                i.created_at,
+                i.updated_at,
+                b.brand_name,
+                c.category_name,
+                d.department_name,
+                (SELECT COUNT(*) FROM device_user_assignments WHERE inventory_id = i.id) as total_assignments,
+                (SELECT COUNT(DISTINCT user_id) FROM device_user_assignments WHERE inventory_id = i.id) as unique_users
+            FROM inventory_items i
+            LEFT JOIN brands b ON i.brand_id = b.id
+            LEFT JOIN categories c ON i.category_id = c.id
+            LEFT JOIN departments d ON i.department_id = d.id
+            WHERE i.id = ?
+        ");
+        
+        if ($device_query) {
+            mysqli_stmt_bind_param($device_query, "i", $device_id);
+            mysqli_stmt_execute($device_query);
+            $device_result = mysqli_stmt_get_result($device_query);
+            $device_details = mysqli_fetch_assoc($device_result);
+            mysqli_stmt_close($device_query);
+            
+            if ($device_details) {
+                $history_query = mysqli_prepare($conn, "
+                    SELECT 
+                        dua.*,
+                        u.firstname,
+                        u.lastname,
+                        u.email,
+                        u.role,
+                        TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW())) as days_assigned,
+                        CASE 
+                            WHEN dua.returned_at IS NULL THEN 'assigned'
+                            ELSE 'returned'
+                        END as assignment_status
+                    FROM device_user_assignments dua
+                    JOIN users u ON dua.user_id = u.id
+                    WHERE dua.inventory_id = ?
+                    ORDER BY dua.assigned_at DESC
+                ");
+                
+                $assignment_history = [];
+                if ($history_query) {
+                    mysqli_stmt_bind_param($history_query, "i", $device_id);
+                    mysqli_stmt_execute($history_query);
+                    $history_result = mysqli_stmt_get_result($history_query);
+                    
+                    while ($row = mysqli_fetch_assoc($history_result)) {
+                        $assignment_history[] = $row;
+                    }
+                    mysqli_stmt_close($history_query);
+                }
+                
+                $response = [
+                    'success' => true,
+                    'device' => $device_details,
+                    'history' => $assignment_history
+                ];
+            }
+        }
+    } catch (Exception $e) {
+        $response = ['success' => false, 'error' => 'Database error: ' . $e->getMessage()];
+    }
+    
     header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Invalid request']);
+    echo json_encode($response);
     exit;
 }
 
 /* ================== FETCH ALL DEVICES WITH HISTORY ================== */
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
-$status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
-$category_filter = isset($_GET['category']) ? (int) $_GET['category'] : 0;
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$status_filter = isset($_GET['status']) ? trim($_GET['status']) : '';
+$category_filter = isset($_GET['category']) && is_numeric($_GET['category']) ? (int) $_GET['category'] : 0;
 
 $where_conditions = [];
 $params = [];
@@ -214,13 +216,13 @@ if (!empty($search)) {
     $param_types .= 'ssss';
 }
 
-if (!empty($status_filter)) {
+if (!empty($status_filter) && array_key_exists($status_filter, $statusLabels)) {
     $where_conditions[] = "i.status = ?";
     $params[] = $status_filter;
     $param_types .= 's';
 }
 
-if (!empty($category_filter)) {
+if (!empty($category_filter) && $category_filter > 0) {
     $where_conditions[] = "i.category_id = ?";
     $params[] = $category_filter;
     $param_types .= 'i';
@@ -230,85 +232,113 @@ $where_sql = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_cond
 
 /* ================== PAGINATION ================== */
 $limit = isset($_GET['limit']) && in_array((int) $_GET['limit'], [10, 25, 50, 100]) ? (int) $_GET['limit'] : 10;
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
-$page = max($page, 1);
+$page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 ? (int) $_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-$count_query = mysqli_prepare($conn, "
-    SELECT COUNT(DISTINCT i.id) as total
-    FROM inventory_items i
-    LEFT JOIN brands b ON i.brand_id = b.id
-    $where_sql
-");
-
-if (!empty($params)) {
-    mysqli_stmt_bind_param($count_query, $param_types, ...$params);
+// Get total count
+$total_devices = 0;
+try {
+    $count_query = "SELECT COUNT(DISTINCT i.id) as total FROM inventory_items i LEFT JOIN brands b ON i.brand_id = b.id $where_sql";
+    $count_stmt = mysqli_prepare($conn, $count_query);
+    
+    if (!empty($params)) {
+        mysqli_stmt_bind_param($count_stmt, $param_types, ...$params);
+    }
+    
+    mysqli_stmt_execute($count_stmt);
+    $count_result = mysqli_stmt_get_result($count_stmt);
+    $total_devices = mysqli_fetch_assoc($count_result)['total'] ?? 0;
+    mysqli_stmt_close($count_stmt);
+} catch (Exception $e) {
+    error_log("Error counting devices: " . $e->getMessage());
 }
 
-mysqli_stmt_execute($count_query);
-$count_result = mysqli_stmt_get_result($count_query);
-$total_devices = mysqli_fetch_assoc($count_result)['total'] ?? 0;
-mysqli_stmt_close($count_query);
-
-$total_pages = ceil($total_devices / $limit);
+$total_pages = $total_devices > 0 ? ceil($total_devices / $limit) : 1;
 
 /* ================== FETCH DEVICES WITH ASSIGNMENT COUNTS ================== */
-$devices_query = mysqli_prepare($conn, "
-    SELECT 
-        i.id,
-        i.asset_tag,
-        i.device_type,
-        i.model,
-        i.serial_number,
-        i.status,
-        i.condition,
-        i.created_at,
-        b.brand_name,
-        c.category_name,
-        COUNT(DISTINCT dua.user_id) as total_users,
-        COUNT(DISTINCT dua.id) as total_assignments,
-        MAX(dua.assigned_at) as last_assigned,
-        MIN(dua.assigned_at) as first_assigned
-    FROM inventory_items i
-    LEFT JOIN brands b ON i.brand_id = b.id
-    LEFT JOIN categories c ON i.category_id = c.id
-    LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
-    $where_sql
-    GROUP BY i.id
-    ORDER BY i.created_at DESC
-    LIMIT ? OFFSET ?
-");
-
-$params[] = $limit;
-$params[] = $offset;
-$param_types .= 'ii';
-
-if (!empty($params)) {
-    mysqli_stmt_bind_param($devices_query, $param_types, ...$params);
-}
-
-mysqli_stmt_execute($devices_query);
-$devices_result = mysqli_stmt_get_result($devices_query);
 $devices = [];
-
-while ($row = mysqli_fetch_assoc($devices_result)) {
-    $devices[] = $row;
+try {
+    $devices_query = "
+        SELECT 
+            i.id,
+            i.asset_tag,
+            i.device_type,
+            i.model,
+            i.serial_number,
+            i.status,
+            i.`condition`,
+            i.created_at,
+            b.brand_name,
+            c.category_name,
+            COUNT(DISTINCT dua.user_id) as total_users,
+            COUNT(DISTINCT dua.id) as total_assignments,
+            MAX(dua.assigned_at) as last_assigned,
+            MIN(dua.assigned_at) as first_assigned
+        FROM inventory_items i
+        LEFT JOIN brands b ON i.brand_id = b.id
+        LEFT JOIN categories c ON i.category_id = c.id
+        LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
+        $where_sql
+        GROUP BY i.id
+        ORDER BY i.created_at DESC
+        LIMIT ? OFFSET ?
+    ";
+    
+    $devices_stmt = mysqli_prepare($conn, $devices_query);
+    
+    $all_params = array_merge($params, [$limit, $offset]);
+    $all_types = $param_types . 'ii';
+    
+    if (!empty($all_params)) {
+        mysqli_stmt_bind_param($devices_stmt, $all_types, ...$all_params);
+    }
+    
+    mysqli_stmt_execute($devices_stmt);
+    $devices_result = mysqli_stmt_get_result($devices_stmt);
+    
+    while ($row = mysqli_fetch_assoc($devices_result)) {
+        $devices[] = $row;
+    }
+    mysqli_stmt_close($devices_stmt);
+} catch (Exception $e) {
+    error_log("Error fetching devices: " . $e->getMessage());
 }
-mysqli_stmt_close($devices_query);
 
 /* ================== FETCH DROPDOWN DATA ================== */
 $categories = [];
-$categories_result = mysqli_query($conn, "SELECT id, category_name FROM categories ORDER BY category_name");
-if ($categories_result) {
-    $categories = mysqli_fetch_all($categories_result, MYSQLI_ASSOC);
+try {
+    $categories_result = mysqli_query($conn, "SELECT id, category_name FROM categories ORDER BY category_name");
+    if ($categories_result) {
+        $categories = mysqli_fetch_all($categories_result, MYSQLI_ASSOC);
+    }
+} catch (Exception $e) {
+    error_log("Error fetching categories: " . $e->getMessage());
 }
 
-$statuses = [];
-$status_result = mysqli_query($conn, "SELECT DISTINCT status FROM inventory_items ORDER BY status");
-if ($status_result) {
-    while ($row = mysqli_fetch_assoc($status_result)) {
-        $statuses[] = $row['status'];
+/* ================== FETCH STATISTICS ================== */
+$stats = [
+    'total_devices' => 0,
+    'total_users' => 0,
+    'total_assignments' => 0,
+    'avg_assignment_days' => null
+];
+
+try {
+    $stats_query = mysqli_query($conn, "
+        SELECT 
+            COUNT(DISTINCT i.id) as total_devices,
+            COUNT(DISTINCT dua.user_id) as total_users,
+            COUNT(dua.id) as total_assignments,
+            AVG(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as avg_assignment_days
+        FROM inventory_items i
+        LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
+    ");
+    
+    if ($stats_query) {
+        $stats = mysqli_fetch_assoc($stats_query);
     }
+} catch (Exception $e) {
+    error_log("Error fetching stats: " . $e->getMessage());
 }
 ?>
 
@@ -323,7 +353,7 @@ if ($status_result) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* Professional Design System - No Gradients */
+        /* Professional Design System */
         :root {
             --primary: #1e293b;
             --primary-light: #334155;
@@ -353,8 +383,86 @@ if ($status_result) {
         body {
             background-color: var(--background);
             color: var(--text-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             line-height: 1.5;
+        }
+
+        /* Sidebar styles - matching the provided sidebar */
+        #sidebar {
+            width: 16rem;
+            transition: width 0.3s ease;
+        }
+
+        #sidebar.collapsed {
+            width: 5rem;
+        }
+
+        #sidebar.collapsed .nav-text,
+        #sidebar.collapsed .header-text,
+        #sidebar.collapsed #logo,
+        #sidebar.collapsed .badge {
+            display: none;
+        }
+
+        #mainContent {
+            margin-left: 16rem;
+            transition: margin-left 0.3s ease;
+            min-height: 100vh;
+        }
+
+        #mainContent.collapsed {
+            margin-left: 5rem;
+        }
+
+        /* FOOTER FIX */
+        @media (min-width: 768px) {
+            #mainFooter {
+                margin-left: 16rem;
+                width: calc(100% - 16rem);
+                transition: margin-left 0.3s ease, width 0.3s ease;
+            }
+
+            body.sidebar-collapsed #mainFooter {
+                margin-left: 5rem;
+                width: calc(100% - 5rem);
+            }
+        }
+
+        /* Navigation link styles */
+        .nav-link {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            transform: translateX(2px);
+        }
+
+        .nav-link.active {
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .badge {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: opacity 0.2s ease;
+        }
+
+        .nav-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .nav-link.with-badge {
+            padding-right: 3rem;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: linear-gradient(to right, transparent, #e5e7eb, transparent);
+            margin: 0.5rem 1rem;
         }
 
         /* Animations */
@@ -389,7 +497,7 @@ if ($status_result) {
         }
 
         /* Status Badges - Solid Colors */
-        .badge {
+        .badge-status {
             display: inline-flex;
             align-items: center;
             padding: 0.25rem 0.75rem;
@@ -398,11 +506,12 @@ if ($status_result) {
             font-weight: 500;
             line-height: 1.25rem;
             border: 1px solid transparent;
+            white-space: nowrap;
         }
 
         .badge-status-active { background: #dcfce7; color: #166534; border-color: #86efac; }
-        .badge-status-in_use { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
-        .badge-status-in_storage { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+        .badge-status-in-use { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .badge-status-in-storage { background: #fef9c3; color: #854d0e; border-color: #fde047; }
         .badge-status-repairing { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
         .badge-status-faulty { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
         .badge-status-retired { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
@@ -414,8 +523,6 @@ if ($status_result) {
 
         .badge-role-admin { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
         .badge-role-user { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
-        .badge-status-user-active { background: #dcfce7; color: #166534; border-color: #86efac; }
-        .badge-status-user-inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
         /* Cards */
         .card {
@@ -423,6 +530,7 @@ if ($status_result) {
             border: 1px solid var(--border);
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
         }
 
         .card-header {
@@ -470,10 +578,15 @@ if ($status_result) {
             padding: 1.25rem 1.5rem;
             border-bottom: 1px solid var(--border);
             color: var(--text-primary);
+            vertical-align: middle;
         }
 
         .table tr:last-child td {
             border-bottom: none;
+        }
+
+        .table tbody tr {
+            transition: background-color 0.15s ease;
         }
 
         .table tbody tr:hover td {
@@ -510,6 +623,8 @@ if ($status_result) {
             border: 1px solid transparent;
             gap: 0.5rem;
             line-height: 1.25rem;
+            text-decoration: none;
+            white-space: nowrap;
         }
 
         .btn:active {
@@ -568,6 +683,7 @@ if ($status_result) {
 
         .input-wrapper {
             position: relative;
+            width: 100%;
         }
 
         .input-icon {
@@ -577,6 +693,7 @@ if ($status_result) {
             transform: translateY(-50%);
             color: var(--text-muted);
             font-size: 0.875rem;
+            pointer-events: none;
         }
 
         .input-field {
@@ -610,7 +727,7 @@ if ($status_result) {
             font-size: 0.875rem;
             color: var(--text-primary);
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linecap='round' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
             background-position: right 0.5rem center;
             background-repeat: no-repeat;
             background-size: 1.25rem;
@@ -643,6 +760,7 @@ if ($status_result) {
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .stat-icon-blue { background: #dbeafe; color: #1e40af; }
@@ -650,7 +768,7 @@ if ($status_result) {
         .stat-icon-purple { background: #f3e8ff; color: #6b21a8; }
         .stat-icon-amber { background: #fef3c7; color: #92400e; }
 
-        /* Top Items Cards - No hover effects */
+        /* Top Items Cards */
         .top-item {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -709,35 +827,46 @@ if ($status_result) {
         /* Modal */
         .modal-backdrop {
             position: fixed;
-            inset: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 50;
-            display: flex;
+            z-index: 9999;
+            display: none;
             align-items: center;
             justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
         }
 
         .modal {
             background: var(--surface);
             border-radius: 8px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            width: 90%;
-            max-width: 1200px;
+            width: 100%;
+            max-width: 1300px;
             max-height: 90vh;
             overflow: hidden;
             animation: fadeIn 0.2s ease-out;
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-header {
             padding: 1.25rem 1.5rem;
             background: #1e293b;
             border-bottom: 1px solid #334155;
+            flex-shrink: 0;
         }
 
         .modal-body {
             padding: 1.5rem;
             overflow-y: auto;
-            max-height: calc(90vh - 130px);
+            flex: 1;
         }
 
         .modal-footer {
@@ -747,6 +876,7 @@ if ($status_result) {
             display: flex;
             justify-content: flex-end;
             gap: 0.75rem;
+            flex-shrink: 0;
         }
 
         /* Toast */
@@ -754,10 +884,11 @@ if ($status_result) {
             position: fixed;
             top: 1rem;
             right: 1rem;
-            z-index: 100;
+            z-index: 10000;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            max-width: 350px;
         }
 
         .toast {
@@ -771,7 +902,7 @@ if ($status_result) {
             border-radius: 6px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             animation: slideIn 0.2s ease-out;
-            max-width: 350px;
+            width: 100%;
         }
 
         .toast-success { border-left-color: var(--success); }
@@ -784,6 +915,7 @@ if ($status_result) {
             display: flex;
             align-items: center;
             gap: 0.25rem;
+            flex-wrap: wrap;
         }
 
         .page-link {
@@ -832,11 +964,19 @@ if ($status_result) {
         /* Confirmation Modal */
         .confirmation-modal {
             position: fixed;
-            inset: 0;
-            display: flex;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
             align-items: center;
             justify-content: center;
-            z-index: 200;
+            z-index: 10001;
+            padding: 1rem;
+        }
+
+        .confirmation-modal.active {
+            display: flex;
         }
 
         .confirmation-backdrop {
@@ -850,9 +990,10 @@ if ($status_result) {
             background: var(--surface);
             border-radius: 8px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            width: 90%;
+            width: 100%;
             max-width: 400px;
             animation: fadeIn 0.2s ease-out;
+            z-index: 10002;
         }
 
         .confirmation-header {
@@ -910,22 +1051,6 @@ if ($status_result) {
             gap: 1.5rem;
         }
 
-        @media (max-width: 1024px) {
-            .grid-stats {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .grid-top {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .grid-stats {
-                grid-template-columns: 1fr;
-            }
-        }
-
         /* Filter Bar */
         .filter-bar {
             background: var(--surface);
@@ -941,9 +1066,88 @@ if ($status_result) {
             align-items: end;
         }
 
+        /* Responsive Design */
+        @media (max-width: 1280px) {
+            .grid-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .grid-top {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 768px) {
             .filter-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            .grid-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .table th,
+            .table td {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+            }
+            
+            .modal {
+                max-height: 100vh;
+                border-radius: 0;
+            }
+
+            #sidebar {
+                width: 5rem;
+            }
+
+            #sidebar .nav-text,
+            #sidebar .header-text,
+            #sidebar #logo,
+            #sidebar .badge,
+            #sidebar .nav-divider span {
+                display: none;
+            }
+
+            #mainContent {
+                margin-left: 5rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .toast-container {
+                left: 1rem;
+                right: 1rem;
+                max-width: none;
+            }
+            
+            .card-body,
+            .card-header,
+            .card-footer {
+                padding: 1rem;
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
+
+            #sidebar {
+                width: 0;
+                transform: translateX(-100%);
+            }
+
+            #sidebar.collapsed {
+                width: 0;
+            }
+
+            #mainContent {
+                margin-left: 0;
+            }
+
+            #mainContent.collapsed {
+                margin-left: 0;
             }
         }
 
@@ -975,83 +1179,98 @@ if ($status_result) {
         .gap-3 { gap: 0.75rem; }
         .gap-4 { gap: 1rem; }
 
-        /* Fix for modal buttons */
-        .modal-footer .btn {
-            min-width: 80px;
-        }
-
-        /* Fix for status display in modal */
-        .status-container {
+        .flex {
             display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
         }
 
-        /* Fix for top users section - REMOVED HOVER EFFECTS */
-        .user-info {
-            min-width: 0;
+        .flex-1 {
             flex: 1;
         }
 
-        .user-badges {
-            display: flex;
-            flex-wrap: wrap;
+        .flex-shrink-0 {
+            flex-shrink: 0;
+        }
+
+        .items-center {
             align-items: center;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
         }
 
-        .user-stats {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-left: auto;
+        .items-start {
+            align-items: flex-start;
         }
 
-        /* Remove any hover effects from top items */
-        .top-item:hover {
-            background: var(--surface);
-            border-color: var(--border);
-            cursor: default;
+        .justify-between {
+            justify-content: space-between;
         }
 
-        /* Fix for status display in table */
-        .status-badge-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+        .justify-end {
+            justify-content: flex-end;
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .min-w-0 {
+            min-width: 0;
+        }
+
+        .truncate {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .overflow-x-auto {
+            overflow-x: auto;
+        }
+
+        /* Container for main content */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* User Info in top items */
+        .user-info {
+            flex: 1;
+            min-width: 0;
         }
     </style>
 </head>
 
-<body class="bg-[#f1f5f9]">
-    <!-- Toast Container -->
-    <div id="toastContainer" class="toast-container"></div>
+<body>
+    <!-- Include Sidebar -->
+    <?php include 'sidebar.php'; ?>
 
-    <!-- Confirmation Modal -->
-    <div id="confirmationModal" class="confirmation-modal hidden">
-        <div class="confirmation-backdrop"></div>
-        <div class="confirmation-content">
-            <div class="confirmation-header">
-                <h3 class="text-lg font-semibold text-[#0f172a]" id="confirmationTitle">Confirm Action</h3>
-            </div>
-            <div class="confirmation-body">
-                <p class="text-[#475569]" id="confirmationMessage">Are you sure you want to perform this action?</p>
-            </div>
-            <div class="confirmation-footer">
-                <button onclick="closeConfirmation()" class="btn btn-outline">
-                    Cancel
-                </button>
-                <button onclick="confirmAction()" id="confirmButton" class="btn btn-primary">
-                    Confirm
-                </button>
+    <!-- Main Content -->
+    <main id="mainContent" class="min-h-screen bg-[#f1f5f9]">
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container"></div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmationModal" class="confirmation-modal">
+            <div class="confirmation-backdrop" onclick="closeConfirmation()"></div>
+            <div class="confirmation-content">
+                <div class="confirmation-header">
+                    <h3 class="text-lg font-semibold text-[#0f172a]" id="confirmationTitle">Confirm Action</h3>
+                </div>
+                <div class="confirmation-body">
+                    <p class="text-[#475569]" id="confirmationMessage">Are you sure you want to perform this action?</p>
+                </div>
+                <div class="confirmation-footer">
+                    <button onclick="closeConfirmation()" class="btn btn-outline">
+                        Cancel
+                    </button>
+                    <button onclick="confirmAction()" id="confirmButton" class="btn btn-primary">
+                        Confirm
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="flex">
-        <?php include "sidebar.php"; ?>
-        <main id="mainContent" class="flex-1 p-6">
+        <div class="container">
             <!-- Header -->
             <div class="flex justify-between items-center mb-6">
                 <div>
@@ -1069,40 +1288,29 @@ if ($status_result) {
             <!-- Statistics Summary -->
             <div class="grid-stats mb-6">
                 <?php
-                $stats_query = mysqli_query($conn, "
-                    SELECT 
-                        COUNT(DISTINCT i.id) as total_devices,
-                        COUNT(DISTINCT dua.user_id) as total_users,
-                        COUNT(dua.id) as total_assignments,
-                        AVG(TIMESTAMPDIFF(DAY, dua.assigned_at, COALESCE(dua.returned_at, NOW()))) as avg_assignment_days
-                    FROM inventory_items i
-                    LEFT JOIN device_user_assignments dua ON i.id = dua.inventory_id
-                ");
-                $stats = mysqli_fetch_assoc($stats_query);
-
                 $stat_icons = ['blue', 'green', 'purple', 'amber'];
                 $stat_items = [
                     [
                         'title' => 'Total Devices',
-                        'value' => $stats['total_devices'] ?? 0,
+                        'value' => number_format($stats['total_devices'] ?? 0),
                         'icon' => 'fa-laptop',
                         'description' => 'Devices in system'
                     ],
                     [
                         'title' => 'Total Users',
-                        'value' => $stats['total_users'] ?? 0,
+                        'value' => number_format($stats['total_users'] ?? 0),
                         'icon' => 'fa-users',
                         'description' => 'Unique users assigned'
                     ],
                     [
                         'title' => 'Total Assignments',
-                        'value' => $stats['total_assignments'] ?? 0,
+                        'value' => number_format($stats['total_assignments'] ?? 0),
                         'icon' => 'fa-exchange-alt',
                         'description' => 'All assignments'
                     ],
                     [
                         'title' => 'Avg. Assignment',
-                        'value' => $stats['avg_assignment_days'] ? round($stats['avg_assignment_days'], 1) . ' days' : 'N/A',
+                        'value' => isset($stats['avg_assignment_days']) && $stats['avg_assignment_days'] ? round($stats['avg_assignment_days'], 1) . ' days' : 'N/A',
                         'icon' => 'fa-calendar-alt',
                         'description' => 'Average duration'
                     ]
@@ -1112,13 +1320,13 @@ if ($status_result) {
                 <?php foreach ($stat_items as $index => $stat): ?>
                     <div class="stat-card animate-fade-in">
                         <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-[#64748b] uppercase tracking-wider"><?= $stat['title'] ?></p>
-                                <p class="text-2xl font-bold text-[#0f172a] mt-1"><?= $stat['value'] ?></p>
-                                <p class="text-xs text-[#64748b] mt-1"><?= $stat['description'] ?></p>
+                            <div style="flex: 1; min-width: 0;">
+                                <p class="text-xs font-medium text-[#64748b] uppercase tracking-wider"><?= htmlspecialchars($stat['title']) ?></p>
+                                <p class="text-2xl font-bold text-[#0f172a] mt-1"><?= htmlspecialchars($stat['value']) ?></p>
+                                <p class="text-xs text-[#64748b] mt-1"><?= htmlspecialchars($stat['description']) ?></p>
                             </div>
                             <div class="stat-icon stat-icon-<?= $stat_icons[$index] ?>">
-                                <i class="fas <?= $stat['icon'] ?>"></i>
+                                <i class="fas <?= htmlspecialchars($stat['icon']) ?>"></i>
                             </div>
                         </div>
                     </div>
@@ -1129,14 +1337,9 @@ if ($status_result) {
             <div class="grid-top mb-6">
                 <!-- Top 5 Most Assigned Devices -->
                 <div class="card animate-fade-in">
-                    <div class="card-header flex items-center justify-between">
-                        <div>
-                            <h2 class="font-semibold text-[#0f172a]">Top 5 Most Assigned Devices</h2>
-                            <p class="text-xs text-[#64748b] mt-0.5">Highest assignment counts</p>
-                        </div>
-                        <div class="w-10 h-10 bg-[#dbeafe] rounded flex items-center justify-center">
-                            <i class="fas fa-trophy text-[#1e40af]"></i>
-                        </div>
+                    <div class="card-header">
+                        <h2 class="font-semibold text-[#0f172a]">Top 5 Most Assigned Devices</h2>
+                        <p class="text-xs text-[#64748b] mt-0.5">Based on total assignment count</p>
                     </div>
                     <div class="card-body">
                         <?php if (empty($topDevices)): ?>
@@ -1152,7 +1355,7 @@ if ($status_result) {
                                     <?php
                                     $rank = $index + 1;
                                     $rankClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : 'rank-other'));
-                                    $deviceIconColor = match ($device['device_type']) {
+                                    $deviceIconColor = match ($device['device_type'] ?? '') {
                                         'Laptop' => 'device-icon-blue',
                                         'Desktop' => 'device-icon-purple',
                                         'Tablet' => 'device-icon-green',
@@ -1160,34 +1363,30 @@ if ($status_result) {
                                         'Monitor' => 'device-icon-gray',
                                         default => 'device-icon-gray'
                                     };
+                                    $statusKey = $device['status'] ?? 'active';
+                                    $statusClass = 'badge-status-' . str_replace('_', '-', $statusKey);
                                     ?>
                                     <div class="top-item">
                                         <div class="flex items-center gap-3">
-                                            <div class="rank-badge <?= $rankClass ?>">
-                                                <?= $rank ?>
-                                            </div>
+                                            <div class="rank-badge <?= $rankClass ?>"><?= $rank ?></div>
                                             <div class="device-icon <?= $deviceIconColor ?>">
                                                 <i class="fas fa-laptop"></i>
                                             </div>
-                                            <div class="flex-1 min-w-0">
-                                                <div class="flex items-start justify-between">
-                                                    <div class="truncate pr-2">
-                                                        <p class="font-medium text-[#0f172a]">
-                                                            <?= htmlspecialchars($device['asset_tag']) ?>
-                                                        </p>
+                                            <div style="flex: 1; min-width: 0;">
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div class="truncate" style="flex: 1; min-width: 0;">
+                                                        <p class="font-medium text-[#0f172a]"><?= htmlspecialchars($device['asset_tag'] ?? 'Unknown') ?></p>
                                                         <p class="text-xs text-[#64748b] truncate">
-                                                            <?= htmlspecialchars($device['device_type']) ?> •
-                                                            <?= htmlspecialchars($device['model']) ?>
+                                                            <?= htmlspecialchars($device['device_type'] ?? 'Unknown') ?> •
+                                                            <?= htmlspecialchars($device['brand_name'] ?? '') ?> <?= htmlspecialchars($device['model'] ?? '') ?>
                                                         </p>
                                                     </div>
-                                                    <p class="font-bold text-[#0f172a] whitespace-nowrap">
-                                                        <?= $device['assignment_count'] ?>
-                                                    </p>
+                                                    <p class="font-bold text-[#0f172a] whitespace-nowrap"><?= (int)($device['assignment_count'] ?? 0) ?></p>
                                                 </div>
-                                                <div class="flex items-center justify-between mt-2 text-xs">
-                                                    <span class="text-[#64748b]">Unique users: <?= $device['user_count'] ?></span>
-                                                    <span class="badge badge-status-<?= $device['status'] ?> whitespace-nowrap">
-                                                        <?= htmlspecialchars($statusLabels[$device['status']] ?? ucfirst(str_replace('_', ' ', $device['status']))) ?>
+                                                <div class="flex items-center justify-between mt-2 text-xs gap-3">
+                                                    <span class="text-[#64748b]">Unique users: <?= (int)($device['user_count'] ?? 0) ?></span>
+                                                    <span class="badge-status <?= $statusClass ?> whitespace-nowrap">
+                                                        <?= htmlspecialchars($statusLabels[$device['status'] ?? ''] ?? ucfirst(str_replace('_', ' ', $device['status'] ?? 'Unknown'))) ?>
                                                     </span>
                                                 </div>
                                             </div>
@@ -1199,16 +1398,11 @@ if ($status_result) {
                     </div>
                 </div>
 
-                <!-- Top 5 Users with Most Assignments - FIXED: Removed hover effects -->
+                <!-- Top 5 Users with Most Assignments -->
                 <div class="card animate-fade-in">
-                    <div class="card-header flex items-center justify-between">
-                        <div>
-                            <h2 class="font-semibold text-[#0f172a]">Top 5 Active Users</h2>
-                            <p class="text-xs text-[#64748b] mt-0.5">Highest assignment counts</p>
-                        </div>
-                        <div class="w-10 h-10 bg-[#dcfce7] rounded flex items-center justify-center">
-                            <i class="fas fa-users text-[#166534]"></i>
-                        </div>
+                    <div class="card-header">
+                        <h2 class="font-semibold text-[#0f172a]">Top 5 Active Users</h2>
+                        <p class="text-xs text-[#64748b] mt-0.5">Based on total assignment count</p>
                     </div>
                     <div class="card-body">
                         <?php if (empty($topUsers)): ?>
@@ -1224,42 +1418,30 @@ if ($status_result) {
                                     <?php
                                     $rank = $index + 1;
                                     $rankClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : 'rank-other'));
-                                    $roleClass = $user['role'] === 'admin' ? 'badge-role-admin' : 'badge-role-user';
-                                    $statusClass = $user['user_status'] === 'active' ? 'badge-status-user-active' : 'badge-status-user-inactive';
-                                    $statusText = $user['user_status'] === 'active' ? 'Active' : 'Inactive';
+                                    $roleClass = ($user['role'] ?? '') === 'admin' ? 'badge-role-admin' : 'badge-role-user';
                                     $avatarInitials = strtoupper(substr($user['firstname'] ?? '', 0, 1) . substr($user['lastname'] ?? '', 0, 1));
+                                    if (empty(trim($avatarInitials))) $avatarInitials = '?';
                                     ?>
                                     <div class="top-item">
                                         <div class="flex items-center gap-3">
-                                            <div class="rank-badge <?= $rankClass ?>">
-                                                <?= $rank ?>
-                                            </div>
-                                            <div class="user-avatar">
-                                                <?= $avatarInitials ?: '?' ?>
-                                            </div>
-                                            <div class="user-info">
-                                                <div class="flex items-start justify-between">
-                                                    <div>
-                                                        <p class="font-medium text-[#0f172a]">
-                                                            <?= htmlspecialchars($user['firstname'] . ' ' . $user['lastname']) ?>
+                                            <div class="rank-badge <?= $rankClass ?>"><?= $rank ?></div>
+                                            <div class="user-avatar"><?= htmlspecialchars($avatarInitials) ?></div>
+                                            <div style="flex: 1; min-width: 0;">
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div style="flex: 1; min-width: 0;">
+                                                        <p class="font-medium text-[#0f172a] truncate">
+                                                            <?= htmlspecialchars(($user['firstname'] ?? '') . ' ' . ($user['lastname'] ?? '')) ?>
                                                         </p>
-                                                        <p class="text-xs text-[#64748b]">
-                                                            <?= htmlspecialchars($user['email']) ?>
-                                                        </p>
+                                                        <p class="text-xs text-[#64748b] truncate"><?= htmlspecialchars($user['email'] ?? 'No email') ?></p>
                                                     </div>
-                                                    <p class="font-bold text-[#0f172a] ml-2">
-                                                        <?= $user['assignment_count'] ?>
-                                                    </p>
+                                                    <p class="font-bold text-[#0f172a] whitespace-nowrap"><?= (int)($user['assignment_count'] ?? 0) ?></p>
                                                 </div>
-                                                <div class="user-badges">
+                                                <div class="flex items-center gap-3 mt-2 flex-wrap">
                                                     <span class="badge <?= $roleClass ?>">
-                                                        <?= htmlspecialchars(ucfirst($user['role'])) ?>
-                                                    </span>
-                                                    <span class="badge <?= $statusClass ?>">
-                                                        <?= $statusText ?>
+                                                        <?= htmlspecialchars(ucfirst($user['role'] ?? 'user')) ?>
                                                     </span>
                                                     <span class="text-xs text-[#64748b]">
-                                                        Devices: <?= $user['device_count'] ?>
+                                                        <i class="fas fa-laptop mr-1"></i><?= (int)($user['device_count'] ?? 0) ?> devices
                                                     </span>
                                                 </div>
                                             </div>
@@ -1280,9 +1462,7 @@ if ($status_result) {
                         <label class="form-label">Search Devices</label>
                         <div class="input-wrapper">
                             <i class="fas fa-search input-icon"></i>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                                placeholder="Search by asset tag, model, or brand..."
-                                class="input-field input-with-icon">
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by asset tag, model, or brand..." class="input-field input-with-icon">
                         </div>
                     </div>
 
@@ -1292,7 +1472,7 @@ if ($status_result) {
                         <select name="status" class="select-field">
                             <option value="">All Status</option>
                             <?php foreach ($statusLabels as $key => $label): ?>
-                                <option value="<?= $key ?>" <?= $status_filter == $key ? 'selected' : '' ?>>
+                                <option value="<?= htmlspecialchars($key) ?>" <?= $status_filter == $key ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($label) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -1305,8 +1485,8 @@ if ($status_result) {
                         <select name="category" class="select-field">
                             <option value="">All Categories</option>
                             <?php foreach ($categories as $category): ?>
-                                <option value="<?= $category['id'] ?>" <?= $category_filter == $category['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($category['category_name']) ?>
+                                <option value="<?= (int)$category['id'] ?>" <?= $category_filter == $category['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($category['category_name'] ?? 'Unknown') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -1320,7 +1500,6 @@ if ($status_result) {
                         </button>
                         <a href="device_history.php" class="btn btn-outline">
                             <i class="fas fa-redo"></i>
-                            Reset
                         </a>
                     </div>
                 </form>
@@ -1328,11 +1507,9 @@ if ($status_result) {
 
             <!-- Devices Table -->
             <div class="card animate-fade-in">
-                <div class="card-header flex items-center justify-between">
-                    <div>
-                        <h2 class="font-semibold text-[#0f172a]">Device Assignment History</h2>
-                        <p class="text-xs text-[#64748b] mt-0.5">Showing <?= count($devices) ?> of <?= $total_devices ?> devices</p>
-                    </div>
+                <div class="card-header">
+                    <h2 class="font-semibold text-[#0f172a]">Device Assignment History</h2>
+                    <p class="text-xs text-[#64748b] mt-0.5">Showing <?= count($devices) ?> of <?= number_format($total_devices) ?> devices</p>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -1344,133 +1521,90 @@ if ($status_result) {
                                 <th>Users</th>
                                 <th>First Assigned</th>
                                 <th>Last Assigned</th>
-                                <th>Status / Condition</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($devices)): ?>
                                 <tr>
-                                    <td colspan="7" class="text-center py-12">
+                                    <td colspan="6" class="text-center py-12">
                                         <div class="flex flex-col items-center">
                                             <div class="w-12 h-12 bg-[#f1f5f9] rounded flex items-center justify-center mb-3">
                                                 <i class="fas fa-search text-[#64748b]"></i>
                                             </div>
                                             <p class="text-[#64748b]">No devices found matching your criteria</p>
+                                            <a href="device_history.php" class="btn btn-outline btn-sm mt-4">
+                                                <i class="fas fa-redo mr-2"></i>Clear Filters
+                                            </a>
                                         </div>
                                     </td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($devices as $device): ?>
                                     <?php
-                                    $assignment_percentage = min(100, ($device['total_assignments'] * 20));
-                                    
-                                    // Fix for status display
-                                    $status_key = $device['status'] ?? '';
-                                    $status_display = isset($statusLabels[$status_key]) 
-                                        ? $statusLabels[$status_key] 
-                                        : ucfirst(str_replace('_', ' ', $status_key));
-                                    
-                                    // Fix for condition display
-                                    $condition_value = $device['condition'] ?? '';
-                                    $condition_display = isset($conditionLabels[$condition_value]) 
-                                        ? $conditionLabels[$condition_value] 
-                                        : ucfirst(str_replace('_', ' ', $condition_value));
-                                    
-                                    // Generate CSS classes
-                                    $status_class = 'badge-status-' . str_replace('_', '-', $status_key);
-                                    $condition_class = 'badge-condition-' . strtolower(str_replace(' ', '-', $condition_value));
-                                    
-                                    // Default classes if empty
-                                    if (empty($status_key)) {
-                                        $status_class = 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
-                                        $status_display = 'Unknown';
-                                    }
-                                    
-                                    if (empty($condition_value)) {
-                                        $condition_class = 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
-                                        $condition_display = 'Unknown';
-                                    }
+                                    $assignment_percentage = min(100, (($device['total_assignments'] ?? 0) * 4));
+                                    $deviceIconColor = match ($device['device_type'] ?? '') {
+                                        'Laptop' => 'device-icon-blue',
+                                        'Desktop' => 'device-icon-purple',
+                                        'Tablet' => 'device-icon-green',
+                                        'Mobile' => 'device-icon-amber',
+                                        'Monitor' => 'device-icon-gray',
+                                        default => 'device-icon-gray'
+                                    };
                                     ?>
                                     <tr>
-                                        <!-- Device Info -->
                                         <td>
                                             <div class="flex items-center gap-3">
-                                                <div class="device-icon device-icon-blue">
+                                                <div class="device-icon <?= $deviceIconColor ?>">
                                                     <i class="fas fa-laptop"></i>
                                                 </div>
-                                                <div>
-                                                    <p class="font-medium text-[#0f172a]"><?= htmlspecialchars($device['asset_tag']) ?></p>
+                                                <div style="min-width: 0;">
+                                                    <p class="font-medium text-[#0f172a]"><?= htmlspecialchars($device['asset_tag'] ?? 'Unknown') ?></p>
                                                     <p class="text-xs text-[#64748b]">
-                                                        <?= htmlspecialchars($device['device_type']) ?>
-                                                        <?php if ($device['model']): ?>• <?= htmlspecialchars($device['model']) ?><?php endif; ?>
+                                                        <?= htmlspecialchars($device['device_type'] ?? 'Unknown') ?>
+                                                        <?php if (!empty($device['brand_name']) || !empty($device['model'])): ?>
+                                                            • <?= htmlspecialchars($device['brand_name'] ?? '') ?> <?= htmlspecialchars($device['model'] ?? '') ?>
+                                                        <?php endif; ?>
                                                     </p>
                                                 </div>
                                             </div>
                                         </td>
-
-                                        <!-- Assignments Count -->
                                         <td>
                                             <div class="flex items-center gap-3">
-                                                <div class="w-20">
+                                                <div style="width: 80px;">
                                                     <div class="progress">
                                                         <div class="progress-bar" style="width: <?= $assignment_percentage ?>%"></div>
                                                     </div>
                                                 </div>
-                                                <span class="font-medium text-[#0f172a]"><?= $device['total_assignments'] ?></span>
+                                                <span class="font-medium text-[#0f172a]"><?= (int)($device['total_assignments'] ?? 0) ?></span>
                                             </div>
                                         </td>
-
-                                        <!-- Users Count -->
                                         <td>
                                             <div class="flex items-center gap-2">
-                                                <div class="w-6 h-6 bg-[#f1f5f9] rounded flex items-center justify-center">
-                                                    <i class="fas fa-user text-[#64748b] text-xs"></i>
+                                                <div style="width: 1.5rem; height: 1.5rem; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas fa-user text-[#64748b]" style="font-size: 0.75rem;"></i>
                                                 </div>
-                                                <span class="font-medium text-[#0f172a]"><?= $device['total_users'] ?></span>
+                                                <span class="font-medium text-[#0f172a]"><?= (int)($device['total_users'] ?? 0) ?></span>
                                             </div>
                                         </td>
-
-                                        <!-- First Assigned -->
                                         <td>
-                                            <?php if ($device['first_assigned']): ?>
+                                            <?php if (!empty($device['first_assigned'])): ?>
                                                 <p class="text-sm text-[#0f172a]"><?= date('M d, Y', strtotime($device['first_assigned'])) ?></p>
                                                 <p class="text-xs text-[#64748b]"><?= date('h:i A', strtotime($device['first_assigned'])) ?></p>
                                             <?php else: ?>
                                                 <span class="text-sm text-[#64748b] italic">Never assigned</span>
                                             <?php endif; ?>
                                         </td>
-
-                                        <!-- Last Assigned -->
                                         <td>
-                                            <?php if ($device['last_assigned']): ?>
+                                            <?php if (!empty($device['last_assigned'])): ?>
                                                 <p class="text-sm text-[#0f172a]"><?= date('M d, Y', strtotime($device['last_assigned'])) ?></p>
                                                 <p class="text-xs text-[#64748b]"><?= date('h:i A', strtotime($device['last_assigned'])) ?></p>
                                             <?php else: ?>
                                                 <span class="text-sm text-[#64748b] italic">Not applicable</span>
                                             <?php endif; ?>
                                         </td>
-
-                                        <!-- Status - FIXED: Now displays correctly -->
                                         <td>
-                                            <div class="status-badge-container">
-                                                <span class="badge <?= $status_class ?>">
-                                                    <?= htmlspecialchars($status_display) ?>
-                                                </span>
-                                                
-                                                <?php if (!empty($device['condition'])): ?>
-                                                    <span class="badge <?= $condition_class ?>">
-                                                        <?= htmlspecialchars($condition_display) ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-
-                                        <!-- Actions -->
-                                        <td>
-                                            <button
-                                                onclick="openDeviceHistoryModal(<?= $device['id'] ?>, '<?= htmlspecialchars(addslashes($device['asset_tag'])) ?>')"
-                                                class="btn btn-primary btn-sm">
+                                            <button onclick="openDeviceHistoryModal(<?= (int)($device['id'] ?? 0) ?>, '<?= htmlspecialchars(addslashes($device['asset_tag'] ?? 'Unknown'), ENT_QUOTES) ?>')" class="btn btn-primary btn-sm">
                                                 <i class="fas fa-history"></i>
                                                 View
                                             </button>
@@ -1489,57 +1623,61 @@ if ($status_result) {
                     unset($query_params['page']);
                     $base_url = '?' . (!empty($query_params) ? http_build_query($query_params) . '&' : '');
                     ?>
-
                     <div class="card-footer">
-                        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                            <p class="text-sm text-[#64748b]">
-                                Page <?= $page ?> of <?= $total_pages ?> • Showing <?= count($devices) ?> of <?= $total_devices ?> devices
-                            </p>
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+                                <p class="text-sm text-[#64748b]">
+                                    Page <?= $page ?> of <?= $total_pages ?> • Showing <?= count($devices) ?> of <?= number_format($total_devices) ?> devices
+                                </p>
 
-                            <div class="pagination">
-                                <?php if ($page > 1): ?>
-                                    <a href="<?= $base_url ?>page=<?= $page - 1 ?>" class="page-link">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </a>
-                                <?php endif; ?>
+                                <div class="pagination">
+                                    <?php if ($page > 1): ?>
+                                        <a href="<?= $base_url ?>page=<?= $page - 1 ?>" class="page-link">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </a>
+                                    <?php endif; ?>
 
-                                <?php
-                                $start_page = max(1, $page - 2);
-                                $end_page = min($total_pages, $page + 2);
+                                    <?php
+                                    $start_page = max(1, $page - 2);
+                                    $end_page = min($total_pages, $page + 2);
 
-                                for ($i = $start_page; $i <= $end_page; $i++):
+                                    for ($i = $start_page; $i <= $end_page; $i++):
                                     ?>
-                                    <a href="<?= $base_url ?>page=<?= $i ?>" class="page-link <?= $i == $page ? 'active' : '' ?>">
-                                        <?= $i ?>
-                                    </a>
-                                <?php endfor; ?>
+                                        <a href="<?= $base_url ?>page=<?= $i ?>" class="page-link <?= $i == $page ? 'active' : '' ?>">
+                                            <?= $i ?>
+                                        </a>
+                                    <?php endfor; ?>
 
-                                <?php if ($page < $total_pages): ?>
-                                    <a href="<?= $base_url ?>page=<?= $page + 1 ?>" class="page-link">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                <?php endif; ?>
-                            </div>
+                                    <?php if ($page < $total_pages): ?>
+                                        <a href="<?= $base_url ?>page=<?= $page + 1 ?>" class="page-link">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
 
-                            <div class="flex items-center gap-2">
-                                <span class="text-sm text-[#64748b]">Show:</span>
-                                <select onchange="changeItemsPerPage(this)" class="select-field !w-auto !py-1 !text-sm">
-                                    <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
-                                    <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
-                                    <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
-                                    <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
-                                </select>
-                                <span class="text-sm text-[#64748b]">per page</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm text-[#64748b]">Show:</span>
+                                    <select onchange="changeItemsPerPage(this)" class="select-field" style="width: auto; padding: 0.25rem 2rem 0.25rem 0.5rem; font-size: 0.875rem;">
+                                        <option value="10" <?= $limit == 10 ? 'selected' : '' ?>>10</option>
+                                        <option value="25" <?= $limit == 25 ? 'selected' : '' ?>>25</option>
+                                        <option value="50" <?= $limit == 50 ? 'selected' : '' ?>>50</option>
+                                        <option value="100" <?= $limit == 100 ? 'selected' : '' ?>>100</option>
+                                    </select>
+                                    <span class="text-sm text-[#64748b]">per page</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 <?php endif; ?>
             </div>
-        </main>
-    </div>
+        </div>
+    </main>
 
-    <!-- Device History Modal - FIXED: Buttons now display properly -->
-    <div id="deviceHistoryModal" class="modal-backdrop hidden">
+    <!-- Footer -->
+    <?php include 'footer.php'; ?>
+
+    <!-- Device History Modal -->
+    <div id="deviceHistoryModal" class="modal-backdrop">
         <div class="modal">
             <!-- Modal Header -->
             <div class="modal-header">
@@ -1550,7 +1688,7 @@ if ($status_result) {
                         </div>
                         <div>
                             <h2 class="text-xl font-bold text-white" id="modalTitle">Device Assignment History</h2>
-                            <p class="text-[#94a3b8] text-sm" id="modalSubtitle">Loading...</p>
+                            <p class="text-[#94a3b8] text-sm" id="modalSubtitle">Select a device to view history</p>
                         </div>
                     </div>
                     <button onclick="closeDeviceHistoryModal()" class="text-[#94a3b8] hover:text-white transition">
@@ -1561,30 +1699,44 @@ if ($status_result) {
 
             <!-- Modal Body -->
             <div class="modal-body">
-                <div id="loadingSpinner" class="text-center py-12">
+                <!-- Loading Spinner (hidden by default) -->
+                <div id="loadingSpinner" class="text-center py-12 hidden">
                     <div class="spinner mx-auto mb-4"></div>
                     <p class="text-[#64748b]">Loading device history...</p>
                 </div>
 
+                <!-- Error Message (hidden by default) -->
+                <div id="errorMessage" class="text-center py-12 hidden">
+                    <div class="w-16 h-16 bg-[#fee2e2] rounded flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-exclamation-triangle text-[#dc2626] text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-[#0f172a] mb-2">Error Loading Data</h3>
+                    <p class="text-[#64748b]" id="errorMessageText">Failed to load device history. Please try again.</p>
+                    <button onclick="retryLoadDeviceHistory()" class="btn btn-primary mt-4">
+                        <i class="fas fa-redo mr-2"></i>Retry
+                    </button>
+                </div>
+
+                <!-- Modal Content (hidden by default) -->
                 <div id="modalContent" class="hidden">
                     <!-- Device Info Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-1">Asset Tag</p>
-                            <p class="font-mono font-medium text-[#0f172a]" id="modalAssetTag"></p>
+                            <p class="font-mono font-medium text-[#0f172a]" id="modalAssetTag">-</p>
                         </div>
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-1">Brand & Model</p>
-                            <p class="font-medium text-[#0f172a]" id="modalBrand"></p>
-                            <p class="text-sm text-[#64748b]" id="modalModel"></p>
+                            <p class="font-medium text-[#0f172a]" id="modalBrand">-</p>
+                            <p class="text-sm text-[#64748b]" id="modalModel">-</p>
                         </div>
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-1">Serial Number</p>
-                            <p class="font-mono font-medium text-[#0f172a]" id="modalSerial"></p>
+                            <p class="font-mono font-medium text-[#0f172a]" id="modalSerial">-</p>
                         </div>
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-1">Category</p>
-                            <p class="font-medium text-[#0f172a]" id="modalCategory"></p>
+                            <p class="font-medium text-[#0f172a]" id="modalCategory">-</p>
                         </div>
                     </div>
 
@@ -1592,17 +1744,17 @@ if ($status_result) {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-2">Current Status</p>
-                            <div id="modalStatus" class="status-container"></div>
+                            <div id="modalStatus" class="flex gap-2"></div>
                         </div>
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-1">Total Assignments</p>
-                            <p class="text-2xl font-bold text-[#0f172a]" id="modalTotalAssignments"></p>
-                            <p class="text-sm text-[#64748b]" id="modalUniqueUsers"></p>
+                            <p class="text-2xl font-bold text-[#0f172a]" id="modalTotalAssignments">0</p>
+                            <p class="text-sm text-[#64748b]" id="modalUniqueUsers">0 unique users</p>
                         </div>
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <p class="text-xs font-medium text-[#475569] mb-1">Current Assignment</p>
-                            <p class="font-medium text-[#0f172a]" id="modalCurrentAssignment"></p>
-                            <p class="text-sm text-[#64748b]" id="modalAssignmentDate"></p>
+                            <p class="font-medium text-[#0f172a]" id="modalCurrentAssignment">Not assigned</p>
+                            <p class="text-sm text-[#64748b]" id="modalAssignmentDate">-</p>
                         </div>
                     </div>
 
@@ -1610,7 +1762,7 @@ if ($status_result) {
                     <div class="card mb-6">
                         <div class="card-header">
                             <h3 class="font-semibold text-[#0f172a]">Assignment History</h3>
-                            <p class="text-sm text-[#64748b]" id="timelineDescription"></p>
+                            <p class="text-sm text-[#64748b]" id="timelineDescription">No assignments yet</p>
                         </div>
                         <div class="card-body">
                             <div id="assignmentHistory"></div>
@@ -1628,6 +1780,7 @@ if ($status_result) {
                     </div>
                 </div>
 
+                <!-- No History Message (hidden by default) -->
                 <div id="noHistoryMessage" class="hidden text-center py-12">
                     <div class="w-16 h-16 bg-[#f1f5f9] rounded flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-history text-[#64748b] text-2xl"></i>
@@ -1637,7 +1790,7 @@ if ($status_result) {
                 </div>
             </div>
 
-            <!-- Modal Footer - FIXED: Buttons now display properly -->
+            <!-- Modal Footer -->
             <div class="modal-footer">
                 <button onclick="printModalContent()" class="btn btn-outline">
                     <i class="fas fa-print"></i>
@@ -1650,19 +1803,16 @@ if ($status_result) {
         </div>
     </div>
 
-    <!-- Footer -->
-    <?php include __DIR__ . '/footer.php'; ?>
-
     <script>
-        // Status labels mapping
+        // Status labels mapping from PHP
         const statusLabels = <?= json_encode($statusLabels) ?>;
         const conditionLabels = <?= json_encode($conditionLabels) ?>;
 
-        // Status colors mapping for modal
+        // Status colors mapping
         const statusColors = {
             'active': 'badge-status-active',
-            'in_use': 'badge-status-in_use',
-            'in_storage': 'badge-status-in_storage',
+            'in_use': 'badge-status-in-use',
+            'in_storage': 'badge-status-in-storage',
             'repairing': 'badge-status-repairing',
             'faulty': 'badge-status-faulty',
             'retired': 'badge-status-retired'
@@ -1678,6 +1828,8 @@ if ($status_result) {
         // Toast Notification System
         function showToast(message, type = 'info', duration = 4000) {
             const container = document.getElementById('toastContainer');
+            if (!container) return;
+            
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
 
@@ -1707,16 +1859,20 @@ if ($status_result) {
         let currentConfirmationCallback = null;
 
         function showConfirmation(title, message, confirmCallback, confirmText = 'Confirm') {
+            const modal = document.getElementById('confirmationModal');
+            if (!modal) return;
+            
             document.getElementById('confirmationTitle').textContent = title;
             document.getElementById('confirmationMessage').textContent = message;
             document.getElementById('confirmButton').textContent = confirmText;
 
             currentConfirmationCallback = confirmCallback;
-            document.getElementById('confirmationModal').classList.remove('hidden');
+            modal.classList.add('active');
         }
 
         function closeConfirmation() {
-            document.getElementById('confirmationModal').classList.add('hidden');
+            const modal = document.getElementById('confirmationModal');
+            if (modal) modal.classList.remove('active');
             currentConfirmationCallback = null;
         }
 
@@ -1747,9 +1903,8 @@ if ($status_result) {
                 () => {
                     const url = new URL(window.location.href);
                     url.searchParams.set('limit', select.value);
-                    url.searchParams.set('page', 1);
+                    url.searchParams.set('page', '1');
                     window.location.href = url.toString();
-                    showToast('Items per page updated', 'info');
                 },
                 'Continue'
             );
@@ -1757,24 +1912,24 @@ if ($status_result) {
 
         // Export function
         function exportToCSV() {
-            const search = "<?= htmlspecialchars($search) ?>";
-            const status = "<?= htmlspecialchars($status_filter) ?>";
-            const category = "<?= $category_filter ?>";
-
+            const search = new URLSearchParams(window.location.search).get('search') || '';
+            const status = new URLSearchParams(window.location.search).get('status') || '';
+            const category = new URLSearchParams(window.location.search).get('category') || '';
+            
             let exportUrl = 'export_device_history.php?';
             if (search) exportUrl += 'search=' + encodeURIComponent(search) + '&';
             if (status) exportUrl += 'status=' + encodeURIComponent(status) + '&';
-            if (category) exportUrl += 'category=' + category + '&';
-
+            if (category) exportUrl += 'category=' + encodeURIComponent(category) + '&';
+            
             window.location.href = exportUrl;
         }
 
         // Date formatting helper
         function formatDate(dateString) {
-            if (!dateString) return 'Unknown date';
+            if (!dateString || dateString === '0000-00-00 00:00:00') return 'Unknown date';
 
             try {
-                const date = new Date(dateString);
+                const date = new Date(dateString.replace(' ', 'T'));
                 if (isNaN(date.getTime())) {
                     return 'Invalid date';
                 }
@@ -1786,34 +1941,57 @@ if ($status_result) {
                     minute: '2-digit'
                 });
             } catch (e) {
+                console.error('Date formatting error:', e);
                 return 'Invalid date';
             }
         }
 
         // Modal functions
         let currentDeviceId = null;
+        let currentAssetTag = '';
 
         function openDeviceHistoryModal(deviceId, assetTag) {
+            if (!deviceId || deviceId === 0) {
+                showToast('Invalid device ID', 'error');
+                return;
+            }
+            
             currentDeviceId = deviceId;
+            currentAssetTag = assetTag;
+            
             const modal = document.getElementById('deviceHistoryModal');
             const subtitle = document.getElementById('modalSubtitle');
             const loadingSpinner = document.getElementById('loadingSpinner');
+            const errorMessage = document.getElementById('errorMessage');
             const modalContent = document.getElementById('modalContent');
             const noHistoryMessage = document.getElementById('noHistoryMessage');
 
-            subtitle.textContent = 'Loading history for ' + assetTag;
+            if (!modal) {
+                console.error('Modal element not found');
+                return;
+            }
 
-            modal.classList.remove('hidden');
-            loadingSpinner.classList.remove('hidden');
-            modalContent.classList.add('hidden');
-            noHistoryMessage.classList.add('hidden');
+            if (subtitle) subtitle.textContent = `Loading history for ${assetTag}...`;
+
+            if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+            if (errorMessage) errorMessage.classList.add('hidden');
+            if (modalContent) modalContent.classList.add('hidden');
+            if (noHistoryMessage) noHistoryMessage.classList.add('hidden');
+
+            modal.classList.add('active');
 
             fetchDeviceHistory(deviceId, assetTag);
         }
 
         function closeDeviceHistoryModal() {
             const modal = document.getElementById('deviceHistoryModal');
-            modal.classList.add('hidden');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function retryLoadDeviceHistory() {
+            if (currentDeviceId) {
+                fetchDeviceHistory(currentDeviceId, currentAssetTag);
+            }
         }
 
         function fetchDeviceHistory(deviceId, assetTag) {
@@ -1821,50 +1999,89 @@ if ($status_result) {
             const url = `device_history.php?get_device_details=${deviceId}&ajax=1&_=${Date.now()}`;
 
             xhr.open('GET', url, true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.timeout = 10000;
 
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    document.getElementById('loadingSpinner').classList.add('hidden');
-                    
-                    if (xhr.status === 200) {
-                        try {
-                            const data = JSON.parse(xhr.responseText);
+            xhr.onload = function() {
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                const errorMessage = document.getElementById('errorMessage');
+                const modalContent = document.getElementById('modalContent');
+                const noHistoryMessage = document.getElementById('noHistoryMessage');
+                const errorMessageText = document.getElementById('errorMessageText');
 
-                            if (data.success === false || data.error) {
-                                showToast(data.error || 'Error loading device history', 'error');
-                                showNoHistory();
-                                return;
-                            }
+                if (loadingSpinner) loadingSpinner.classList.add('hidden');
 
-                            if (data.device && Object.keys(data.device).length > 0) {
-                                populateModal(data.device, data.history || []);
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+
+                        if (data.success && data.device) {
+                            if (data.history && data.history.length > 0) {
+                                populateModal(data.device, data.history);
+                                if (modalContent) modalContent.classList.remove('hidden');
+                                if (noHistoryMessage) noHistoryMessage.classList.add('hidden');
+                                if (errorMessage) errorMessage.classList.add('hidden');
                                 showToast(`Loaded history for ${assetTag}`, 'success');
                             } else {
-                                showNoHistory();
+                                if (noHistoryMessage) noHistoryMessage.classList.remove('hidden');
+                                if (modalContent) modalContent.classList.add('hidden');
+                                if (errorMessage) errorMessage.classList.add('hidden');
                             }
-                        } catch (e) {
-                            showToast('Invalid response from server', 'error');
-                            showNoHistory();
+                        } else {
+                            if (errorMessageText) {
+                                errorMessageText.textContent = data.error || 'Failed to load device history';
+                            }
+                            if (errorMessage) errorMessage.classList.remove('hidden');
+                            if (modalContent) modalContent.classList.add('hidden');
+                            if (noHistoryMessage) noHistoryMessage.classList.add('hidden');
+                            showToast(data.error || 'Error loading device history', 'error');
                         }
-                    } else {
-                        showToast('Server error: ' + xhr.status, 'error');
-                        showNoHistory();
+                    } catch (e) {
+                        console.error('JSON Parse Error:', e);
+                        if (errorMessageText) errorMessageText.textContent = 'Invalid response from server';
+                        if (errorMessage) errorMessage.classList.remove('hidden');
+                        if (modalContent) modalContent.classList.add('hidden');
+                        if (noHistoryMessage) noHistoryMessage.classList.add('hidden');
+                        showToast('Invalid response from server', 'error');
                     }
+                } else {
+                    if (errorMessageText) {
+                        errorMessageText.textContent = `Server error: ${xhr.status} ${xhr.statusText}`;
+                    }
+                    if (errorMessage) errorMessage.classList.remove('hidden');
+                    if (modalContent) modalContent.classList.add('hidden');
+                    if (noHistoryMessage) noHistoryMessage.classList.add('hidden');
+                    showToast(`Server error: ${xhr.status}`, 'error');
                 }
             };
 
-            xhr.onerror = function () {
-                document.getElementById('loadingSpinner').classList.add('hidden');
+            xhr.onerror = function() {
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                const errorMessage = document.getElementById('errorMessage');
+                const errorMessageText = document.getElementById('errorMessageText');
+
+                if (loadingSpinner) loadingSpinner.classList.add('hidden');
+                if (errorMessageText) errorMessageText.textContent = 'Network error. Please check your connection.';
+                if (errorMessage) errorMessage.classList.remove('hidden');
+                
                 showToast('Network error. Please check your connection.', 'error');
-                showNoHistory();
+            };
+
+            xhr.ontimeout = function() {
+                const loadingSpinner = document.getElementById('loadingSpinner');
+                const errorMessage = document.getElementById('errorMessage');
+                const errorMessageText = document.getElementById('errorMessageText');
+
+                if (loadingSpinner) loadingSpinner.classList.add('hidden');
+                if (errorMessageText) errorMessageText.textContent = 'Request timeout. Please try again.';
+                if (errorMessage) errorMessage.classList.remove('hidden');
+                
+                showToast('Request timeout', 'error');
             };
 
             xhr.send();
         }
 
         function populateModal(device, history) {
-            // Update basic device info
             document.getElementById('modalAssetTag').textContent = device.asset_tag || 'N/A';
             document.getElementById('modalBrand').textContent = device.brand_name || 'N/A';
             document.getElementById('modalModel').textContent = device.model || 'N/A';
@@ -1873,7 +2090,6 @@ if ($status_result) {
             document.getElementById('modalTotalAssignments').textContent = device.total_assignments || 0;
             document.getElementById('modalUniqueUsers').textContent = (device.unique_users || 0) + ' unique users';
 
-            // Update status with proper formatting
             const statusClass = statusColors[device.status] || 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
             const conditionClass = conditionColors[device.condition] || 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]';
 
@@ -1887,13 +2103,12 @@ if ($status_result) {
 
             const statusBadge = document.getElementById('modalStatus');
             statusBadge.innerHTML = `
-                <span class="badge ${statusClass}">${statusText}</span>
-                <span class="badge ${conditionClass}">${conditionText}</span>
+                <span class="badge-status ${statusClass}">${statusText}</span>
+                <span class="badge-status ${conditionClass}">${conditionText}</span>
             `;
 
-            // Find current assignment
             const currentAssignment = Array.isArray(history) ?
-                history.find(a => a.status === 'assigned') : null;
+                history.find(a => a.assignment_status === 'assigned' || !a.returned_at) : null;
 
             if (currentAssignment) {
                 document.getElementById('modalCurrentAssignment').textContent =
@@ -1905,25 +2120,18 @@ if ($status_result) {
                 document.getElementById('modalAssignmentDate').textContent = 'Available for assignment';
             }
 
-            // Update timeline description
             document.getElementById('modalSubtitle').textContent = `History for ${device.asset_tag}`;
             document.getElementById('timelineDescription').textContent =
-                `Showing ${history.length} assignment${history.length !== 1 ? 's' : ''} for ${device.asset_tag}`;
+                `Showing ${history.length} assignment${history.length !== 1 ? 's' : ''}`;
 
-            // Populate assignment history
             populateAssignmentHistory(history || []);
-
-            // Populate statistics
             populateStatistics(history || []);
-
-            // Hide loading, show content
-            document.getElementById('modalContent').classList.remove('hidden');
         }
 
         function populateAssignmentHistory(history) {
             const historyContainer = document.getElementById('assignmentHistory');
 
-            if (!Array.isArray(history) || history.length === 0) {
+            if (!history || history.length === 0) {
                 historyContainer.innerHTML = `
                     <div class="text-center py-8">
                         <div class="w-12 h-12 bg-[#f1f5f9] rounded flex items-center justify-center mx-auto mb-3">
@@ -1938,41 +2146,17 @@ if ($status_result) {
             let historyHTML = '';
 
             history.forEach((assignment, index) => {
-                const isActive = assignment.status === 'assigned';
-                const assignedDate = new Date(assignment.assigned_at);
-                const returnedDate = assignment.returned_at ? new Date(assignment.returned_at) : null;
-
-                let assignedDateStr = 'Invalid date';
-                let returnedDateStr = 'N/A';
-
-                try {
-                    if (!isNaN(assignedDate.getTime())) {
-                        assignedDateStr = assignedDate.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                    }
-
-                    if (returnedDate && !isNaN(returnedDate.getTime())) {
-                        returnedDateStr = returnedDate.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                    }
-                } catch (e) {
-                    console.error('Date formatting error:', e);
-                }
-
+                const isActive = assignment.assignment_status === 'assigned' || !assignment.returned_at;
+                const assignedDate = formatDate(assignment.assigned_at);
+                const returnedDate = assignment.returned_at ? formatDate(assignment.returned_at) : null;
                 const daysAssigned = assignment.days_assigned || 0;
+                
                 const durationText = daysAssigned > 0 ?
                     `${daysAssigned} day${daysAssigned > 1 ? 's' : ''}` :
                     'Less than a day';
+
+                const userName = [assignment.firstname, assignment.lastname].filter(Boolean).join(' ') || 'Unknown User';
+                const userInitial = (assignment.firstname ? assignment.firstname.charAt(0).toUpperCase() : '?');
 
                 historyHTML += `
                     <div class="assignment-card">
@@ -1980,7 +2164,7 @@ if ($status_result) {
                             <div class="flex-1">
                                 <div class="flex items-start gap-4">
                                     <div class="user-avatar flex-shrink-0">
-                                        ${assignment.firstname ? assignment.firstname.charAt(0).toUpperCase() : '?'}
+                                        ${userInitial}
                                     </div>
                                     
                                     <div class="flex-1">
@@ -1990,7 +2174,7 @@ if ($status_result) {
                                                 ${isActive ? 'ACTIVE' : 'COMPLETED'}
                                             </span>
                                             <span class="text-xs text-[#64748b]">
-                                                <i class="far fa-calendar mr-1"></i>${assignedDateStr}
+                                                <i class="far fa-calendar mr-1"></i>${assignedDate}
                                             </span>
                                             <span class="text-xs text-[#64748b]">
                                                 <i class="far fa-clock mr-1"></i>${durationText}
@@ -1998,7 +2182,7 @@ if ($status_result) {
                                         </div>
                                         
                                         <h4 class="font-medium text-[#0f172a] mb-2">
-                                            ${assignment.firstname || ''} ${assignment.lastname || ''}
+                                            ${userName}
                                         </h4>
                                         
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -2015,12 +2199,12 @@ if ($status_result) {
                                             <div>
                                                 <p class="text-[#64748b]">
                                                     <i class="fas fa-calendar-alt mr-2 text-xs"></i>
-                                                    Assigned: ${assignedDateStr}
+                                                    Assigned: ${assignedDate}
                                                 </p>
                                                 ${returnedDate ? `
                                                     <p class="text-[#64748b] mt-1">
                                                         <i class="fas fa-calendar-times mr-2 text-xs"></i>
-                                                        Returned: ${returnedDateStr}
+                                                        Returned: ${returnedDate}
                                                     </p>
                                                 ` : ''}
                                             </div>
@@ -2031,9 +2215,9 @@ if ($status_result) {
                             
                             <div class="md:text-right">
                                 <p class="text-xs text-[#64748b] mb-1">
-                                    <i class="fas fa-hashtag"></i> Assignment #${index + 1}
+                                    <i class="fas fa-hashtag"></i> Assignment #${history.length - index}
                                 </p>
-                                <span class="badge ${isActive ? 'badge-status-active' : 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]'}">
+                                <span class="badge-status ${isActive ? 'badge-status-active' : 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]'}">
                                     ${isActive ? 'Active' : 'Completed'}
                                 </span>
                             </div>
@@ -2048,25 +2232,24 @@ if ($status_result) {
         function populateStatistics(history) {
             const statsContainer = document.getElementById('assignmentStatistics');
 
-            if (!Array.isArray(history) || history.length === 0) {
+            if (!history || history.length === 0) {
                 statsContainer.innerHTML = '<p class="text-[#64748b] text-center">No statistics available</p>';
                 return;
             }
 
-            // Calculate statistics
             let totalDays = 0;
             let activeAssignments = 0;
             let completedAssignments = 0;
             let uniqueUserIds = [];
             let userCounts = {};
-            let totalActiveDays = 0;
             let longestAssignment = 0;
             let shortestAssignment = Infinity;
+            let firstAssignmentDate = null;
+            let lastAssignmentDate = null;
 
             history.forEach(assignment => {
-                if (assignment.status === 'assigned') {
+                if (assignment.assignment_status === 'assigned' || !assignment.returned_at) {
                     activeAssignments++;
-                    totalActiveDays += parseInt(assignment.days_assigned) || 0;
                 } else {
                     completedAssignments++;
                 }
@@ -2084,13 +2267,20 @@ if ($status_result) {
                 if (assignment.user_id) {
                     if (!userCounts[assignment.user_id]) {
                         userCounts[assignment.user_id] = {
-                            name: `${assignment.firstname || ''} ${assignment.lastname || ''}`.trim() || 'Unknown User',
+                            name: [assignment.firstname, assignment.lastname].filter(Boolean).join(' ') || 'Unknown User',
                             count: 0,
                             totalDays: 0
                         };
                     }
                     userCounts[assignment.user_id].count++;
                     userCounts[assignment.user_id].totalDays += daysAssigned;
+                }
+
+                if (!firstAssignmentDate || new Date(assignment.assigned_at) < new Date(firstAssignmentDate)) {
+                    firstAssignmentDate = assignment.assigned_at;
+                }
+                if (!lastAssignmentDate || new Date(assignment.assigned_at) > new Date(lastAssignmentDate)) {
+                    lastAssignmentDate = assignment.assigned_at;
                 }
             });
 
@@ -2140,13 +2330,14 @@ if ($status_result) {
                 topUsers.forEach(user => {
                     const percentage = Math.min(100, (user.count / history.length * 100));
                     const avgUserDays = user.count > 0 ? Math.round(user.totalDays / user.count * 10) / 10 : 0;
+                    const userInitial = user.name.charAt(0).toUpperCase();
 
                     statsHTML += `
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-3">
                                     <div class="user-avatar w-8 h-8 text-xs">
-                                        ${user.name.charAt(0).toUpperCase()}
+                                        ${userInitial}
                                     </div>
                                     <div>
                                         <p class="font-medium text-[#0f172a]">${user.name}</p>
@@ -2171,9 +2362,9 @@ if ($status_result) {
                 `;
             }
 
-            if (history.length > 0) {
-                const firstAssignment = history[history.length - 1];
-                const lastAssignment = history[0];
+            if (firstAssignmentDate && lastAssignmentDate) {
+                const firstDate = formatDate(firstAssignmentDate);
+                const lastDate = formatDate(lastAssignmentDate);
 
                 statsHTML += `
                     <div class="mt-6">
@@ -2181,15 +2372,15 @@ if ($status_result) {
                         <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded p-4">
                             <div class="flex items-center justify-between text-sm mb-2">
                                 <span class="text-[#64748b]">First Assignment:</span>
-                                <span class="font-medium text-[#0f172a]">${formatDate(firstAssignment.assigned_at)}</span>
+                                <span class="font-medium text-[#0f172a]">${firstDate}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm mb-2">
                                 <span class="text-[#64748b]">Last Assignment:</span>
-                                <span class="font-medium text-[#0f172a]">${formatDate(lastAssignment.assigned_at)}</span>
+                                <span class="font-medium text-[#0f172a]">${lastDate}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-[#64748b]">Total Time Period:</span>
-                                <span class="font-medium text-[#0f172a]">${Math.round(totalDays)} days</span>
+                                <span class="font-medium text-[#0f172a]">${totalDays} days</span>
                             </div>
                         </div>
                     </div>
@@ -2199,38 +2390,46 @@ if ($status_result) {
             statsContainer.innerHTML = statsHTML;
         }
 
-        function showNoHistory() {
-            document.getElementById('loadingSpinner').classList.add('hidden');
-            document.getElementById('noHistoryMessage').classList.remove('hidden');
-        }
-
         function printModalContent() {
             showConfirmation(
                 'Print Device History',
                 'Do you want to print the device assignment history?',
                 () => {
-                    const printContent = document.getElementById('modalContent').innerHTML;
+                    const modalContent = document.getElementById('modalContent');
+                    if (!modalContent) return;
+                    
+                    const printContent = modalContent.innerHTML;
+                    const deviceName = document.getElementById('modalAssetTag').textContent;
+                    
                     const printWindow = window.open('', '_blank');
                     printWindow.document.write(`
                         <!DOCTYPE html>
                         <html>
                         <head>
-                            <title>Device History - Print</title>
+                            <title>Device History - ${deviceName}</title>
                             <style>
                                 body { font-family: Arial, sans-serif; margin: 20px; color: #0f172a; }
                                 .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-                                .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #e2e8f0; }
+                                .badge-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #e2e8f0; }
+                                .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+                                .stat-box { border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; }
+                                .assignment-card { border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 10px; border-radius: 4px; }
                                 @media print {
                                     body { font-size: 12px; }
+                                    .no-print { display: none; }
                                 }
                             </style>
                         </head>
                         <body>
                             <div class="print-header">
                                 <h1>Device Assignment History</h1>
+                                <p>Device: ${deviceName}</p>
                                 <p>Generated on ${new Date().toLocaleDateString()}</p>
                             </div>
                             ${printContent}
+                            <p class="no-print" style="text-align: center; margin-top: 30px; color: #64748b;">
+                                Generated by Asset Management System
+                            </p>
                         </body>
                         </html>
                     `);
@@ -2243,36 +2442,36 @@ if ($status_result) {
         }
 
         // Close modal when clicking outside
-        document.getElementById('deviceHistoryModal').addEventListener('click', function (e) {
-            if (e.target === this) {
-                closeDeviceHistoryModal();
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('deviceHistoryModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeDeviceHistoryModal();
+                    }
+                });
             }
-        });
 
-        // Close confirmation modal when clicking outside
-        document.getElementById('confirmationModal').addEventListener('click', function (e) {
-            if (e.target.classList.contains('confirmation-backdrop')) {
-                closeConfirmation();
+            const confirmationModal = document.getElementById('confirmationModal');
+            if (confirmationModal) {
+                confirmationModal.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('confirmation-backdrop')) {
+                        closeConfirmation();
+                    }
+                });
             }
-        });
 
-        // Close modals with Escape key
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                closeDeviceHistoryModal();
-                closeConfirmation();
-            }
-        });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeDeviceHistoryModal();
+                    closeConfirmation();
+                }
+            });
 
-        // Fix for loading spinner initially showing
-        document.addEventListener('DOMContentLoaded', function () {
             const searchInput = document.querySelector('input[name="search"]');
             if (searchInput) {
                 searchInput.focus();
             }
-
-            // Hide loading spinner initially
-            document.getElementById('loadingSpinner').classList.add('hidden');
 
             setTimeout(() => {
                 showToast('Welcome to Device Assignment History', 'info', 3000);
