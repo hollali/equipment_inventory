@@ -311,6 +311,7 @@ if (isset($_GET['view'])) {
                     <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                         placeholder="Search departments by name..."
+                        autocomplete="off"
                         class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                 </div>
                 <button type="submit"
