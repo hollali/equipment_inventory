@@ -36,7 +36,7 @@ _Complete inventory listing with quick actions, filtering capabilities, and devi
 
 ### Unassigned & Stored Devices
 
-![Unassigned Devices](images/unassigned.png)
+![Unassigned Devices](images/03-unassigned-devices.png)
 _Manage devices available for assignment with detailed filtering options_
 
 ### Device Assignment History
@@ -86,45 +86,45 @@ _Configure system preferences, organization details, and backup options_
 ### 🏷️ Core Inventory Management
 
 - **Device Tracking**: Track all equipment with detailed information including asset tag, brand, model, and specifications
-- **Status Management**: Monitor device status (`In Use`, `Store`, `Faulty`, `Retired`)
-- **Condition Tracking**: Track device condition (`New`, `Good`, `Fair`, `Faulty`)
-- **Assignment System**: Assign devices to users and departments with complete history logging
-- **Location Tracking**: Monitor device locations across the organization via department assignment
+- **Status Management**: Monitor device status (`active`, `in_storage`, `in_use`, `repairing`, `faulty`, `retired`)
+- **Condition Tracking**: Track device condition (`Excellent`, `Good`, `Fair`, `Poor`, `New`, `Faulty`)
+- **Assignment System**: Assign devices to users with complete history logging via `device_user_assignments`
+- **Assignment History**: Complete audit trail of who had which device and when
+- **Retirement System**: Properly retire devices with retirement date tracking
 
 ### 👥 User & Department Management
 
-- **User Management**: Add, edit, and manage system users with email and roles
-- **Department Management**: Organize devices by departments (ICT, Library, Research, etc.)
-- **Role-based Access**: Pre-defined user roles (Admin, Staff, MP) with varying permissions
-- **Active/Inactive Status**: Control user access to the system by toggling their status
+- **User Management**: Add, edit, and manage system users with first name, last name, email, and roles
+- **Department Management**: Organize devices by departments (ICT, Library, PVC, etc.)
+- **Role-based Access**: Pre-defined user roles (`admin`, `staff`, `mp`) with varying permissions
+- **Active/Inactive Status**: Control user access to the system by toggling status (`active`, `inactive`)
 
 ### 🔧 Device Categories & Brands
 
-- **Category Management**: Organize devices by type (Laptops, Projectors, Networking Equipment)
-- **Brand Management**: Track device manufacturers (Apple, HP, Dell, Cisco, etc.)
-- **Custom Categories**: Create and manage custom categories and sub-categories
+- **Category Management**: Organize devices by type (Laptops, Projectors, Networking Equipment, etc.)
+- **Brand Management**: Track device manufacturers (HP, Apple, Dell, Cisco, Lenovo, etc.)
+- **Location Tracking**: Monitor device locations with location_id field
 
 ### 📊 Reporting & Analytics
 
-- **Dashboard**: High-level overview of inventory statistics (total devices, in use, in storage)
-- **System Analytics**: Monitor user activity, active users, and role distribution
-- **Device History**: Complete assignment history and lifecycle tracking for each device
-- **Retired Devices**: Dedicated archive for decommissioned equipment
-- **Export Functionality**: Export filtered data (devices, users, history) to CSV format
+- **Dashboard**: High-level overview of inventory statistics
+- **Device History**: Complete assignment history through `device_user_assignments` table
+- **Retired Devices**: Track decommissioned equipment with retirement dates
+- **Export Functionality**: Export filtered data to CSV format
+- **Activity Logging**: System activities tracked in `activity_log` table
 
 ### 🔍 Search & Filters
 
-- **Global Search**: Search across all device attributes (asset tag, model, brand)
-- **Advanced Filtering**: Multi-criteria filtering by status, department, brand, category, and condition
-- **Smart Suggestions**: Real-time search suggestions as you type
+- **Global Search**: Search across device attributes
+- **Advanced Filtering**: Filter by status, department, brand, category, and condition
+- **Assignment Tracking**: Filter device assignments by user, date, and status
 
 ### 📱 User Interface
 
-- **Responsive Design**: Fully functional on desktops, tablets, and mobile phones
-- **Dual View Mode**: Toggle between detailed table view and visual card view for devices
-- **Modal Forms**: Clean, modern modal-based forms for all add/edit actions
-- **Toast Notifications**: User-friendly feedback messages for all operations
-- **Interactive Elements**: Hover effects, smooth animations, and visual feedback
+- **Responsive Design**: Fully functional on all devices
+- **Modal Forms**: Clean modal-based forms for all CRUD operations
+- **Toast Notifications**: User-friendly feedback messages
+- **Interactive Elements**: Hover effects and visual feedback
 
 ---
 
@@ -192,33 +192,33 @@ equipment_inventory/
 
 ### Prerequisites
 
-| Requirement | Version                       |
-| ----------- | ----------------------------- |
-| PHP         | 7.4 or higher                 |
-| MySQL       | 5.7 or higher                 |
-| Web Server  | Apache/Nginx                  |
-| Browser     | Chrome, Firefox, Safari, Edge |
+| Requirement   | Version                                    |
+| ------------- | ------------------------------------------ |
+| PHP           | 7.4 or higher                              |
+| MySQL/MariaDB | 5.7 or higher (MariaDB 10.11+ recommended) |
+| Web Server    | Apache/Nginx                               |
+| Browser       | Chrome, Firefox, Safari, Edge              |
 
 ### Step-by-Step Installation
 
 1. **Clone or download the project**
 
    ```bash
-   git clone https://github.com/yourusername/equipment-inventory-system.git
+   git clone https://github.com/hollali/equipment-inventory.git
    cd equipment_inventory
    ```
 
 2. **Create MySQL database**
 
    ```sql
-   CREATE DATABASE equipment_inventory_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE DATABASE device_inventory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
 3. **Import database schema**
 
    ```bash
    # Using MySQL command line
-   mysql -u your_username -p equipment_inventory_db < config/database.sql
+   mysql -u your_username -p device_inventory < config/database.sql
 
    # Or import via phpMyAdmin
    # - Open phpMyAdmin
@@ -243,7 +243,7 @@ equipment_inventory/
    define('DB_HOST', 'localhost');
    define('DB_USER', 'your_username');
    define('DB_PASSWORD', 'your_password');
-   define('DB_NAME', 'equipment_inventory_db');
+   define('DB_NAME', 'device_inventory');
    define('DB_PORT', 3306); // Default MySQL port
 
    // Create connection
@@ -272,17 +272,15 @@ equipment_inventory/
 6. **Create default admin user**
 
    ```sql
-   INSERT INTO users (name, email, password, role, status, created_at)
-   VALUES ('Administrator', 'admin@parliament.gov.gh', MD5('Admin@123'), 'Admin', 'Active', NOW());
+   INSERT INTO users (firstname, lastname, email, role, status)
+   VALUES ('Admin', 'User', 'admin@parliament.gov.gh', 'admin', 'active');
    ```
 
-   > **Note**: Change the password after first login!
+   > **Note**: Password functionality would need to be added to the users table or authentication system.
 
 7. **Access the system**
    - Open your browser and navigate to: `http://localhost/equipment_inventory/`
-   - Login with:
-     - Email: `admin@parliament.gov.gh`
-     - Password: `Admin@123`
+   - Login page would need to be implemented
 
 ---
 
@@ -292,24 +290,23 @@ equipment_inventory/
 
 ```
 +----------------+       +----------------------+       +---------------+
-|    brands      |       |   inventory_items    |       |   categories  |
+|    brands      |       |   inventory_items    |       |  categories   |
 +----------------+       +----------------------+       +---------------+
 | id (PK)        |<------| brand_id             |       | id (PK)       |
-| name           |       | category_id          |------>| name          |
-| created_at     |       | id (PK)              |       | created_at    |
-+----------------+       | asset_tag (unique)   |       +---------------+
-                         | device_type          |
-+----------------+       | model                |       +---------------+
-|   users        |       | specifications       |       |  departments  |
-+----------------+       | condition            |       +---------------+
-| id (PK)        |       | status               |       | id (PK)       |
-| name           |       | location             |       | name          |
-| email (unique) |<------| assigned_user_id     |       | code          |
-| password       |       | department_id        |------>| created_at    |
-| role           |       | purchase_date        |       +---------------+
-| status         |       | warranty_expiry      |
-| created_at     |       | remarks              |
-+----------------+       | created_at           |
+| brand_name     |       | category_id          |------>| category_name |
++----------------+       | id (PK)              |       | created_at    |
+                         | asset_tag (unique)   |       +---------------+
++----------------+       | device_type          |
+|   users        |       | model                |       +---------------+
++----------------+       | serial_number(unique)|       |  departments  |
+| id (PK)        |       | specifications       |       +---------------+
+| firstname      |       | condition            |       | id (PK)       |
+| lastname       |       | status               |       | department_name|
+| email (unique) |<------| assigned_user        |       | department_code|
+| role           |       | department_id         |------>|               |
+| status         |       | location_id           |       +---------------+
++----------------+       | retired_at           |
+                         | created_at           |
                          | updated_at           |
                          +----------------------+
                                   |
@@ -318,13 +315,11 @@ equipment_inventory/
                          | device_assignments (History)
                          +-----------------+
                          | id (PK)         |
-                         | device_id (FK)  |
+                         | inventory_id(FK)|
                          | user_id (FK)    |
-                         | department_id   |
-                         | assigned_by     |
-                         | assigned_date   |
-                         | returned_date   |
-                         | remarks         |
+                         | assigned_at     |
+                         | returned_at     |
+                         | status          |
                          +-----------------+
 ```
 
@@ -334,110 +329,122 @@ equipment_inventory/
 
 ```sql
 CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    role ENUM('Admin', 'Staff', 'MP') DEFAULT 'Staff',
-    status ENUM('Active', 'Inactive') DEFAULT 'Active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_email (email),
-    INDEX idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    id int(11) NOT NULL,
+    firstname varchar(50) NOT NULL,
+    lastname varchar(100) NOT NULL,
+    email varchar(100) NOT NULL,
+    role enum('admin','staff','mp') NOT NULL DEFAULT 'staff',
+    status enum('active','inactive') NOT NULL DEFAULT 'active',
+    created_at timestamp NULL DEFAULT current_timestamp(),
+    updated_at timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 ```
 
 #### 2. **brands** - Device manufacturers
 
 ```sql
 CREATE TABLE brands (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_name (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    id int(10) UNSIGNED NOT NULL,
+    brand_name varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 ```
 
 #### 3. **categories** - Device categories
 
 ```sql
 CREATE TABLE categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    code VARCHAR(10) GENERATED ALWAYS AS
-        (CONCAT(UPPER(LEFT(name, 2)), id)) STORED,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_name (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    id int(11) NOT NULL,
+    category_name varchar(100) NOT NULL,
+    created_at timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 ```
 
 #### 4. **departments** - Organization departments
 
 ```sql
 CREATE TABLE departments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    code VARCHAR(10) GENERATED ALWAYS AS
-        (CONCAT(UPPER(LEFT(name, 2)), id)) STORED,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_name (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    id int(11) NOT NULL,
+    department_name varchar(255) NOT NULL,
+    department_code varchar(20) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 ```
 
 #### 5. **inventory_items** - Core device inventory
 
 ```sql
 CREATE TABLE inventory_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    asset_tag VARCHAR(50) UNIQUE NOT NULL,
-    device_type VARCHAR(100),
-    brand_id INT,
-    model VARCHAR(100),
-    specifications TEXT,
-    category_id INT,
-    department_id INT,
-    assigned_user_id INT,
-    location VARCHAR(100),
-    condition ENUM('New', 'Good', 'Fair', 'Faulty') DEFAULT 'Good',
-    status ENUM('In Use', 'Store', 'Faulty', 'Retired') DEFAULT 'Store',
-    purchase_date DATE,
-    warranty_expiry DATE,
-    remarks TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
-    FOREIGN KEY (assigned_user_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_asset_tag (asset_tag),
-    INDEX idx_status (status),
-    INDEX idx_condition (condition),
-    INDEX idx_department (department_id),
-    INDEX idx_assigned_user (assigned_user_id),
-    FULLTEXT INDEX idx_search (asset_tag, model, specifications)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    id int(11) NOT NULL,
+    asset_tag varchar(50) NOT NULL,
+    device_type varchar(100) NOT NULL,
+    model varchar(100) DEFAULT NULL,
+    serial_number varchar(100) DEFAULT NULL,
+    specifications text DEFAULT NULL,
+    assigned_user varchar(100) DEFAULT NULL,
+    condition enum('Excellent','Good','Fair','Poor','New','Faulty') NOT NULL DEFAULT 'Good',
+    remarks text DEFAULT NULL,
+    created_at timestamp NULL DEFAULT current_timestamp(),
+    updated_at timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+    category_id int(11) DEFAULT NULL,
+    department_id int(10) DEFAULT NULL,
+    location_id int(10) DEFAULT NULL,
+    brand_id int(10) DEFAULT NULL,
+    status enum('active','in_storage','in_use','repairing','faulty','retired') NOT NULL DEFAULT 'active',
+    retired_at datetime DEFAULT NULL,
+    previous_status varchar(50) DEFAULT NULL,
+    previous_assigned_user varchar(255) DEFAULT NULL,
+    previous_department_id int(11) DEFAULT NULL,
+    previous_location_id int(11) DEFAULT NULL,
+    change_notes text DEFAULT NULL,
+    UNIQUE KEY asset_tag (asset_tag),
+    UNIQUE KEY serial_number (serial_number),
+    KEY category_id (category_id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 ```
 
-#### 6. **device_assignments** - Assignment history
+#### 6. **device_user_assignments** - Assignment history
 
 ```sql
-CREATE TABLE device_assignments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    device_id INT NOT NULL,
-    user_id INT,
-    department_id INT,
-    assigned_by INT,
-    assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    returned_date TIMESTAMP NULL,
-    remarks TEXT,
-    FOREIGN KEY (device_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
-    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_device (device_id),
-    INDEX idx_user (user_id),
-    INDEX idx_dates (assigned_date, returned_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE device_user_assignments (
+    id int(11) NOT NULL,
+    inventory_id int(11) NOT NULL,
+    user_id int(11) NOT NULL,
+    assigned_at datetime DEFAULT current_timestamp(),
+    returned_at datetime DEFAULT NULL,
+    status enum('assigned','retrieved') DEFAULT 'assigned',
+    KEY inventory_id (inventory_id),
+    KEY user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+```
+
+#### 7. **activity_log** - System activity tracking
+
+```sql
+CREATE TABLE activity_log (
+    id int(11) NOT NULL,
+    user_id int(11) NOT NULL,
+    action varchar(50) NOT NULL,
+    description text DEFAULT NULL,
+    ip_address varchar(45) DEFAULT NULL,
+    created_at timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+#### 8. **settings** - System configuration
+
+```sql
+CREATE TABLE settings (
+    id int(11) NOT NULL,
+    setting_key varchar(100) NOT NULL,
+    setting_value text DEFAULT NULL,
+    setting_type enum('text','number','boolean','select') DEFAULT 'text',
+    category enum('organization','inventory','system') DEFAULT 'system',
+    label varchar(200) DEFAULT NULL,
+    description text DEFAULT NULL,
+    options text DEFAULT NULL,
+    created_at timestamp NULL DEFAULT current_timestamp(),
+    updated_at timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+    UNIQUE KEY setting_key (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 ```
 
 ---
@@ -452,7 +459,7 @@ CREATE TABLE device_assignments (
 $host = 'localhost';
 $user = 'root';
 $password = '';
-$database = 'equipment_inventory_db';
+$database = 'device_inventory';
 
 // Create connection
 $conn = mysqli_connect($host, $user, $password, $database);
@@ -479,7 +486,7 @@ function getDbConnection() {
         $host = 'localhost';
         $user = 'root';
         $password = '';
-        $database = 'equipment_inventory_db';
+        $database = 'device_inventory';
 
         $conn = mysqli_connect($host, $user, $password, $database);
 
@@ -496,362 +503,7 @@ function getDbConnection() {
 ?>
 ```
 
-### 3. **SELECT Query with MySQLi (Procedural)**
-
-```php
-<?php
-// Get all active devices
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-
-$sql = "SELECT * FROM inventory_items WHERE status = 'In Use' ORDER BY created_at DESC";
-$result = mysqli_query($conn, $sql);
-
-if (mysqli_num_rows($result) > 0) {
-    while ($row = mysqli_fetch_assoc($result)) {
-        echo "Device: " . $row['asset_tag'] . " - " . $row['model'] . "<br>";
-    }
-} else {
-    echo "No devices found";
-}
-
-mysqli_close($conn);
-?>
-```
-
-### 4. **SELECT Query with Prepared Statement (Secure)**
-
-```php
-<?php
-// Get devices by department with prepared statement
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-$dept_id = 3;
-
-$sql = "SELECT * FROM inventory_items WHERE department_id = ? AND status = ?";
-$stmt = mysqli_prepare($conn, $sql);
-
-// Bind parameters
-mysqli_stmt_bind_param($stmt, "is", $dept_id, $status);
-$status = "In Use";
-
-// Execute query
-mysqli_stmt_execute($stmt);
-
-// Get result
-$result = mysqli_stmt_get_result($stmt);
-
-while ($row = mysqli_fetch_assoc($result)) {
-    echo $row['asset_tag'] . " - " . $row['model'] . "<br>";
-}
-
-// Close statement
-mysqli_stmt_close($stmt);
-mysqli_close($conn);
-?>
-```
-
-### 5. **INSERT Query with Prepared Statement**
-
-```php
-<?php
-// Add new device
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-
-$sql = "INSERT INTO inventory_items (asset_tag, brand_id, model, category_id, condition, status)
-        VALUES (?, ?, ?, ?, ?, ?)";
-
-$stmt = mysqli_prepare($conn, $sql);
-
-// Bind parameters
-mysqli_stmt_bind_param($stmt, "sisiss",
-    $asset_tag,
-    $brand_id,
-    $model,
-    $category_id,
-    $condition,
-    $status
-);
-
-// Set parameters
-$asset_tag = "AST-2026-0012";
-$brand_id = 1;
-$model = "MacBook Pro 16";
-$category_id = 15;
-$condition = "New";
-$status = "Store";
-
-// Execute
-if (mysqli_stmt_execute($stmt)) {
-    $new_id = mysqli_insert_id($conn);
-    echo "New device added with ID: " . $new_id;
-} else {
-    echo "Error: " . mysqli_error($conn);
-}
-
-mysqli_stmt_close($stmt);
-mysqli_close($conn);
-?>
-```
-
-### 6. **UPDATE Query with Prepared Statement**
-
-```php
-<?php
-// Update device status
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-
-$sql = "UPDATE inventory_items SET status = ?, condition = ? WHERE asset_tag = ?";
-$stmt = mysqli_prepare($conn, $sql);
-
-mysqli_stmt_bind_param($stmt, "sss", $status, $condition, $asset_tag);
-
-$status = "In Use";
-$condition = "Good";
-$asset_tag = "AST-2026-0010";
-
-if (mysqli_stmt_execute($stmt)) {
-    echo mysqli_affected_rows($conn) . " record updated successfully";
-}
-
-mysqli_stmt_close($stmt);
-mysqli_close($conn);
-?>
-```
-
-### 7. **DELETE Query with Prepared Statement**
-
-```php
-<?php
-// Delete retired device (soft delete usually better)
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-
-$sql = "DELETE FROM inventory_items WHERE id = ? AND status = 'Retired'";
-$stmt = mysqli_prepare($conn, $sql);
-
-mysqli_stmt_bind_param($stmt, "i", $device_id);
-$device_id = 5;
-
-if (mysqli_stmt_execute($stmt)) {
-    echo "Device deleted successfully";
-}
-
-mysqli_stmt_close($stmt);
-mysqli_close($conn);
-?>
-```
-
-### 8. **Transaction Example with MySQLi**
-
-```php
-<?php
-// Assign device with transaction
-$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-
-// Start transaction
-mysqli_begin_transaction($conn);
-
-try {
-    // Update device status
-    $sql1 = "UPDATE inventory_items SET assigned_user_id = ?, status = 'In Use' WHERE id = ?";
-    $stmt1 = mysqli_prepare($conn, $sql1);
-    mysqli_stmt_bind_param($stmt1, "ii", $user_id, $device_id);
-    mysqli_stmt_execute($stmt1);
-
-    // Log assignment
-    $sql2 = "INSERT INTO device_assignments (device_id, user_id, assigned_by, remarks) VALUES (?, ?, ?, ?)";
-    $stmt2 = mysqli_prepare($conn, $sql2);
-    mysqli_stmt_bind_param($stmt2, "iiis", $device_id, $user_id, $assigned_by, $remarks);
-    mysqli_stmt_execute($stmt2);
-
-    // Commit transaction
-    mysqli_commit($conn);
-    echo "Device assigned successfully";
-
-} catch (Exception $e) {
-    // Rollback on error
-    mysqli_rollback($conn);
-    echo "Failed to assign device: " . $e->getMessage();
-}
-
-mysqli_close($conn);
-?>
-```
-
-### 9. **Search Function with Multiple Conditions**
-
-```php
-<?php
-// Search devices with multiple filters
-function searchDevices($search_term, $status = '', $department_id = '') {
-    $conn = getDbConnection();
-
-    $sql = "SELECT i.*, b.name as brand_name, d.name as dept_name, u.name as user_name
-            FROM inventory_items i
-            LEFT JOIN brands b ON i.brand_id = b.id
-            LEFT JOIN departments d ON i.department_id = d.id
-            LEFT JOIN users u ON i.assigned_user_id = u.id
-            WHERE (i.asset_tag LIKE ? OR i.model LIKE ? OR i.specifications LIKE ?)";
-
-    $params = ["%$search_term%", "%$search_term%", "%$search_term%"];
-    $types = "sss";
-
-    if (!empty($status)) {
-        $sql .= " AND i.status = ?";
-        $params[] = $status;
-        $types .= "s";
-    }
-
-    if (!empty($department_id)) {
-        $sql .= " AND i.department_id = ?";
-        $params[] = $department_id;
-        $types .= "i";
-    }
-
-    $sql .= " ORDER BY i.created_at DESC";
-
-    $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, $types, ...$params);
-    mysqli_stmt_execute($stmt);
-
-    return mysqli_stmt_get_result($stmt);
-}
-
-// Usage
-$results = searchDevices("MacBook", "In Use", 3);
-while ($device = mysqli_fetch_assoc($results)) {
-    echo $device['asset_tag'] . " - " . $device['brand_name'] . " " . $device['model'] . "<br>";
-}
-?>
-```
-
-### 10. **Helper Functions for Common Operations**
-
-```php
-<?php
-// includes/functions.php
-
-// Get single record
-function getRecord($table, $id) {
-    $conn = getDbConnection();
-    $sql = "SELECT * FROM $table WHERE id = ?";
-    $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    return mysqli_fetch_assoc($result);
-}
-
-// Get all records
-function getAllRecords($table, $order_by = 'created_at', $order_dir = 'DESC') {
-    $conn = getDbConnection();
-    $sql = "SELECT * FROM $table ORDER BY $order_by $order_dir";
-    $result = mysqli_query($conn, $sql);
-    $data = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $data[] = $row;
-    }
-    return $data;
-}
-
-// Count records
-function countRecords($table, $condition = '') {
-    $conn = getDbConnection();
-    $sql = "SELECT COUNT(*) as total FROM $table";
-    if (!empty($condition)) {
-        $sql .= " WHERE " . $condition;
-    }
-    $result = mysqli_query($conn, $sql);
-    $row = mysqli_fetch_assoc($result);
-    return $row['total'];
-}
-
-// Check if record exists
-function recordExists($table, $field, $value) {
-    $conn = getDbConnection();
-    $sql = "SELECT id FROM $table WHERE $field = ? LIMIT 1";
-    $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, "s", $value);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_store_result($stmt);
-    return mysqli_stmt_num_rows($stmt) > 0;
-}
-?>
-```
-
----
-
-## 📈 Usage Guide
-
-### Quick Start Guide
-
-#### 1. **Adding Your First Device**
-
-```php
-<?php
-// Example code for adding a device
-require_once 'config/database.php';
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $asset_tag = mysqli_real_escape_string($conn, $_POST['asset_tag']);
-    $brand_id = (int)$_POST['brand_id'];
-    $model = mysqli_real_escape_string($conn, $_POST['model']);
-
-    $sql = "INSERT INTO inventory_items (asset_tag, brand_id, model, status)
-            VALUES ('$asset_tag', $brand_id, '$model', 'Store')";
-
-    if (mysqli_query($conn, $sql)) {
-        $_SESSION['success'] = "Device added successfully";
-        header("Location: inventory.php");
-    } else {
-        $error = "Error: " . mysqli_error($conn);
-    }
-}
-?>
-```
-
-#### 2. **Assigning a Device to a User**
-
-```php
-<?php
-// process_assign.php - MySQLi version
-require_once 'config/database.php';
-session_start();
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $device_id = mysqli_real_escape_string($conn, $_POST['device_id']);
-    $user_id = mysqli_real_escape_string($conn, $_POST['user_id']);
-    $assigned_by = $_SESSION['user_id'];
-
-    // Start transaction
-    mysqli_begin_transaction($conn);
-
-    // Update device
-    $sql1 = "UPDATE inventory_items SET
-             assigned_user_id = $user_id,
-             status = 'In Use'
-             WHERE id = $device_id";
-
-    if (mysqli_query($conn, $sql1)) {
-        // Log assignment
-        $sql2 = "INSERT INTO device_assignments
-                 (device_id, user_id, assigned_by)
-                 VALUES ($device_id, $user_id, $assigned_by)";
-
-        if (mysqli_query($conn, $sql2)) {
-            mysqli_commit($conn);
-            echo json_encode(['success' => true]);
-        } else {
-            mysqli_rollback($conn);
-            echo json_encode(['error' => 'Failed to log assignment']);
-        }
-    } else {
-        mysqli_rollback($conn);
-        echo json_encode(['error' => 'Failed to update device']);
-    }
-}
-?>
-```
-
-#### 3. **Dashboard Statistics**
+### 3. **Get Dashboard Statistics**
 
 ```php
 <?php
@@ -863,20 +515,391 @@ $result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items");
 $total_devices = mysqli_fetch_assoc($result)['total'];
 
 // Devices in use
-$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items WHERE status = 'In Use'");
+$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items WHERE status = 'in_use'");
 $in_use = mysqli_fetch_assoc($result)['total'];
 
 // Devices in storage
-$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items WHERE status = 'Store'");
+$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items WHERE status = 'in_storage'");
 $in_storage = mysqli_fetch_assoc($result)['total'];
 
 // Retired devices
-$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items WHERE status = 'Retired'");
+$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM inventory_items WHERE status = 'retired'");
 $retired = mysqli_fetch_assoc($result)['total'];
 
 // Total users
-$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM users WHERE status = 'Active'");
+$result = mysqli_query($conn, "SELECT COUNT(*) as total FROM users WHERE status = 'active'");
 $active_users = mysqli_fetch_assoc($result)['total'];
+?>
+```
+
+### 4. **Get Device Assignment History with JOINs**
+
+```php
+<?php
+// Get assignment history for a specific device
+function getDeviceHistory($conn, $device_id) {
+    $sql = "SELECT dua.*,
+                   u.firstname, u.lastname, u.email,
+                   i.asset_tag, i.device_type
+            FROM device_user_assignments dua
+            JOIN users u ON dua.user_id = u.id
+            JOIN inventory_items i ON dua.inventory_id = i.id
+            WHERE dua.inventory_id = ?
+            ORDER BY dua.assigned_at DESC";
+
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $device_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $history = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $history[] = $row;
+    }
+
+    return $history;
+}
+
+// Usage
+$history = getDeviceHistory($conn, 17);
+foreach ($history as $assignment) {
+    echo $assignment['firstname'] . " " . $assignment['lastname'] .
+         " - Assigned: " . $assignment['assigned_at'] . "<br>";
+}
+?>
+```
+
+### 5. **Assign Device to User with Transaction**
+
+```php
+<?php
+// process_assign.php - Assign device with transaction
+require_once 'config/database.php';
+session_start();
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $inventory_id = (int)$_POST['device_id'];
+    $user_id = (int)$_POST['user_id'];
+
+    // Start transaction
+    mysqli_begin_transaction($conn);
+
+    try {
+        // Update device status and assigned user
+        $sql1 = "UPDATE inventory_items SET
+                 status = 'in_use',
+                 assigned_user = (SELECT CONCAT(firstname, ' ', lastname) FROM users WHERE id = ?)
+                 WHERE id = ?";
+
+        $stmt1 = mysqli_prepare($conn, $sql1);
+        mysqli_stmt_bind_param($stmt1, "ii", $user_id, $inventory_id);
+        mysqli_stmt_execute($stmt1);
+
+        // Log assignment
+        $sql2 = "INSERT INTO device_user_assignments (inventory_id, user_id, status)
+                 VALUES (?, ?, 'assigned')";
+
+        $stmt2 = mysqli_prepare($conn, $sql2);
+        mysqli_stmt_bind_param($stmt2, "ii", $inventory_id, $user_id);
+        mysqli_stmt_execute($stmt2);
+
+        // Commit transaction
+        mysqli_commit($conn);
+
+        echo json_encode(['success' => true, 'message' => 'Device assigned successfully']);
+
+    } catch (Exception $e) {
+        mysqli_rollback($conn);
+        echo json_encode(['success' => false, 'message' => 'Assignment failed: ' . $e->getMessage()]);
+    }
+}
+?>
+```
+
+### 6. **Return Device (Unassign)**
+
+```php
+<?php
+// process_return.php - Return device
+require_once 'config/database.php';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $assignment_id = (int)$_POST['assignment_id'];
+    $inventory_id = (int)$_POST['device_id'];
+
+    mysqli_begin_transaction($conn);
+
+    // Update assignment record
+    $sql1 = "UPDATE device_user_assignments
+             SET returned_at = NOW(), status = 'retrieved'
+             WHERE id = ?";
+
+    $stmt1 = mysqli_prepare($conn, $sql1);
+    mysqli_stmt_bind_param($stmt1, "i", $assignment_id);
+    mysqli_stmt_execute($stmt1);
+
+    // Update device status
+    $sql2 = "UPDATE inventory_items
+             SET status = 'in_storage', assigned_user = NULL
+             WHERE id = ?";
+
+    $stmt2 = mysqli_prepare($conn, $sql2);
+    mysqli_stmt_bind_param($stmt2, "i", $inventory_id);
+    mysqli_stmt_execute($stmt2);
+
+    if (mysqli_commit($conn)) {
+        echo json_encode(['success' => true]);
+    } else {
+        mysqli_rollback($conn);
+        echo json_encode(['success' => false]);
+    }
+}
+?>
+```
+
+### 7. **Retire Device**
+
+```php
+<?php
+// retire_device.php
+require_once 'config/database.php';
+
+function retireDevice($conn, $device_id, $notes = '') {
+    // Get current device data for history
+    $sql_select = "SELECT status, assigned_user, department_id, location_id
+                   FROM inventory_items WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $sql_select);
+    mysqli_stmt_bind_param($stmt, "i", $device_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $current = mysqli_fetch_assoc($result);
+
+    // Update to retired
+    $sql_update = "UPDATE inventory_items SET
+                   status = 'retired',
+                   retired_at = NOW(),
+                   previous_status = ?,
+                   previous_assigned_user = ?,
+                   previous_department_id = ?,
+                   previous_location_id = ?,
+                   change_notes = ?
+                   WHERE id = ?";
+
+    $stmt = mysqli_prepare($conn, $sql_update);
+    mysqli_stmt_bind_param($stmt, "ssiiss",
+        $current['status'],
+        $current['assigned_user'],
+        $current['department_id'],
+        $current['location_id'],
+        $notes,
+        $device_id
+    );
+
+    return mysqli_stmt_execute($stmt);
+}
+
+// Usage
+if (retireDevice($conn, 10, 'End of life - replaced with new model')) {
+    echo "Device retired successfully";
+}
+?>
+```
+
+### 8. **Search with Multiple Filters**
+
+```php
+<?php
+// Search devices with dynamic filters
+function searchInventory($conn, $filters = []) {
+    $sql = "SELECT i.*, b.brand_name, c.category_name, d.department_name
+            FROM inventory_items i
+            LEFT JOIN brands b ON i.brand_id = b.id
+            LEFT JOIN categories c ON i.category_id = c.id
+            LEFT JOIN departments d ON i.department_id = d.id
+            WHERE 1=1";
+
+    $params = [];
+    $types = "";
+
+    if (!empty($filters['search'])) {
+        $sql .= " AND (i.asset_tag LIKE ? OR i.model LIKE ? OR i.serial_number LIKE ?)";
+        $search_term = "%" . $filters['search'] . "%";
+        $params[] = $search_term;
+        $params[] = $search_term;
+        $params[] = $search_term;
+        $types .= "sss";
+    }
+
+    if (!empty($filters['status'])) {
+        $sql .= " AND i.status = ?";
+        $params[] = $filters['status'];
+        $types .= "s";
+    }
+
+    if (!empty($filters['category_id'])) {
+        $sql .= " AND i.category_id = ?";
+        $params[] = $filters['category_id'];
+        $types .= "i";
+    }
+
+    if (!empty($filters['brand_id'])) {
+        $sql .= " AND i.brand_id = ?";
+        $params[] = $filters['brand_id'];
+        $types .= "i";
+    }
+
+    $sql .= " ORDER BY i.created_at DESC";
+
+    $stmt = mysqli_prepare($conn, $sql);
+    if (!empty($params)) {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    mysqli_stmt_execute($stmt);
+
+    return mysqli_stmt_get_result($stmt);
+}
+
+// Usage
+$filters = [
+    'search' => 'MacBook',
+    'status' => 'in_use',
+    'category_id' => 15
+];
+$results = searchInventory($conn, $filters);
+?>
+```
+
+### 9. **Add Activity Log Entry**
+
+```php
+<?php
+// Log user activity
+function logActivity($conn, $user_id, $action, $description) {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+    $sql = "INSERT INTO activity_log (user_id, action, description, ip_address)
+            VALUES (?, ?, ?, ?)";
+
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "isss", $user_id, $action, $description, $ip);
+
+    return mysqli_stmt_execute($stmt);
+}
+
+// Usage
+logActivity($conn, 1, 'DEVICE_ASSIGN', 'Assigned MacBook Pro to John Doe');
+?>
+```
+
+### 10. **Get System Settings**
+
+```php
+<?php
+// Get setting value
+function getSetting($conn, $key, $default = '') {
+    $sql = "SELECT setting_value FROM settings WHERE setting_key = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $key);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['setting_value'];
+    }
+
+    return $default;
+}
+
+// Update setting
+function updateSetting($conn, $key, $value) {
+    $sql = "INSERT INTO settings (setting_key, setting_value)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)";
+
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "ss", $key, $value);
+
+    return mysqli_stmt_execute($stmt);
+}
+
+// Usage
+$org_name = getSetting($conn, 'org_name', 'Parliament of Ghana');
+updateSetting($conn, 'auto_refresh', '1');
+?>
+```
+
+---
+
+## 📈 Usage Guide
+
+### Quick Start Guide
+
+#### 1. **Adding a New Device**
+
+```php
+<?php
+// add_device.php
+require_once 'config/database.php';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $asset_tag = mysqli_real_escape_string($conn, $_POST['asset_tag']);
+    $device_type = mysqli_real_escape_string($conn, $_POST['device_type']);
+    $brand_id = (int)$_POST['brand_id'];
+    $category_id = (int)$_POST['category_id'];
+
+    $sql = "INSERT INTO inventory_items (asset_tag, device_type, brand_id, category_id, status)
+            VALUES (?, ?, ?, ?, 'in_storage')";
+
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "ssii", $asset_tag, $device_type, $brand_id, $category_id);
+
+    if (mysqli_stmt_execute($stmt)) {
+        $_SESSION['success'] = "Device added successfully";
+        header("Location: inventory.php");
+    } else {
+        $error = "Error: " . mysqli_error($conn);
+    }
+}
+?>
+```
+
+#### 2. **Viewing Device Assignment History**
+
+```sql
+-- Get complete assignment history for all devices
+SELECT
+    i.asset_tag,
+    i.device_type,
+    CONCAT(u.firstname, ' ', u.lastname) AS user_name,
+    dua.assigned_at,
+    dua.returned_at,
+    dua.status AS assignment_status
+FROM device_user_assignments dua
+JOIN inventory_items i ON dua.inventory_id = i.id
+JOIN users u ON dua.user_id = u.id
+ORDER BY dua.assigned_at DESC;
+```
+
+#### 3. **Dashboard Widget: Recent Activity**
+
+```php
+<?php
+// Get recent activity
+$sql = "SELECT al.*, CONCAT(u.firstname, ' ', u.lastname) AS user_name
+        FROM activity_log al
+        JOIN users u ON al.user_id = u.id
+        ORDER BY al.created_at DESC
+        LIMIT 10";
+
+$result = mysqli_query($conn, $sql);
+while ($activity = mysqli_fetch_assoc($result)) {
+    echo '<div class="activity-item">';
+    echo '<strong>' . htmlspecialchars($activity['user_name']) . '</strong> ';
+    echo '<span class="action">' . htmlspecialchars($activity['action']) . '</span>';
+    echo '<p>' . htmlspecialchars($activity['description']) . '</p>';
+    echo '<small>' . $activity['created_at'] . '</small>';
+    echo '</div>';
+}
 ?>
 ```
 
@@ -894,39 +917,19 @@ $active_users = mysqli_fetch_assoc($result)['total'];
 | **JavaScript**         | jQuery 3.6+             | DOM manipulation and AJAX   |
 | **Dropdowns**          | Select2                 | Enhanced select boxes       |
 | **Backend**            | PHP 7.4+                | Server-side logic           |
-| **Database**           | MySQL 5.7+              | Data persistence            |
+| **Database**           | MySQL/MariaDB           | Data persistence            |
 | **Database Extension** | MySQLi                  | MySQL improved extension    |
-| **Authentication**     | PHP Sessions            | User login management       |
 
-### MySQLi vs PDO Comparison
+### Database Relationships
 
-| Feature                 | MySQLi           | PDO           |
-| ----------------------- | ---------------- | ------------- |
-| **Database Support**    | MySQL only       | 12+ databases |
-| **API Style**           | Procedural & OOP | OOP only      |
-| **Prepared Statements** | Yes              | Yes           |
-| **Named Parameters**    | No               | Yes           |
-| **Performance**         | Slightly faster  | Good          |
-| **Ease of Use**         | Simple           | Moderate      |
-
-### Key MySQLi Functions Used
-
-| Function                      | Purpose                                |
-| ----------------------------- | -------------------------------------- |
-| `mysqli_connect()`            | Establish database connection          |
-| `mysqli_query()`              | Execute simple queries                 |
-| `mysqli_prepare()`            | Prepare SQL statement                  |
-| `mysqli_stmt_bind_param()`    | Bind variables to parameters           |
-| `mysqli_stmt_execute()`       | Execute prepared statement             |
-| `mysqli_stmt_get_result()`    | Get result set from prepared statement |
-| `mysqli_fetch_assoc()`        | Fetch row as associative array         |
-| `mysqli_num_rows()`           | Get number of rows                     |
-| `mysqli_affected_rows()`      | Get number of affected rows            |
-| `mysqli_insert_id()`          | Get last inserted ID                   |
-| `mysqli_real_escape_string()` | Escape special characters              |
-| `mysqli_begin_transaction()`  | Start transaction                      |
-| `mysqli_commit()`             | Commit transaction                     |
-| `mysqli_rollback()`           | Rollback transaction                   |
+| Relationship                                  | Type        | Description                                   |
+| --------------------------------------------- | ----------- | --------------------------------------------- |
+| `inventory_items` → `brands`                  | Many-to-One | Each device belongs to one brand              |
+| `inventory_items` → `categories`              | Many-to-One | Each device belongs to one category           |
+| `inventory_items` → `departments`             | Many-to-One | Each device can be assigned to one department |
+| `device_user_assignments` → `inventory_items` | Many-to-One | Each assignment record belongs to one device  |
+| `device_user_assignments` → `users`           | Many-to-One | Each assignment record belongs to one user    |
+| `activity_log` → `users`                      | Many-to-One | Each activity log belongs to one user         |
 
 ---
 
@@ -934,21 +937,14 @@ $active_users = mysqli_fetch_assoc($result)['total'];
 
 ### Implemented Security Measures
 
-1. **Authentication & Authorization**
-   - PHP session-based authentication
-   - Password hashing using `md5()` (upgrade to `password_hash()` recommended)
-   - Role-based access control (Admin, Staff, MP)
-   - Session timeout after 30 minutes of inactivity
-
-2. **Input Validation & Sanitization (MySQLi)**
+1. **Input Validation & Sanitization**
 
    ```php
-   // Using mysqli_real_escape_string
-   $asset_tag = mysqli_real_escape_string($conn, $_POST['asset_tag']);
-   $email = mysqli_real_escape_string($conn, $_POST['email']);
-
    // Cast to integer
    $id = (int)$_GET['id'];
+
+   // Escape strings
+   $asset_tag = mysqli_real_escape_string($conn, $_POST['asset_tag']);
 
    // Validate email
    if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
@@ -956,37 +952,27 @@ $active_users = mysqli_fetch_assoc($result)['total'];
    }
    ```
 
-3. **SQL Injection Prevention**
+2. **SQL Injection Prevention**
 
    ```php
-   // Using prepared statements (recommended)
-   $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE email = ? AND password = ?");
-   mysqli_stmt_bind_param($stmt, "ss", $email, $password);
+   // Using prepared statements
+   $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE email = ?");
+   mysqli_stmt_bind_param($stmt, "s", $email);
    mysqli_stmt_execute($stmt);
-
-   // Using real_escape_string (alternative)
-   $email = mysqli_real_escape_string($conn, $_POST['email']);
-   $sql = "SELECT * FROM users WHERE email = '$email'";
    ```
 
-4. **XSS Protection**
+3. **XSS Protection**
 
    ```php
    // Output escaping
    echo htmlspecialchars($device_name, ENT_QUOTES, 'UTF-8');
-
-   // For HTML attributes
-   echo 'value="' . htmlspecialchars($search_term, ENT_QUOTES, 'UTF-8') . '"';
    ```
 
-5. **CSRF Protection**
+4. **CSRF Protection** (Recommended to add)
 
    ```php
    // Generate token
    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-   // In form
-   echo '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
 
    // Verify token
    if ($_POST['csrf_token'] !== $_SESSION['csrf_token']) {
@@ -998,101 +984,48 @@ $active_users = mysqli_fetch_assoc($result)['total'];
 
 ## 🚨 Troubleshooting
 
-### Common MySQLi Issues and Solutions
+### Common MySQLi Issues
 
 #### 1. **Connection Failed**
 
-**Error:** `mysqli_connect(): (HY000/1045): Access denied for user`
+**Error:** `mysqli_connect(): (HY000/1045): Access denied`
 **Solution:**
 
 ```php
-// Check credentials
-$conn = mysqli_connect('localhost', 'root', '', 'equipment_inventory_db');
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error() . " - " . mysqli_connect_errno());
-}
+// Enable error reporting
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// Test connection via command line
-mysql -u root -p -e "SHOW DATABASES;"
+// Check connection
+if (mysqli_connect_errno()) {
+    die("Connection failed: " . mysqli_connect_error());
+}
 ```
 
 #### 2. **Character Set Issues**
 
-**Problem:** Special characters showing as ? or garbled
+**Problem:** Special characters showing as ?
 **Solution:**
 
 ```php
-// Set charset immediately after connection
+// Set charset after connection
 mysqli_set_charset($conn, "utf8mb4");
 
 // Also set in database connection
 mysqli_options($conn, MYSQLI_SET_CHARSET_NAME, "utf8mb4");
 ```
 
-#### 3. **Prepared Statement Errors**
+#### 3. **Prepared Statement Parameter Mismatch**
 
-**Error:** `Warning: mysqli_stmt_bind_param(): Number of variables doesn't match number of parameters`
+**Error:** `Number of variables doesn't match number of parameters`
 **Solution:**
 
 ```php
-// Count your parameters carefully
-$sql = "SELECT * FROM inventory_items WHERE brand_id = ? AND status = ? AND category_id = ?";
-// This needs 3 parameters: "isi" or "iii" depending on types
-
-// Debug by counting
+// Count your parameters
 $param_count = substr_count($sql, '?');
 echo "Need $param_count parameters";
-```
 
-#### 4. **Memory Exhaustion with Large Result Sets**
-
-**Solution:**
-
-```php
-// Use unbuffered queries for large datasets
-mysqli_query($conn, "SELECT * FROM inventory_items", MYSQLI_USE_RESULT);
-
-// Or fetch row by row
-$result = mysqli_query($conn, $sql);
-while ($row = mysqli_fetch_assoc($result)) {
-    // Process each row
-    processRow($row);
-    // Free memory
-    mysqli_free_result($result);
-}
-```
-
-#### 5. **MySQLi vs MySQL Functions**
-
-**Problem:** Using deprecated mysql\_\* functions
-**Solution:**
-
-```php
-// Old (deprecated)
-mysql_connect('localhost', 'user', 'pass');
-mysql_select_db('database');
-
-// New (MySQLi)
-$conn = mysqli_connect('localhost', 'user', 'pass', 'database');
-```
-
-#### 6. **Debugging MySQLi Queries**
-
-```php
-// Enable error reporting
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
-// Or check errors manually
-$result = mysqli_query($conn, $sql);
-if (!$result) {
-    die("Query failed: " . mysqli_error($conn) . " - SQL: " . $sql);
-}
-
-// For prepared statements
-$stmt = mysqli_prepare($conn, $sql);
-if (!$stmt) {
-    die("Prepare failed: " . mysqli_error($conn));
-}
+// Debug by printing
+var_dump($params);
 ```
 
 ---
@@ -1101,35 +1034,36 @@ if (!$stmt) {
 
 ### Planned Features
 
-| Priority  | Feature                | Description                         | MySQLi Implementation           |
-| --------- | ---------------------- | ----------------------------------- | ------------------------------- |
-| 🚀 High   | **Barcode/QR Code**    | Generate QR codes for asset tags    | Store QR data in new column     |
-| 🚀 High   | **Password Hashing**   | Upgrade from MD5 to password_hash() | Modify login/register functions |
-| 📊 Medium | **Advanced Analytics** | Charts for device utilization       | Add statistics tables           |
-| 📱 Medium | **Export to PDF**      | Generate PDF reports                | Store file paths in DB          |
-| 🔄 Medium | **Bulk Operations**    | Import/export via CSV               | Use LOAD DATA INFILE            |
-| 🔌 Low    | **REST API**           | JSON endpoints                      | Add API tokens table            |
+| Priority  | Feature                      | Description                            |
+| --------- | ---------------------------- | -------------------------------------- |
+| 🚀 High   | **Authentication System**    | Add login/logout with password hashing |
+| 🚀 High   | **User Roles & Permissions** | Implement role-based access control    |
+| 📊 Medium | **Advanced Reports**         | Generate PDF reports with charts       |
+| 📱 Medium | **Bulk Import/Export**       | CSV import/export functionality        |
+| 🔔 Medium | **Email Notifications**      | Alert users on device assignment       |
+| 📱 Low    | **Mobile App**               | React Native mobile application        |
 
 ---
 
 ## 🤝 Contributing
 
-### MySQLi Coding Standards
+### Coding Standards
 
 ```php
 <?php
 /**
- * Get device by ID
+ * Get device by ID with related data
  *
  * @param mysqli $conn Database connection
  * @param int $id Device ID
  * @return array|null Device data or null if not found
  */
 function getDeviceById($conn, $id) {
-    $sql = "SELECT i.*, b.name as brand_name, c.name as category_name
+    $sql = "SELECT i.*, b.brand_name, c.category_name, d.department_name
             FROM inventory_items i
             LEFT JOIN brands b ON i.brand_id = b.id
             LEFT JOIN categories c ON i.category_id = c.id
+            LEFT JOIN departments d ON i.department_id = d.id
             WHERE i.id = ?";
 
     $stmt = mysqli_prepare($conn, $sql);
@@ -1138,12 +1072,6 @@ function getDeviceById($conn, $id) {
     $result = mysqli_stmt_get_result($stmt);
 
     return mysqli_fetch_assoc($result);
-}
-
-// Always close statements
-function cleanup($stmt, $conn) {
-    if ($stmt) mysqli_stmt_close($stmt);
-    if ($conn) mysqli_close($conn);
 }
 ?>
 ```
@@ -1182,9 +1110,9 @@ SOFTWARE.
 
 - **Project Maintainer**: ICT Directorate
 - **Email**: ict@parliament.gov.gh
-- **Issue Tracker**: [GitHub Issues](https://github.com/yourusername/equipment-inventory-system/issues)
+- **Database**: MariaDB 10.11+ / MySQL 5.7+
 
-### Quick MySQLi Cheat Sheet
+### Quick MySQLi Reference
 
 ```php
 // Connect
