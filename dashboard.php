@@ -920,7 +920,7 @@ foreach ($recentActivities as $activity) {
         <div class="glass-card page-header rounded-2xl shadow-xl p-6 lg:p-8 mb-8">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div class="flex-1">
-                    <h1 class="text-3xl lg:text-4xl font-bold gradient-text mb-2">Dashboard Overview</h1>
+                    <h1 class="text-3xl lg:text-4xl font-bold  mb-2">Dashboard Overview</h1>
                     <p class="text-gray-600 text-sm lg:text-base flex items-center gap-2">
                         <i class="fas fa-chart-line text-blue-500"></i>
                         Real-time inventory monitoring and activity tracking

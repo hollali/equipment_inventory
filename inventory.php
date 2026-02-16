@@ -1471,7 +1471,8 @@ if (!empty($_GET['department'])) {
                             <div class="relative">
                                 <input id="searchInput" onkeyup="searchTable()" type="text" name="search"
                                     value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
-                                    placeholder="Search by asset, type, brand, user..." class="form-input pl-10">
+                                    placeholder="Search by asset, type, brand, user..." class="form-input pl-10"
+                                    autocomplete="off">
                                 <i
                                     class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             </div>

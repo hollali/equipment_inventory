@@ -1462,7 +1462,8 @@ try {
                         <label class="form-label">Search Devices</label>
                         <div class="input-wrapper">
                             <i class="fas fa-search input-icon"></i>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by asset tag, model, or brand..." class="input-field input-with-icon">
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by asset tag, model, or brand..." class="input-field input-with-icon"
+                            autocomplete="off">
                         </div>
                     </div>
 
